@@ -27,6 +27,7 @@ source-repository head
 library
   exposed-modules:     Data.Foldable.Deriving
   other-modules:       Data.Deriving.Internal
+                       Paths_deriving_compat
   build-depends:       base             >= 4.3 && < 5
                      , containers       >= 0.1 && < 0.6
                      , ghc-prim

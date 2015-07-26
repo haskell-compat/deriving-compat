@@ -38,7 +38,9 @@ module Data.Foldable.Deriving (
 import Control.Monad (guard)
 
 import Data.Deriving.Internal
-import Data.List
+#if MIN_VERSION_template_haskell(2,7,0)
+import Data.List (find)
+#endif
 import Data.Maybe
 #if __GLASGOW_HASKELL__ < 710 && MIN_VERSION_template_haskell(2,8,0)
 import qualified Data.Set as Set
@@ -246,12 +248,12 @@ makeFoldFun fun tyConName = do
   info <- reify tyConName
   case info of
     TyConI{} -> withTyCon tyConName $ \ctxt tvbs decs ->
-      let !(nb:_) = thd3 $ cxtAndTypePlainTy tyConName ctxt tvbs
-      in makeFoldFunForCons fun nb decs
+      let !nbs = thd3 $ cxtAndTypePlainTy tyConName ctxt tvbs
+      in makeFoldFunForCons fun (head nbs) decs
 #if MIN_VERSION_template_haskell(2,7,0)
     DataConI{} -> withDataFamInstCon tyConName $ \famTvbs ctxt parentName instTys cons ->
-      let !(nb:_) = thd3 $ cxtAndTypeDataFamInstCon parentName ctxt famTvbs instTys
-      in makeFoldFunForCons fun nb cons
+      let !nbs = thd3 $ cxtAndTypeDataFamInstCon parentName ctxt famTvbs instTys
+      in makeFoldFunForCons fun (head nbs) cons
     FamilyI (FamilyD DataFam _ _ _) _ ->
       error $ ns ++ "Cannot use a data family name. Use a data family instance constructor instead."
     FamilyI (FamilyD TypeFam _ _ _) _ ->

@@ -59,7 +59,7 @@ data NotPrimitivelyRecursive a b
 newtype Compose f g a = Compose (f (g a))
   deriving (Arbitrary, Eq, Show)
 
-newtype ComplexConstraint f g a b = ComplexConstraint (f Int Int (g a, a, b))
+newtype ComplexConstraint f g a b = ComplexConstraint (f Int Int (g b, a, b))
 
 type Flip f a b = f b a
 data Existential a b
@@ -97,10 +97,10 @@ main = hspec spec
 
 spec :: Spec
 spec =
-    describe "Compose Maybe (Either Char) [Int]" $
+    describe "Compose Maybe Maybe [Int]" $
         prop "satisfies the Foldable laws"
             (prop_FoldableLaws
                 reverse
                 ((+) . length)
                 0
-                :: Compose Maybe (Either Char) [Int] -> Bool)
+                :: Compose Maybe Maybe [Int] -> Bool)
