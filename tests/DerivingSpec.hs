@@ -27,12 +27,13 @@ Portability: Template Haskell
 module DerivingSpec where
 
 import Data.Char (chr)
+import Data.Deriving
 import Data.Foldable (fold)
 import Data.Functor.Classes (Eq1)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity (Identity(..))
-import Data.Deriving
 import Data.Monoid
+import Data.Orphans ()
 
 import GHC.Exts (Int#)
 
@@ -181,15 +182,12 @@ $(deriveFunctor     ''OneTwoCompose)
 $(deriveFoldable    ''OneTwoCompose)
 $(deriveTraversable ''OneTwoCompose)
 
-instance (Functor (f Int Int), Functor g) =>
-  Functor (ComplexConstraint f g a) where
+instance Functor (f Int Int) => Functor (ComplexConstraint f g a) where
     fmap    = $(makeFmap      ''ComplexConstraint)
-instance (Foldable (f Int Int), Foldable g) =>
-  Foldable (ComplexConstraint f g a) where
+instance Foldable (f Int Int) => Foldable (ComplexConstraint f g a) where
     foldr   = $(makeFoldr     ''ComplexConstraint)
     foldMap = $(makeFoldMap   ''ComplexConstraint)
-instance (Traversable (f Int Int), Traversable g) =>
-  Traversable (ComplexConstraint f g a) where
+instance Traversable (f Int Int) => Traversable (ComplexConstraint f g a) where
     traverse = $(makeTraverse ''ComplexConstraint)
 
 $(deriveFunctor     ''Universal)
@@ -222,15 +220,12 @@ $(deriveFunctor     'OneTwoComposeFam)
 $(deriveFoldable    'OneTwoComposeFam)
 $(deriveTraversable 'OneTwoComposeFam)
 
-instance (Functor (f Int Int), Functor g) =>
-  Functor (ComplexConstraintFam f g a) where
+instance Functor (f Int Int) => Functor (ComplexConstraintFam f g a) where
     fmap    = $(makeFmap      'ComplexConstraintFam)
-instance (Foldable (f Int Int), Foldable g) =>
-  Foldable (ComplexConstraintFam f g a) where
+instance Foldable (f Int Int) => Foldable (ComplexConstraintFam f g a) where
     foldr   = $(makeFoldr     'ComplexConstraintFam)
     foldMap = $(makeFoldMap   'ComplexConstraintFam)
-instance (Traversable (f Int Int), Traversable g) =>
-  Traversable (ComplexConstraintFam f g a) where
+instance Traversable (f Int Int) => Traversable (ComplexConstraintFam f g a) where
     traverse = $(makeTraverse 'ComplexConstraintFam)
 
 $(deriveFunctor     'UniversalFam)
