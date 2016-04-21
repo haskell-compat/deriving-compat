@@ -511,6 +511,15 @@ foldMapConstValName = mkDerivingCompatName_v "Data.Deriving.Internal" "foldMapCo
 traverseConstValName :: Name
 traverseConstValName = mkDerivingCompatName_v "Data.Deriving.Internal" "traverseConst"
 
+dualDataName :: Name
+dualDataName = mkNameG_d "base" "Data.Monoid" "Dual"
+
+endoDataName :: Name
+endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
+
+wrapMonadDataName :: Name
+wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
+
 functorTypeName :: Name
 functorTypeName = mkNameG_tc "base" "GHC.Base" "Functor"
 
@@ -520,8 +529,17 @@ foldableTypeName = mkNameG_tc "base" "Data.Foldable" "Foldable"
 traversableTypeName :: Name
 traversableTypeName = mkNameG_tc "base" "Data.Traversable" "Traversable"
 
+appEndoValName :: Name
+appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
+
+composeValName :: Name
+composeValName = mkNameG_v "base" "GHC.Base" "."
+
 errorValName :: Name
 errorValName = mkNameG_v "base" "GHC.Err" "error"
+
+flipValName :: Name
+flipValName = mkNameG_v "base" "GHC.Base" "flip"
 
 fmapValName :: Name
 fmapValName = mkNameG_v "base" "GHC.Base" "fmap"
@@ -532,8 +550,17 @@ foldrValName = mkNameG_v "base" "Data.Foldable" "foldr"
 foldMapValName :: Name
 foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
 
+getDualValName :: Name
+getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
+
+idValName :: Name
+idValName = mkNameG_v "base" "GHC.Base" "id"
+
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
+
+unwrapMonadValName :: Name
+unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"
 
 #if MIN_VERSION_base(4,6,0) && !(MIN_VERSION_base(4,9,0))
 starKindName :: Name

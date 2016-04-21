@@ -33,7 +33,9 @@ module Data.Foldable.Deriving (
       deriveFoldable
     , makeFoldMap
     , makeFoldr
-  ) where
+    , makeFold
+    , makeFoldl
+    ) where
 
 import Data.Functor.Deriving.Internal
 

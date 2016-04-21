@@ -1,18 +1,33 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE BangPatterns #-}
+{-|
+Module:      Data.Functor.Deriving.Internal
+Copyright:   (C) 2015-2016 Ryan Scott
+License:     BSD-style (see the file LICENSE)
+Maintainer:  Ryan Scott
+Portability: Template Haskell
+
+The machinery needed to derive 'Foldable', 'Functor', and 'Traversable' instances.
+
+For more info on how deriving @Functor@ works, see
+<https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/DeriveFunctor this GHC wiki page>.
+-}
 module Data.Functor.Deriving.Internal (
-    -- * 'Foldable'
-    deriveFoldable
-  , makeFoldMap
-  , makeFoldr
-    -- * 'Functor'
-  , deriveFunctor
-  , makeFmap
-    -- * 'Traversable'
-  , deriveTraversable
-  , makeTraverse
-  ) where
+      -- * 'Foldable'
+      deriveFoldable
+    , makeFoldMap
+    , makeFoldr
+    , makeFold
+    , makeFoldl
+      -- * 'Functor'
+    , deriveFunctor
+    , makeFmap
+      -- * 'Traversable'
+    , deriveTraversable
+    , makeTraverse
+    , makeSequenceA
+    , makeMapM
+    , makeSequence
+    ) where
 
 import           Control.Monad (guard, unless, when, zipWithM)
 
@@ -44,6 +59,34 @@ makeFoldMap = makeFunctorFun FoldMap
 makeFoldr :: Name -> Q Exp
 makeFoldr = makeFunctorFun Foldr
 
+-- | Generates a lambda expression which behaves like 'fold' (without requiring a
+-- 'Foldable' instance).
+makeFold :: Name -> Q Exp
+makeFold name = makeFoldMap name `appE` varE idValName
+
+-- | Generates a lambda expression which behaves like 'foldl' (without requiring a
+-- 'Foldable' instance).
+makeFoldl :: Name -> Q Exp
+makeFoldl name = do
+  f <- newName "f"
+  z <- newName "z"
+  t <- newName "t"
+  lamE [varP f, varP z, varP t] $
+    appsE [ varE appEndoValName
+          , appsE [ varE getDualValName
+                  , appsE [ makeFoldMap name, foldFun f, varE t]
+                  ]
+          , varE z
+          ]
+  where
+    foldFun :: Name -> Q Exp
+    foldFun n = infixApp (conE dualDataName)
+                         (varE composeValName)
+                         (infixApp (conE endoDataName)
+                                   (varE composeValName)
+                                   (varE flipValName `appE` varE n)
+                         )
+
 -- | Generates a 'Functor' instance declaration for the given data type or data
 -- family instance.
 deriveFunctor :: Name -> Q [Dec]
@@ -64,65 +107,26 @@ deriveTraversable = deriveFunctorClass Traversable
 makeTraverse :: Name -> Q Exp
 makeTraverse = makeFunctorFun Traverse
 
--- -- | Generates a lambda expression which behaves like 'bifold' (without requiring a
--- -- 'Bifoldable' instance).
--- makeBifold :: Name -> Q Exp
--- makeBifold name = appsE [ makeBifoldMap name
---                         , varE idValName
---                         , varE idValName
---                         ]
---
--- -- | Generates a lambda expression which behaves like 'bifoldl' (without requiring a
--- -- 'Bifoldable' instance).
--- makeBifoldl :: Name -> Q Exp
--- makeBifoldl name = do
---   f <- newName "f"
---   g <- newName "g"
---   z <- newName "z"
---   t <- newName "t"
---   lamE [varP f, varP g, varP z, varP t] $
---     appsE [ varE appEndoValName
---           , appsE [ varE getDualValName
---                   , appsE [ makeBifoldMap name, foldFun f, foldFun g, varE t]
---                   ]
---           , varE z
---           ]
---   where
---     foldFun :: Name -> Q Exp
---     foldFun n = infixApp (conE dualDataName)
---                          (varE composeValName)
---                          (infixApp (conE endoDataName)
---                                    (varE composeValName)
---                                    (varE flipValName `appE` varE n)
---                          )
---
--- -- | Generates a lambda expression which behaves like 'bisequenceA' (without requiring a
--- -- 'Bitraversable' instance).
--- makeBisequenceA :: Name -> Q Exp
--- makeBisequenceA name = appsE [ makeBitraverse name
---                              , varE idValName
---                              , varE idValName
---                              ]
---
--- -- | Generates a lambda expression which behaves like 'bimapM' (without requiring a
--- -- 'Bitraversable' instance).
--- makeBimapM :: Name -> Q Exp
--- makeBimapM name = do
---   f <- newName "f"
---   g <- newName "g"
---   lamE [varP f, varP g] . infixApp (varE unwrapMonadValName) (varE composeValName) $
---                           appsE [makeBitraverse name, wrapMonadExp f, wrapMonadExp g]
---   where
---     wrapMonadExp :: Name -> Q Exp
---     wrapMonadExp n = infixApp (conE wrapMonadDataName) (varE composeValName) (varE n)
---
--- -- | Generates a lambda expression which behaves like 'bisequence' (without requiring a
--- -- 'Bitraversable' instance).
--- makeBisequence :: Name -> Q Exp
--- makeBisequence name = appsE [ makeBimapM name
---                             , varE idValName
---                             , varE idValName
---                             ]
+-- | Generates a lambda expression which behaves like 'sequenceA' (without requiring a
+-- 'Traversable' instance).
+makeSequenceA :: Name -> Q Exp
+makeSequenceA name = makeTraverse name `appE` varE idValName
+
+-- | Generates a lambda expression which behaves like 'mapM' (without requiring a
+-- 'Traversable' instance).
+makeMapM :: Name -> Q Exp
+makeMapM name = do
+  f <- newName "f"
+  lam1E (varP f) . infixApp (varE unwrapMonadValName) (varE composeValName) $
+                   makeTraverse name `appE` wrapMonadExp f
+  where
+    wrapMonadExp :: Name -> Q Exp
+    wrapMonadExp n = infixApp (conE wrapMonadDataName) (varE composeValName) (varE n)
+
+-- | Generates a lambda expression which behaves like 'sequence' (without requiring a
+-- 'Traversable' instance).
+makeSequence :: Name -> Q Exp
+makeSequence name = makeMapM name `appE` varE idValName
 
 -------------------------------------------------------------------------------
 -- Code generation

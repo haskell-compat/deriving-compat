@@ -31,7 +31,10 @@ module Data.Traversable.Deriving (
       -- $constraints
       deriveTraversable
     , makeTraverse
-  ) where
+    , makeSequenceA
+    , makeMapM
+    , makeSequence
+    ) where
 
 import Data.Functor.Deriving.Internal
 

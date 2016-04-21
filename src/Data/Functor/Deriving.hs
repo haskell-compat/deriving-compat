@@ -15,7 +15,7 @@ module Data.Functor.Deriving (
       -- $constraints
       deriveFunctor
     , makeFmap
-  ) where
+    ) where
 
 import Data.Functor.Deriving.Internal
 
