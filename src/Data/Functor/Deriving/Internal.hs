@@ -277,11 +277,11 @@ makeFunctorFunForType ff tvMap conName covariant ty =
          do x <- newName "x"
             b <- newName "b"
             fmap Right . lamE [varP x, varP b] $
-              covBiFun covariant resTy `appE` (varE x `appE`
-                (covBiFun (not covariant) argTy `appE` varE b))
+              covFunctorFun covariant resTy `appE` (varE x `appE`
+                (covFunctorFun (not covariant) argTy `appE` varE b))
          where
-           covBiFun :: Bool -> Type -> Q Exp
-           covBiFun cov = fmap fromEither . makeFunctorFunForType ff tvMap conName cov
+           covFunctorFun :: Bool -> Type -> Q Exp
+           covFunctorFun cov = fmap fromEither . makeFunctorFunForType ff tvMap conName cov
      TupleT n
        | n > 0 && mentionsTyArgs -> do
          args <- mapM newName $ catMaybes [ Just "x"
@@ -401,7 +401,7 @@ withType name f = do
 #endif
   where
     ns :: String
-    ns = "Data.Bifunctor.TH.withType: "
+    ns = "Data.Functor.Deriving.Internal.withType: "
 
 -- | Deduces the instance context and head for an instance.
 buildTypeInstance :: FunctorClass
