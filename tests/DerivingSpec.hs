@@ -77,7 +77,7 @@ data NotPrimitivelyRecursive a b
     | S2 a
     | S3 b
 
-newtype OneTwoCompose f g a b = OneTwoCompose (Either (g (f a)) (f (g b)))
+newtype OneTwoCompose f g a b = OneTwoCompose (Either (f (g a)) (f (g b)))
   deriving (Arbitrary, Eq, Show)
 
 newtype ComplexConstraint f g a b = ComplexConstraint (f Int Int (g a,a,b))
@@ -134,7 +134,7 @@ data instance NotPrimitivelyRecursiveFam a b
 
 data family      OneTwoComposeFam (j :: * -> *) (k :: * -> *) x y
 newtype instance OneTwoComposeFam f g a b =
-    OneTwoComposeFam (Either (g (f a)) (f (g b)))
+    OneTwoComposeFam (Either (f (g a)) (f (g b)))
   deriving (Arbitrary, Eq, Show)
 
 data family      ComplexConstraintFam (j :: * -> * -> * -> *) (k :: * -> *) x y

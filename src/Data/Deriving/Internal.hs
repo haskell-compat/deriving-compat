@@ -535,6 +535,11 @@ foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
 
+#if MIN_VERSION_base(4,6,0) && !(MIN_VERSION_base(4,9,0))
+starKindName :: Name
+starKindName = mkNameG_tc "ghc-prim" "GHC.Prim" "*"
+#endif
+
 #if MIN_VERSION_base(4,8,0)
 pureValName :: Name
 pureValName = mkNameG_v "base" "GHC.Base" "pure"
