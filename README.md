@@ -17,8 +17,16 @@
 
 Provides Template Haskell functions that mimic deriving extensions that were introduced or modified in recent versions of GHC. Currently, the following extensions are covered:
 
-* `DeriveFoldable`, which was changed in GHC 7.12 to allow folding over data types with existential constraints
+* `DeriveFoldable`
+* `DeriveFunctor`
+* `DeriveTraversable`
+
+The following changes have been backported:
+
+* In GHC 8.0, `DeriveFoldable` was changed to allow folding over data types with existential constraints.
+* In GHC 8.0, `DeriveFoldable` and `DeriveTraversable` were changed so as not to generate superfluous `mempty` or `pure` expressions in generated code. As a result, this allows deriving `Traversable` instances for datatypes with unlifted argument types.
 
 Note that some recent GHC extensions are not covered by this package:
 
 * `DeriveGeneric`, which was introducted in GHC 7.2 for deriving `Generic` instances, and modified in GHC 7.6 to allow derivation of `Generic1` instances. Use `Generics.Deriving.TH` from [`generic-deriving`](http://hackage.haskell.org/package/generic-deriving) to derive `Generic(1)` using Template Haskell.
+* `DeriveLift`, which was introduced in GHC 8.0 for deriving `Lift` instances. Use `Language.Haskell.TH.Lift` from [`th-lift`](http://hackage.haskell.org/package/th-lift) to derive `Lift` using Template Haskell.
