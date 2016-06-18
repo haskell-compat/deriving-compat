@@ -28,13 +28,14 @@ For more info on these changes, see
 <https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/DeriveFunctor this GHC wiki page>.
 -}
 module Data.Foldable.Deriving (
-      -- * 'deriveFoldable' limitations
-      -- $constraints
+      -- * 'Foldable'
       deriveFoldable
     , makeFoldMap
     , makeFoldr
     , makeFold
     , makeFoldl
+      -- * 'deriveFoldable' limitations
+      -- $constraints
     ) where
 
 import Data.Functor.Deriving.Internal
@@ -47,6 +48,7 @@ Be aware of the following potential gotchas:
   existential constraint cannot mention the last type variable. For example,
   @data Illegal a = forall a. Show a => Illegal a@ cannot have a derived
   'Functor' instance.
+
 * Type variables of kind @* -> *@ are assumed to have 'Foldable' constraints.
-  If this is not desirable, use @makeFoldr@ or @makeFoldMap@.
+  If this is not desirable, use 'makeFoldr' or 'makeFoldMap'.
 -}

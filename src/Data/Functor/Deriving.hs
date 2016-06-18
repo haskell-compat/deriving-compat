@@ -11,10 +11,11 @@ For more info on how deriving @Functor@ works, see
 <https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/DeriveFunctor this GHC wiki page>.
 -}
 module Data.Functor.Deriving (
-      -- * 'deriveFunctor' limitations
-      -- $constraints
+      -- * 'Functor'
       deriveFunctor
     , makeFmap
+      -- * 'deriveFunctor' limitations
+      -- $constraints
     ) where
 
 import Data.Functor.Deriving.Internal
@@ -24,5 +25,5 @@ import Data.Functor.Deriving.Internal
 Be aware of the following potential gotchas:
 
 * Type variables of kind @* -> *@ are assumed to have 'Functor' constraints.
-  If this is not desirable, use @makeFmap@'.
+  If this is not desirable, use 'makeFmap'.
 -}

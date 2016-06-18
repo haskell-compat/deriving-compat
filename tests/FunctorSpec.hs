@@ -16,15 +16,15 @@
 #endif
 
 {-|
-Module:      DerivingSpec
+Module:      FunctorSpec
 Copyright:   (C) 2015-2016 Ryan Scott
 License:     BSD-style (see the file LICENSE)
 Maintainer:  Ryan Scott
 Portability: Template Haskell
 
-@hspec@ tests for @deriving-compat@.
+@hspec@ tests for derived 'Functor', 'Foldable', and 'Traversable' instances.
 -}
-module DerivingSpec where
+module FunctorSpec where
 
 import Data.Char (chr)
 import Data.Deriving
