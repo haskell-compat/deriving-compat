@@ -106,6 +106,7 @@ test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
   other-modules:       FunctorSpec
+                       ShowSpec
   build-depends:       base-compat         >= 0.8.1 && < 1
                      , base-orphans        >= 0.5   && < 1
                      , deriving-compat     == 0.2

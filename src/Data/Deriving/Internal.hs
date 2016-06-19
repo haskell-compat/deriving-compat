@@ -1215,10 +1215,10 @@ liftShowsPrec2ConstValName :: Name
 liftShowsPrec2ConstValName = mkDerivingCompatName_v "liftShowsPrec2Const"
 
 cHashDataName :: Name
-cHashDataName = mkNameG_d "base" "ghc-prim" "C#"
+cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"
 
 dHashDataName :: Name
-dHashDataName = mkNameG_d "base" "ghc-prim" "D#"
+dHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "D#"
 
 dualDataName :: Name
 dualDataName = mkNameG_d "base" "Data.Monoid" "Dual"
@@ -1227,10 +1227,10 @@ endoDataName :: Name
 endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
 
 fHashDataName :: Name
-fHashDataName = mkNameG_d "base" "ghc-prim" "F#"
+fHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "F#"
 
 iHashDataName :: Name
-iHashDataName = mkNameG_d "base" "ghc-prim" "I#"
+iHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "I#"
 
 wrapMonadDataName :: Name
 wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
