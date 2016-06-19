@@ -1,4 +1,4 @@
-## next
+### 0.2.1
 * Added `Text.Show.Deriving`, which allows deriving `Show`, `Show1`, and `Show2` with TH.
 
 ## 0.2

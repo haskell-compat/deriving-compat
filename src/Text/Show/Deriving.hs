@@ -7,8 +7,6 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Show', 'Show1', and 'Show2' instances.
-
-TODO: Is there a GHC wiki page on this?
 -}
 module Text.Show.Deriving (
       -- * 'Show'
