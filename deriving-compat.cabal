@@ -22,6 +22,11 @@ description:         Provides Template Haskell functions that mimic deriving
                        deriving @Traversable@ instances for datatypes with unlifted
                        argument types.
                      .
+                     * In GHC 8.0, deriving @Show@ was changed so that constructor fields
+                       with unlifted types are no longer shown with parentheses, and
+                       the output of showing an unlifted type is suffixed with the same
+                       number of hash signs as the corresponding primitive literals.
+                     .
                      Note that some recent GHC extensions are not covered by this package:
                      .
                      * @DeriveGeneric@, which was introducted in GHC 7.2 for deriving

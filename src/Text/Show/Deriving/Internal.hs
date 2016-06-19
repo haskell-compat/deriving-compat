@@ -14,23 +14,39 @@ TODO: Is there a GHC wiki page on this?
 module Text.Show.Deriving.Internal (
       -- * 'Show'
       deriveShow
+    , deriveShowOptions
     , makeShowsPrec
+    , makeShowsPrecOptions
     , makeShow
+    , makeShowOptions
     , makeShowList
+    , makeShowListOptions
       -- * 'Show1'
     , deriveShow1
+    , deriveShow1Options
 #if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftShowsPrec
+    , makeLiftShowsPrecOptions
     , makeLiftShowList
+    , makeLiftShowListOptions
 #endif
     , makeShowsPrec1
+    , makeShowsPrec1Options
 #if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Show2'
     , deriveShow2
+    , deriveShow2Options
     , makeLiftShowsPrec2
+    , makeLiftShowsPrec2Options
     , makeLiftShowList2
+    , makeLiftShowList2Options
     , makeShowsPrec2
+    , makeShowsPrec2Options
 #endif
+      -- * 'Options'
+    , Options(..)
+    , defaultOptions
+    , legacyOptions
     ) where
 
 #if MIN_VERSION_template_haskell(2,11,0)
@@ -50,17 +66,49 @@ import           GHC.Show (appPrec, appPrec1)
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
+-- | Options that further configure how the functions in "Text.Show.Deriving"
+-- should behave.
+newtype Options = Options
+  { ghc8ShowBehavior :: Bool
+    -- ^ If 'True', the derived 'Show', 'Show1', or 'Show2' instance will not
+    --   surround the output of showing fields of unlifted types with parentheses,
+    --   and the output will be suffixed with hash signs (@#@).
+  } deriving (Eq, Ord, Read, Show)
+
+-- | Options that match the behavior of the most recent GHC release.
+defaultOptions :: Options
+defaultOptions = Options { ghc8ShowBehavior = True }
+
+-- | Options that match the behavior of the installed version of GHC.
+legacyOptions :: Options
+legacyOptions = Options
+  { ghc8ShowBehavior =
+#if __GLASGOW_HASKELL__ >= 711
+                       True
+#else
+                       False
+#endif
+  }
+
 -- | Generates a 'Show' instance declaration for the given data type or data
 -- family instance.
 deriveShow :: Name -> Q [Dec]
-deriveShow = deriveShowClass Show
+deriveShow = deriveShowOptions defaultOptions
+
+-- | Like 'deriveShow', but takes an 'Options' argument.
+deriveShowOptions :: Options -> Name -> Q [Dec]
+deriveShowOptions = deriveShowClass Show
 
 -- | Generates a lambda expression which behaves like 'show' (without
 -- requiring a 'Show' instance).
 makeShow :: Name -> Q Exp
-makeShow name = do
+makeShow = makeShowOptions defaultOptions
+
+-- | Like 'makeShow', but takes an 'Options' argument.
+makeShowOptions :: Options -> Name -> Q Exp
+makeShowOptions opts name = do
     x <- newName "x"
-    lam1E (varP x) $ makeShowsPrec name
+    lam1E (varP x) $ makeShowsPrecOptions opts name
               `appE` litE (integerL 0)
               `appE` varE x
               `appE` stringE ""
@@ -68,18 +116,35 @@ makeShow name = do
 -- | Generates a lambda expression which behaves like 'showsPrec' (without
 -- requiring a 'Show' instance).
 makeShowsPrec :: Name -> Q Exp
-makeShowsPrec = makeShowsPrecClass Show
+makeShowsPrec = makeShowsPrecOptions defaultOptions
+
+-- | Like 'makeShowsPrec', but takes an 'Options' argument.
+makeShowsPrecOptions :: Options -> Name -> Q Exp
+makeShowsPrecOptions = makeShowsPrecClass Show
 
 -- | Generates a lambda expression which behaves like 'showList' (without
 -- requiring a 'Show' instance).
 makeShowList :: Name -> Q Exp
-makeShowList name = varE showListWithValName `appE`
-                      (makeShowsPrec name `appE` litE (integerL 0))
+makeShowList = makeShowListOptions defaultOptions
+
+-- | Like 'makeShowList', but takes an 'Options' argument.
+makeShowListOptions :: Options -> Name -> Q Exp
+makeShowListOptions opts name =
+    varE showListWithValName `appE` (makeShowsPrecOptions opts name `appE` litE (integerL 0))
 
 -- | Generates a 'Show1' instance declaration for the given data type or data
 -- family instance.
 deriveShow1 :: Name -> Q [Dec]
-deriveShow1 = deriveShowClass Show1
+deriveShow1 = deriveShow1Options defaultOptions
+
+-- | Like 'deriveShow1', but takes an 'Options' argument.
+deriveShow1Options :: Options -> Name -> Q [Dec]
+deriveShow1Options = deriveShowClass Show1
+
+-- | Generates a lambda expression which behaves like 'showsPrec1' (without
+-- requiring a 'Show1' instance).
+makeShowsPrec1 :: Name -> Q Exp
+makeShowsPrec1 = makeShowsPrec1Options defaultOptions
 
 #if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftShowsPrec' (without
@@ -87,31 +152,41 @@ deriveShow1 = deriveShowClass Show1
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowsPrec :: Name -> Q Exp
-makeLiftShowsPrec = makeShowsPrecClass Show1
+makeLiftShowsPrec = makeLiftShowsPrecOptions defaultOptions
+
+-- | Like 'makeLiftShowsPrec', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+makeLiftShowsPrecOptions :: Options -> Name -> Q Exp
+makeLiftShowsPrecOptions = makeShowsPrecClass Show1
 
 -- | Generates a lambda expression which behaves like 'liftShowList' (without
 -- requiring a 'Show' instance).
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowList :: Name -> Q Exp
-makeLiftShowList name = do
+makeLiftShowList = makeLiftShowListOptions defaultOptions
+
+-- | Like 'makeLiftShowList', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+makeLiftShowListOptions :: Options -> Name -> Q Exp
+makeLiftShowListOptions opts name = do
     sp' <- newName "sp'"
     sl' <- newName "sl'"
     lamE [varP sp', varP sl'] $ varE showListWithValName `appE`
-        (makeLiftShowsPrec name `appE` varE sp' `appE` varE sl'
-                                `appE` litE (integerL 0))
+        (makeLiftShowsPrecOptions opts name `appE` varE sp' `appE` varE sl'
+                                            `appE` litE (integerL 0))
 
--- | Generates a lambda expression which behaves like 'showsPrec1' (without
--- requiring a 'Show1' instance).
-makeShowsPrec1 :: Name -> Q Exp
-makeShowsPrec1 name = makeLiftShowsPrec name
-               `appE` varE showsPrecValName
-               `appE` varE showListValName
+-- | Like 'makeShowsPrec1', but takes an 'Options' argument.
+makeShowsPrec1Options :: Options -> Name -> Q Exp
+makeShowsPrec1Options opts name = makeLiftShowsPrecOptions opts name
+                           `appE` varE showsPrecValName
+                           `appE` varE showListValName
 #else
--- | Generates a lambda expression which behaves like 'showsPrec1' (without
--- requiring a 'Show1' instance).
-makeShowsPrec1 :: Name -> Q Exp
-makeShowsPrec1 = makeShowsPrecClass Show1
+-- | Like 'makeShowsPrec1', but takes an 'Options' argument.
+makeShowsPrec1Options :: Options -> Name -> Q Exp
+makeShowsPrec1Options = makeShowsPrecClass Show1
 #endif
 
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -120,39 +195,65 @@ makeShowsPrec1 = makeShowsPrecClass Show1
 --
 -- This function is not available with @transformers-0.4@.
 deriveShow2 :: Name -> Q [Dec]
-deriveShow2 = deriveShowClass Show2
+deriveShow2 = deriveShow2Options defaultOptions
+
+-- | Like 'deriveShow2', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+deriveShow2Options :: Options -> Name -> Q [Dec]
+deriveShow2Options = deriveShowClass Show2
 
 -- | Generates a lambda expression which behaves like 'liftShowsPrec2' (without
 -- requiring a 'Show2' instance).
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowsPrec2 :: Name -> Q Exp
-makeLiftShowsPrec2 = makeShowsPrecClass Show2
+makeLiftShowsPrec2 = makeLiftShowsPrec2Options defaultOptions
+
+-- | Like 'makeLiftShowsPrec2', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+makeLiftShowsPrec2Options :: Options -> Name -> Q Exp
+makeLiftShowsPrec2Options = makeShowsPrecClass Show2
 
 -- | Generates a lambda expression which behaves like 'liftShowList2' (without
 -- requiring a 'Show' instance).
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowList2 :: Name -> Q Exp
-makeLiftShowList2 name = do
+makeLiftShowList2 = makeLiftShowList2Options defaultOptions
+
+-- | Like 'makeLiftShowList2', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+makeLiftShowList2Options :: Options -> Name -> Q Exp
+makeLiftShowList2Options opts name = do
     sp1' <- newName "sp1'"
     sl1' <- newName "sl1'"
     sp2' <- newName "sp2'"
     sl2' <- newName "sl2'"
     lamE [varP sp1', varP sl1', varP sp2', varP sl2'] $
         varE showListWithValName `appE`
-            (makeLiftShowsPrec2 name `appE` varE sp1' `appE` varE sl1'
-                                     `appE` varE sp2' `appE` varE sl2'
-                                     `appE` litE (integerL 0))
+            (makeLiftShowsPrec2Options opts name `appE` varE sp1' `appE` varE sl1'
+                                                 `appE` varE sp2' `appE` varE sl2'
+                                                 `appE` litE (integerL 0))
 
 -- | Generates a lambda expression which behaves like 'showsPrec2' (without
 -- requiring a 'Show2' instance).
+--
+-- This function is not available with @transformers-0.4@.
 makeShowsPrec2 :: Name -> Q Exp
-makeShowsPrec2 name = makeLiftShowsPrec2 name
-               `appE` varE showsPrecValName
-               `appE` varE showListValName
-               `appE` varE showsPrecValName
-               `appE` varE showListValName
+makeShowsPrec2 = makeShowsPrec2Options defaultOptions
+
+-- | Like 'makeShowsPrec2', but takes an 'Options' argument.
+--
+-- This function is not available with @transformers-0.4@.
+makeShowsPrec2Options :: Options -> Name -> Q Exp
+makeShowsPrec2Options opts name = makeLiftShowsPrec2Options opts name
+                           `appE` varE showsPrecValName
+                           `appE` varE showListValName
+                           `appE` varE showsPrecValName
+                           `appE` varE showListValName
 #endif
 
 -------------------------------------------------------------------------------
@@ -161,8 +262,8 @@ makeShowsPrec2 name = makeLiftShowsPrec2 name
 
 -- | Derive a Show(1)(2) instance declaration (depending on the ShowClass
 -- argument's value).
-deriveShowClass :: ShowClass -> Name -> Q [Dec]
-deriveShowClass sClass name = withType name fromCons
+deriveShowClass :: ShowClass -> Options -> Name -> Q [Dec]
+deriveShowClass sClass opts name = withType name fromCons
   where
     fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
     fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
@@ -170,24 +271,24 @@ deriveShowClass sClass name = withType name fromCons
             <- buildTypeInstance sClass name' ctxt tvbs mbTys
         instanceD (return instanceCxt)
                   (return instanceType)
-                  (showsPrecDecs sClass cons)
+                  (showsPrecDecs sClass opts cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (showsPrec for Show, liftShowsPrec for Show1, and
 -- liftShowsPrec2 for Show2).
-showsPrecDecs :: ShowClass -> [Con] -> [Q Dec]
-showsPrecDecs sClass cons =
+showsPrecDecs :: ShowClass -> Options -> [Con] -> [Q Dec]
+showsPrecDecs sClass opts cons =
     [ funD (showsPrecName sClass)
            [ clause []
-                    (normalB $ makeShowForCons sClass cons)
+                    (normalB $ makeShowForCons sClass opts cons)
                     []
            ]
     ]
 
 -- | Generates a lambda expression which behaves like showsPrec (for Show),
 -- liftShowsPrec (for Show1), or liftShowsPrec2 (for Show2).
-makeShowsPrecClass :: ShowClass -> Name -> Q Exp
-makeShowsPrecClass sClass name = withType name fromCons
+makeShowsPrecClass :: ShowClass -> Options -> Name -> Q Exp
+makeShowsPrecClass sClass opts name = withType name fromCons
   where
     fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
     fromCons name' ctxt tvbs cons mbTys =
@@ -195,20 +296,20 @@ makeShowsPrecClass sClass name = withType name fromCons
         -- or not the provided datatype can actually have showsPrec/liftShowsPrec/etc.
         -- implemented for it, and produces errors if it can't.
         buildTypeInstance sClass name' ctxt tvbs mbTys
-          `seq` makeShowForCons sClass cons
+          `seq` makeShowForCons sClass opts cons
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeShowForCons :: ShowClass -> [Con] -> Q Exp
-makeShowForCons _ [] = error "Must have at least one data constructor"
-makeShowForCons sClass cons = do
+makeShowForCons :: ShowClass -> Options -> [Con] -> Q Exp
+makeShowForCons _ _ [] = error "Must have at least one data constructor"
+makeShowForCons sClass opts cons = do
     p     <- newName "p"
     value <- newName "value"
     sps   <- newNameList "sp" $ arity sClass
     sls   <- newNameList "sl" $ arity sClass
     let spls       = zip sps sls
         _spsAndSls = interleave sps sls
-    matches <- concatMapM (makeShowForCon p sClass spls) cons
+    matches <- concatMapM (makeShowForCon p sClass opts spls) cons
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)
                      _spsAndSls ++
@@ -225,19 +326,19 @@ makeShowForCons sClass cons = do
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for a
 -- single constructor.
-makeShowForCon :: Name -> ShowClass -> [(Name, Name)] -> Con -> Q [Match]
-makeShowForCon _ sClass spls (NormalC conName []) = do
+makeShowForCon :: Name -> ShowClass -> Options -> [(Name, Name)] -> Con -> Q [Match]
+makeShowForCon _ sClass _ spls (NormalC conName []) = do
     ([], _) <- reifyConTys2 sClass spls conName
     m <- match
            (conP conName [])
            (normalB $ varE showStringValName `appE` stringE (parenInfixConName conName ""))
            []
     return [m]
-makeShowForCon p sClass spls (NormalC conName [_]) = do
+makeShowForCon p sClass opts spls (NormalC conName [_]) = do
     ([argTy], tvMap) <- reifyConTys2 sClass spls conName
     arg <- newName "arg"
 
-    let showArg  = makeShowForArg appPrec1 sClass conName tvMap argTy arg
+    let showArg  = makeShowForArg appPrec1 sClass opts conName tvMap argTy arg
         namedArg = infixApp (varE showStringValName `appE` stringE (parenInfixConName conName " "))
                             (varE composeValName)
                             showArg
@@ -251,13 +352,13 @@ makeShowForCon p sClass spls (NormalC conName [_]) = do
                        `appE` namedArg)
            []
     return [m]
-makeShowForCon p sClass spls (NormalC conName _) = do
+makeShowForCon p sClass opts spls (NormalC conName _) = do
     (argTys, tvMap) <- reifyConTys2 sClass spls conName
     args <- newNameList "arg" $ length argTys
 
     m <- if isNonUnitTuple conName
          then do
-           let showArgs       = zipWith (makeShowForArg 0 sClass conName tvMap) argTys args
+           let showArgs       = zipWith (makeShowForArg 0 sClass opts conName tvMap) argTys args
                parenCommaArgs = (varE showCharValName `appE` litE (charL '('))
                                 : intersperse (varE showCharValName `appE` litE (charL ',')) showArgs
                mappendArgs    = foldr (`infixApp` varE composeValName)
@@ -268,7 +369,7 @@ makeShowForCon p sClass spls (NormalC conName _) = do
                  (normalB mappendArgs)
                  []
          else do
-           let showArgs    = zipWith (makeShowForArg appPrec1 sClass conName tvMap) argTys args
+           let showArgs    = zipWith (makeShowForArg appPrec1 sClass opts conName tvMap) argTys args
                mappendArgs = foldr1 (\v q -> infixApp v (varE composeValName)
                                                       (infixApp (varE showSpaceValName)
                                                               (varE composeValName)
@@ -285,15 +386,15 @@ makeShowForCon p sClass spls (NormalC conName _) = do
                               `appE` namedArgs)
                  []
     return [m]
-makeShowForCon p sClass spls (RecC conName []) =
-    makeShowForCon p sClass spls $ NormalC conName []
-makeShowForCon p sClass spls (RecC conName ts) = do
+makeShowForCon p sClass opts spls (RecC conName []) =
+    makeShowForCon p sClass opts spls $ NormalC conName []
+makeShowForCon p sClass opts spls (RecC conName ts) = do
     (argTys, tvMap) <- reifyConTys2 sClass spls conName
     args <- newNameList "arg" $ length argTys
 
     let showArgs       = concatMap (\((argName, _, _), argTy, arg)
                                       -> [ varE showStringValName `appE` stringE (nameBase argName ++ " = ")
-                                         , makeShowForArg 0 sClass conName tvMap argTy arg
+                                         , makeShowForArg 0 sClass opts conName tvMap argTy arg
                                          , varE showStringValName `appE` stringE ", "
                                          ]
                                    )
@@ -315,7 +416,7 @@ makeShowForCon p sClass spls (RecC conName ts) = do
                         `appE` namedArgs)
            []
     return [m]
-makeShowForCon p sClass spls (InfixC _ conName _) = do
+makeShowForCon p sClass opts spls (InfixC _ conName _) = do
     ([alTy, arTy], tvMap) <- reifyConTys2 sClass spls conName
     al   <- newName "argL"
     ar   <- newName "argR"
@@ -344,18 +445,18 @@ makeShowForCon p sClass spls (InfixC _ conName _) = do
            (normalB $ (varE showParenValName `appE` infixApp (varE p)
                                                              (varE ltValName)
                                                              (litE . integerL $ fromIntegral conPrec))
-                        `appE` (infixApp (makeShowForArg (conPrec + 1) sClass conName tvMap alTy al)
+                        `appE` (infixApp (makeShowForArg (conPrec + 1) sClass opts conName tvMap alTy al)
                                          (varE composeValName)
                                          (infixApp infixOpE
                                                    (varE composeValName)
-                                                   (makeShowForArg (conPrec + 1) sClass conName tvMap arTy ar)))
+                                                   (makeShowForArg (conPrec + 1) sClass opts conName tvMap arTy ar)))
            )
            []
     return [m]
-makeShowForCon p sClass spls (ForallC _ _ con) =
-    makeShowForCon p sClass spls con
+makeShowForCon p sClass opts spls (ForallC _ _ con) =
+    makeShowForCon p sClass opts spls con
 #if MIN_VERSION_template_haskell(2,11,0)
-makeShowForCon p sClass spls (GadtC conNames ts _) =
+makeShowForCon p sClass opts spls (GadtC conNames ts _) =
     let con :: Name -> Q Con
         con conName = do
             mbFi <- reifyFixity conName
@@ -365,25 +466,22 @@ makeShowForCon p sClass spls (GadtC conNames ts _) =
                       then let [t1, t2] = ts in InfixC t1 conName t2
                       else NormalC conName ts
 
-    in concatMapM (makeShowForCon p sClass spls <=< con) conNames
-makeShowForCon p sClass spls (RecGadtC conNames ts _) =
-    concatMapM (makeShowForCon p sClass spls . flip RecC ts) conNames
+    in concatMapM (makeShowForCon p sClass opts spls <=< con) conNames
+makeShowForCon p sClass opts spls (RecGadtC conNames ts _) =
+    concatMapM (makeShowForCon p sClass opts spls . flip RecC ts) conNames
 #endif
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for an
 -- argument of a constructor.
 makeShowForArg :: Int
                -> ShowClass
+               -> Options
                -> Name
                -> TyVarMap2
                -> Type
                -> Name
                -> Q Exp
-makeShowForArg p _ _ _ (ConT tyName) tyExpName =
-#if __GLASGOW_HASKELL__ >= 711
--- Starting with GHC 7.10, data types containing unlifted types with derived @Show@
--- instances show hashed literals with actual hash signs, and negative hashed
--- literals are not surrounded with parentheses.
+makeShowForArg p _ opts _ _ (ConT tyName) tyExpName =
     showE
   where
     tyVarE :: Q Exp
@@ -399,36 +497,25 @@ makeShowForArg p _ _ _ (ConT tyName) tyExpName =
                           `appE` litE (integerL $ fromIntegral p)
                           `appE` tyVarE
 
+    -- Starting with GHC 7.10, data types containing unlifted types with derived Show
+    -- instances show hashed literals with actual hash signs, and negative hashed
+    -- literals are not surrounded with parentheses.
     showPrimE :: Name -> Q Exp -> Q Exp
-    showPrimE con hashE = infixApp (varE showsPrecValName
-                                     `appE` litE (integerL 0)
-                                     `appE` (conE con `appE` tyVarE))
-                                   (varE composeValName)
-                                   hashE
+    showPrimE con hashE
+      | ghc8ShowBehavior opts
+      = infixApp (varE showsPrecValName
+                   `appE` litE (integerL 0)
+                   `appE` (conE con `appE` tyVarE))
+                 (varE composeValName)
+                 hashE
+      | otherwise = varE showsPrecValName
+                      `appE` litE (integerL $ fromIntegral p)
+                      `appE` tyVarE
 
     oneHashE, twoHashE :: Q Exp
     oneHashE = varE showCharValName `appE` litE (charL '#')
     twoHashE = varE showStringValName `appE` stringE "##"
-#else
-    varE showsPrecValName
-      `appE` litE (integerL $ fromIntegral p)
-      `appE` expr
-  where
-    tyVarE :: Q Exp
-    tyVarE = varE tyExpName
-
-    expr :: Q Exp
-    expr | tyName == charHashTypeName   = showPrimE cHashDataName
-         | tyName == doubleHashTypeName = showPrimE dHashDataName
-         | tyName == floatHashTypeName  = showPrimE fHashDataName
-         | tyName == intHashTypeName    = showPrimE iHashDataName
-         | tyName == wordHashTypeName   = showPrimE wHashDataName
-         | otherwise = tyVarE
-
-    showPrimE :: Name -> Q Exp
-    showPrimE con = conE con `appE` tyVarE
-#endif
-makeShowForArg p sClass conName tvMap ty tyExpName =
+makeShowForArg p sClass _ conName tvMap ty tyExpName =
     makeShowForType sClass conName tvMap False ty
       `appE` litE (integerL $ fromIntegral p)
       `appE` varE tyExpName

@@ -13,23 +13,39 @@ TODO: Is there a GHC wiki page on this?
 module Text.Show.Deriving (
       -- * 'Show'
       deriveShow
+    , deriveShowOptions
     , makeShowsPrec
+    , makeShowsPrecOptions
     , makeShow
+    , makeShowOptions
     , makeShowList
+    , makeShowListOptions
       -- * 'Show1'
     , deriveShow1
+    , deriveShow1Options
 #if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftShowsPrec
+    , makeLiftShowsPrecOptions
     , makeLiftShowList
+    , makeLiftShowListOptions
 #endif
     , makeShowsPrec1
+    , makeShowsPrec1Options
 #if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Show2'
     , deriveShow2
+    , deriveShow2Options
     , makeLiftShowsPrec2
+    , makeLiftShowsPrec2Options
     , makeLiftShowList2
+    , makeLiftShowList2Options
     , makeShowsPrec2
+    , makeShowsPrec2Options
 #endif
+      -- * 'Options'
+    , Options(..)
+    , defaultOptions
+    , legacyOptions
       -- * 'deriveShow' limitations
       -- $constraints
     ) where
