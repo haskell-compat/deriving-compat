@@ -63,8 +63,12 @@ source-repository head
   type:                git
   location:            https://github.com/haskell-compat/deriving-compat
 
-flag base-49
+flag base-4-9
   description:         Use base-4.9 or later.
+  default:             True
+
+flag template-haskell-2-11
+  description:         Use template-haskell-2.11.0.0 or later.
   default:             True
 
 flag new-functor-classes
@@ -87,14 +91,18 @@ library
                        Paths_deriving_compat
   build-depends:       containers          >= 0.1 && < 0.6
                      , ghc-prim
-                     , template-haskell    >= 2.5 && < 2.12
 
-  if flag(base-49)
+  if flag(base-4-9)
     build-depends:     base                >= 4.9 && < 5
-                     , ghc-boot-th
     cpp-options:       "-DNEW_FUNCTOR_CLASSES"
   else
     build-depends:     base                >= 4.3 && < 4.9
+
+  if flag(template-haskell-2-11)
+    build-depends:     template-haskell    >= 2.11 && < 2.12
+                     , ghc-boot-th
+  else
+    build-depends:     template-haskell    >= 2.5  && < 2.11
 
   if flag(new-functor-classes)
     build-depends:     transformers        (>= 0.2 && < 0.4) || >= 0.5
@@ -118,14 +126,14 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
 
-  if flag(base-49)
+  if flag(base-4-9)
     build-depends:     base                >= 4.9 && < 5
     cpp-options:       "-DNEW_FUNCTOR_CLASSES"
   else
     build-depends:     base                >= 4.3 && < 4.9
 
   if flag(new-functor-classes)
-    build-depends:     transformers        (>= 0.2 && < 0.4) || >= 0.5
+    build-depends:     transformers        (>= 0.2 && < 0.4) || (>= 0.5 && < 0.6)
                      , transformers-compat >= 0.5
     cpp-options:       "-DNEW_FUNCTOR_CLASSES"
   else
