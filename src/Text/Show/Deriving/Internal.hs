@@ -508,7 +508,7 @@ makeShowForArg p _ opts _ _ (ConT tyName) tyExpName =
                  hashE
       | otherwise = varE showsPrecValName
                       `appE` litE (integerL $ fromIntegral p)
-                      `appE` tyVarE
+                      `appE` (conE con `appE` tyVarE)
 
     oneHashE, twoHashE :: Q Exp
     oneHashE = varE showCharValName `appE` litE (charL '#')
