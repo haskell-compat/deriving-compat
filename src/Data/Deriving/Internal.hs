@@ -1308,9 +1308,6 @@ charHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Char#"
 doubleHashTypeName :: Name
 doubleHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Double#"
 
-eqTypeName :: Name
-eqTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Eq"
-
 floatHashTypeName :: Name
 floatHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Float#"
 
@@ -1331,9 +1328,6 @@ traversableTypeName = mkNameG_tc "base" "Data.Traversable" "Traversable"
 
 wordHashTypeName :: Name
 wordHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word#"
-
-andValName :: Name
-andValName = mkNameG_v "ghc-prim" "GHC.Classes" "&&"
 
 appEndoValName :: Name
 appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
@@ -1359,9 +1353,6 @@ eqIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "==#"
 eqWordHashValName :: Name
 eqWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord#"
 
-eqValName :: Name
-eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
-
 errorValName :: Name
 errorValName = mkNameG_v "base" "GHC.Err" "error"
 
@@ -1385,9 +1376,6 @@ getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
 
 idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
-
-notValName :: Name
-notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
 
 showCharValName :: Name
 showCharValName = mkNameG_v "base" "GHC.Show" "showChar"
@@ -1431,11 +1419,35 @@ trueDataName = mkNameG_v "ghc-prim" "GHC.Bool" "True"
 #endif
 
 #if MIN_VERSION_base(4,5,0)
+eqTypeName :: Name
+eqTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Eq"
+
+andValName :: Name
+andValName = mkNameG_v "ghc-prim" "GHC.Classes" "&&"
+
+eqValName :: Name
+eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
+
 ltValName :: Name
 ltValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
+
+notValName :: Name
+notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
 #else
+eqTypeName :: Name
+eqTypeName = mkNameG_tc "base" "GHC.Classes" "Eq"
+
+andValName :: Name
+andValName = mkNameG_v "base" "GHC.Classes" "&&"
+
+eqValName :: Name
+eqValName = mkNameG_v "base" "GHC.Classes" "=="
+
 ltValName :: Name
 ltValName = mkNameG_v "base" "GHC.Classes" ">"
+
+notValName :: Name
+notValName = mkNameG_v "base" "GHC.Classes" "not"
 #endif
 
 #if MIN_VERSION_base(4,6,0)
