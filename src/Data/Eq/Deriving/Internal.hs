@@ -302,35 +302,6 @@ makeCaseForType eClass tvMap conName ty = do
          else varE showsPrecValName
 #endif
 
-#if !defined(NEW_FUNCTOR_CLASSES)
-makeFmapApply :: EqClass -> Name -> Type -> Name -> Q Exp
-makeFmapApply eClass conName (SigT ty _) name = makeFmapApply eClass conName ty name
-makeFmapApply eClass conName t name = do
-    let tyCon :: Type
-        tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy t
-
-        numLastArgs :: Int
-        numLastArgs = min (arity eClass) (length tyArgs)
-
-        lhsArgs, rhsArgs :: [Type]
-        (lhsArgs, rhsArgs) = splitAt (length tyArgs - numLastArgs) tyArgs
-
-        inspectTy :: Type -> Q Exp
-        inspectTy (SigT ty _) = inspectTy ty
-        inspectTy (VarT a) | a == name = varE idValName
-        inspectTy beta = varE fmapValName `appE`
-                           infixApp (conE applyDataName)
-                                    (varE composeValName)
-                                    (makeFmapApply eClass conName beta name)
-
-    itf <- isTyFamily tyCon
-    if any (`mentionsName` [name]) lhsArgs
-          || itf && any (`mentionsName` [name]) tyArgs
-       then outOfPlaceTyVarError eClass conName
-       else inspectTy (head rhsArgs)
-#endif
-
 -------------------------------------------------------------------------------
 -- Class-specific constants
 -------------------------------------------------------------------------------
@@ -393,5 +364,5 @@ untagExpr ((untagThis, putTagHere) : more) e =
                  []]
 
 primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
-primOpAppExpr e1 op e2 = varE tagToEnumHashValName `appE`
+primOpAppExpr e1 op e2 = varE tagToEnumValName `appE`
                            infixApp e1 (varE op) e2

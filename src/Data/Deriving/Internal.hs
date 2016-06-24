@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MagicHash #-}
 
 #if !(MIN_VERSION_base(4,9,0))
 # if __GLASGOW_HASKELL__ >= 800
@@ -36,6 +37,10 @@ import           Data.Map (Map)
 import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
+
+#if MIN_VERSION_ghc_prim(0,3,1)
+import           GHC.Prim (Int#, tagToEnum#)
+#endif
 
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Ppr (pprint)
@@ -869,6 +874,15 @@ interleave :: [a] -> [a] -> [a]
 interleave (a1:a1s) (a2:a2s) = a1:a2:interleave a1s a2s
 interleave _        _        = []
 
+#if MIN_VERSION_ghc_prim(0,3,1)
+tagToEnum :: Int# -> Bool
+tagToEnum x = tagToEnum# x
+#else
+tagToEnum :: Bool -> Bool
+tagToEnum x = x
+#endif
+{-# INLINE tagToEnum #-}
+
 -- isRight and fromEither taken from the extra package (BSD3-licensed)
 
 -- | Test if an 'Either' value is the 'Right' constructor.
@@ -1261,6 +1275,9 @@ liftShowsPrecConstValName = mkDerivingCompatName_v "liftShowsPrecConst"
 liftShowsPrec2ConstValName :: Name
 liftShowsPrec2ConstValName = mkDerivingCompatName_v "liftShowsPrec2Const"
 
+tagToEnumValName :: Name
+tagToEnumValName = mkDerivingCompatName_v "tagToEnum"
+
 cHashDataName :: Name
 cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"
 
@@ -1392,9 +1409,6 @@ showSpaceValName = mkNameG_v "base" "GHC.Show" "showSpace"
 
 showStringValName :: Name
 showStringValName = mkNameG_v "base" "GHC.Show" "showString"
-
-tagToEnumHashValName :: Name
-tagToEnumHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "tagToEnum#"
 
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
@@ -1546,6 +1560,33 @@ instance (Eq1 g, Eq a) => Eq (Apply g a) where
 
 instance (Show1 f, Show a) => Show (Apply f a) where
     showsPrec p (Apply x) = showsPrec1 p x
+
+makeFmapApply :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
+makeFmapApply cRep conName (SigT ty _) name = makeFmapApply cRep conName ty name
+makeFmapApply cRep conName t name = do
+    let tyCon :: Type
+        tyArgs :: [Type]
+        tyCon:tyArgs = unapplyTy t
+
+        numLastArgs :: Int
+        numLastArgs = min (arity cRep) (length tyArgs)
+
+        lhsArgs, rhsArgs :: [Type]
+        (lhsArgs, rhsArgs) = splitAt (length tyArgs - numLastArgs) tyArgs
+
+        inspectTy :: Type -> Q Exp
+        inspectTy (SigT ty _) = inspectTy ty
+        inspectTy (VarT a) | a == name = varE idValName
+        inspectTy beta = varE fmapValName `appE`
+                           infixApp (conE applyDataName)
+                                    (varE composeValName)
+                                    (makeFmapApply cRep conName beta name)
+
+    itf <- isTyFamily tyCon
+    if any (`mentionsName` [name]) lhsArgs
+          || itf && any (`mentionsName` [name]) tyArgs
+       then outOfPlaceTyVarError cRep conName
+       else inspectTy (head rhsArgs)
 
 applyDataName :: Name
 applyDataName = mkNameG_d derivingCompatPackageKey "Data.Deriving.Internal" "Apply"

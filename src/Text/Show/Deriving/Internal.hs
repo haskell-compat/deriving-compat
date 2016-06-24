@@ -581,35 +581,6 @@ makeShowForType sClass conName tvMap _ ty = do
          else varE showsPrecValName
 #endif
 
-#if !defined(NEW_FUNCTOR_CLASSES)
-makeFmapApply :: ShowClass -> Name -> Type -> Name -> Q Exp
-makeFmapApply sClass conName (SigT ty _) name = makeFmapApply sClass conName ty name
-makeFmapApply sClass conName t name = do
-    let tyCon :: Type
-        tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy t
-
-        numLastArgs :: Int
-        numLastArgs = min (arity sClass) (length tyArgs)
-
-        lhsArgs, rhsArgs :: [Type]
-        (lhsArgs, rhsArgs) = splitAt (length tyArgs - numLastArgs) tyArgs
-
-        inspectTy :: Type -> Q Exp
-        inspectTy (SigT ty _) = inspectTy ty
-        inspectTy (VarT a) | a == name = varE idValName
-        inspectTy beta = varE fmapValName `appE`
-                           infixApp (conE applyDataName)
-                                    (varE composeValName)
-                                    (makeFmapApply sClass conName beta name)
-
-    itf <- isTyFamily tyCon
-    if any (`mentionsName` [name]) lhsArgs
-          || itf && any (`mentionsName` [name]) tyArgs
-       then outOfPlaceTyVarError sClass conName
-       else inspectTy (head rhsArgs)
-#endif
-
 -------------------------------------------------------------------------------
 -- Class-specific constants
 -------------------------------------------------------------------------------
