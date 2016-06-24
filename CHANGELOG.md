@@ -1,4 +1,7 @@
-## 0.2.2
+## 0.3
+* Added `Data.Eq.Deriving`, which allows deriving `Eq`, `Eq1`, and `Eq2` with TH.
+
+### 0.2.2
 * Fixed a bug in `Text.Show.Deriving`'s treatment of unlifted types
 
 ### 0.2.1

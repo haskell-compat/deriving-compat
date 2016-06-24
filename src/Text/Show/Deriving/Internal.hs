@@ -299,7 +299,7 @@ makeShowsPrecClass sClass opts name = withType name fromCons
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeShowForCons :: ShowClass -> Options -> [Con] -> Q Exp
-makeShowForCons _ _ [] = error "Must have at least one data constructor"
+makeShowForCons _ _ [] = noConstructorsError
 makeShowForCons sClass opts cons = do
     p     <- newName "p"
     value <- newName "value"

@@ -369,6 +369,10 @@ allowFunTys :: FunctorClass -> Bool
 allowFunTys Functor = True
 allowFunTys _       = False
 
+-------------------------------------------------------------------------------
+-- Assorted utilities
+-------------------------------------------------------------------------------
+
 -- See Trac #7436 for why explicit lambdas are used
 functorFunTriv :: FunctorFun -> Q Exp
 functorFunTriv Fmap = do

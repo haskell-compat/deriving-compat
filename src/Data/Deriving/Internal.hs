@@ -25,10 +25,9 @@ import           Control.Monad (liftM, when, unless)
 
 import           Data.Foldable (foldr')
 #if !(MIN_VERSION_base(4,9,0))
+import           Data.Functor.Classes (Eq1(..), Show1(..))
 # if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
-import           Data.Functor.Classes (Show1(..), Show2(..))
-# else
-import           Data.Functor.Classes (Show1(..))
+import           Data.Functor.Classes (Eq2(..), Show2(..))
 # endif
 #endif
 import           Data.List
@@ -141,6 +140,27 @@ foldMapConst x _ _ = x
 traverseConst :: f (t b) -> (a -> f b) -> t a -> f (t b)
 traverseConst x _ _ = x
 {-# INLINE traverseConst #-}
+
+eqConst :: Bool
+        -> a -> a -> Bool
+eqConst x _ _ = x
+{-# INLINE eqConst #-}
+
+eq1Const :: Bool
+         -> f a -> f a-> Bool
+eq1Const x _ _ = x
+{-# INLINE eq1Const #-}
+
+liftEqConst :: Bool
+            -> (a -> b -> Bool) -> f a -> f b -> Bool
+liftEqConst x _ _ _ = x
+{-# INLINE liftEqConst #-}
+
+liftEq2Const :: Bool
+             -> (a -> b -> Bool) -> (c -> d -> Bool)
+             -> f a c -> f b d -> Bool
+liftEq2Const x _ _ _ _ = x
+{-# INLINE liftEq2Const #-}
 
 showsPrecConst :: ShowS
                -> Int -> a -> ShowS
@@ -735,6 +755,10 @@ Both.
 -- Error messages
 -------------------------------------------------------------------------------
 
+-- | The given datatype has no constructors, and we don't know what to do with it.
+noConstructorsError :: Q a
+noConstructorsError = fail "Must have at least one data constructor"
+
 -- | Either the given data type doesn't have enough type variables, or one of
 -- the type variables to be eta-reduced cannot realize kind *.
 derivingKindError :: ClassRep a => a ->  Name -> Q b
@@ -989,6 +1013,17 @@ constructorName (GadtC    names _ _)    = head names
 constructorName (RecGadtC names _ _)    = head names
 #endif
 
+isNullaryCon :: Con -> Bool
+isNullaryCon (NormalC _ [])    = True
+isNullaryCon (RecC    _ [])    = True
+isNullaryCon InfixC{}          = False
+isNullaryCon (ForallC _ _ con) = isNullaryCon con
+#if MIN_VERSION_template_haskell(2,11,0)
+isNullaryCon (GadtC    _ [] _) = True
+isNullaryCon (RecGadtC _ [] _) = True
+#endif
+isNullaryCon _                 = False
+
 -- | Generate a list of fresh names with a common prefix, and numbered suffixes.
 newNameList :: String -> Int -> Q [Name]
 newNameList prefix n = mapM (newName . (prefix ++) . show) [1..n]
@@ -1202,6 +1237,18 @@ foldMapConstValName = mkDerivingCompatName_v "foldMapConst"
 traverseConstValName :: Name
 traverseConstValName = mkDerivingCompatName_v "traverseConst"
 
+eqConstValName :: Name
+eqConstValName = mkDerivingCompatName_v "eqConst"
+
+eq1ConstValName :: Name
+eq1ConstValName = mkDerivingCompatName_v "eq1Const"
+
+liftEqConstValName :: Name
+liftEqConstValName = mkDerivingCompatName_v "liftEqConst"
+
+liftEq2ConstValName :: Name
+liftEq2ConstValName = mkDerivingCompatName_v "liftEq2Const"
+
 showsPrecConstValName :: Name
 showsPrecConstValName = mkDerivingCompatName_v "showsPrecConst"
 
@@ -1235,14 +1282,17 @@ iHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "I#"
 wrapMonadDataName :: Name
 wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
 
--- addrHashTypeName :: Name
--- addrHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Addr#"
+addrHashTypeName :: Name
+addrHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Addr#"
 
 charHashTypeName :: Name
 charHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Char#"
 
 doubleHashTypeName :: Name
 doubleHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Double#"
+
+eqTypeName :: Name
+eqTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Eq"
 
 floatHashTypeName :: Name
 floatHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Float#"
@@ -1265,11 +1315,35 @@ traversableTypeName = mkNameG_tc "base" "Data.Traversable" "Traversable"
 wordHashTypeName :: Name
 wordHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word#"
 
+andValName :: Name
+andValName = mkNameG_v "ghc-prim" "GHC.Classes" "&&"
+
 appEndoValName :: Name
 appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
 
 composeValName :: Name
 composeValName = mkNameG_v "base" "GHC.Base" "."
+
+eqAddrHashValName :: Name
+eqAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqAddr#"
+
+eqCharHashValName :: Name
+eqCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqChar#"
+
+eqDoubleHashValName :: Name
+eqDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "==##"
+
+eqFloatHashValName :: Name
+eqFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqFloat#"
+
+eqIntHashValName :: Name
+eqIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "==#"
+
+eqWordHashValName :: Name
+eqWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord#"
+
+eqValName :: Name
+eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
 
 errorValName :: Name
 errorValName = mkNameG_v "base" "GHC.Err" "error"
@@ -1289,8 +1363,14 @@ foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
 getDualValName :: Name
 getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
 
+getTagValName :: Name
+getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
+
 idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
+
+notValName :: Name
+notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
 
 showCharValName :: Name
 showCharValName = mkNameG_v "base" "GHC.Show" "showChar"
@@ -1313,11 +1393,28 @@ showSpaceValName = mkNameG_v "base" "GHC.Show" "showSpace"
 showStringValName :: Name
 showStringValName = mkNameG_v "base" "GHC.Show" "showString"
 
+tagToEnumHashValName :: Name
+tagToEnumHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "tagToEnum#"
+
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
 
 unwrapMonadValName :: Name
 unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"
+
+#if MIN_VERSION_base(4,4,0)
+falseDataName :: Name
+falseDataName = mkNameG_v "ghc-prim" "GHC.Types" "False"
+
+trueDataName :: Name
+trueDataName = mkNameG_v "ghc-prim" "GHC.Types" "True"
+#else
+falseDataName :: Name
+falseDataName = mkNameG_v "ghc-prim" "GHC.Bool" "False"
+
+trueDataName :: Name
+trueDataName = mkNameG_v "ghc-prim" "GHC.Bool" "True"
+#endif
 
 #if MIN_VERSION_base(4,5,0)
 ltValName :: Name
@@ -1367,6 +1464,18 @@ memptyValName = mkNameG_v "base" "Data.Monoid" "mempty"
 #endif
 
 #if MIN_VERSION_base(4,9,0)
+eq1TypeName :: Name
+eq1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Eq1"
+
+eq2TypeName :: Name
+eq2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Eq2"
+
+liftEqValName :: Name
+liftEqValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq"
+
+liftEq2ValName :: Name
+liftEq2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq2"
+
 show1TypeName :: Name
 show1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Show1"
 
@@ -1388,6 +1497,18 @@ liftShowsPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftShowsPrec2"
 -- If Data.Functor.Classes isn't located in base, then sadly we can't refer to
 -- Names from that module without using -XTemplateHaskell.
 # if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
+eq1TypeName :: Name
+eq1TypeName = ''Eq1
+
+eq2TypeName :: Name
+eq2TypeName = ''Eq2
+
+liftEqValName :: Name
+liftEqValName = 'liftEq
+
+liftEq2ValName :: Name
+liftEq2ValName = 'liftEq2
+
 show1TypeName :: Name
 show1TypeName = ''Show1
 
@@ -1406,6 +1527,12 @@ liftShowList2ValName = 'liftShowList2
 liftShowsPrec2ValName :: Name
 liftShowsPrec2ValName = 'liftShowsPrec2
 # else
+eq1TypeName :: Name
+eq1TypeName = ''Eq1
+
+eq1ValName :: Name
+eq1ValName = 'eq1
+
 show1TypeName :: Name
 show1TypeName = ''Show1
 
@@ -1413,6 +1540,9 @@ showsPrec1ValName :: Name
 showsPrec1ValName = 'showsPrec1
 
 newtype Apply f a = Apply { unApply :: f a }
+
+instance (Eq1 g, Eq a) => Eq (Apply g a) where
+    Apply x == Apply y = eq1 x y
 
 instance (Show1 f, Show a) => Show (Apply f a) where
     showsPrec p (Apply x) = showsPrec1 p x
