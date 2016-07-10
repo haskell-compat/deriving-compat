@@ -41,10 +41,10 @@ module Text.Show.Deriving.Internal (
     , makeShowsPrec2
     , makeShowsPrec2Options
 #endif
-      -- * 'Options'
-    , Options(..)
-    , defaultOptions
-    , legacyOptions
+      -- * 'ShowOptions'
+    , ShowOptions(..)
+    , defaultShowOptions
+    , legacyShowOptions
     ) where
 
 #if MIN_VERSION_template_haskell(2,11,0)
@@ -66,20 +66,20 @@ import           Language.Haskell.TH.Syntax
 
 -- | Options that further configure how the functions in "Text.Show.Deriving"
 -- should behave.
-newtype Options = Options
+newtype ShowOptions = ShowOptions
   { ghc8ShowBehavior :: Bool
     -- ^ If 'True', the derived 'Show', 'Show1', or 'Show2' instance will not
     --   surround the output of showing fields of unlifted types with parentheses,
     --   and the output will be suffixed with hash signs (@#@).
   } deriving (Eq, Ord, Read, Show)
 
--- | Options that match the behavior of the most recent GHC release.
-defaultOptions :: Options
-defaultOptions = Options { ghc8ShowBehavior = True }
+-- | 'ShowOptions' that match the behavior of the most recent GHC release.
+defaultShowOptions :: ShowOptions
+defaultShowOptions = ShowOptions { ghc8ShowBehavior = True }
 
--- | Options that match the behavior of the installed version of GHC.
-legacyOptions :: Options
-legacyOptions = Options
+-- | 'ShowOptions' that match the behavior of the installed version of GHC.
+legacyShowOptions :: ShowOptions
+legacyShowOptions = ShowOptions
   { ghc8ShowBehavior =
 #if __GLASGOW_HASKELL__ >= 711
                        True
@@ -91,19 +91,19 @@ legacyOptions = Options
 -- | Generates a 'Show' instance declaration for the given data type or data
 -- family instance.
 deriveShow :: Name -> Q [Dec]
-deriveShow = deriveShowOptions defaultOptions
+deriveShow = deriveShowOptions defaultShowOptions
 
--- | Like 'deriveShow', but takes an 'Options' argument.
-deriveShowOptions :: Options -> Name -> Q [Dec]
+-- | Like 'deriveShow', but takes a 'ShowOptions' argument.
+deriveShowOptions :: ShowOptions -> Name -> Q [Dec]
 deriveShowOptions = deriveShowClass Show
 
 -- | Generates a lambda expression which behaves like 'show' (without
 -- requiring a 'Show' instance).
 makeShow :: Name -> Q Exp
-makeShow = makeShowOptions defaultOptions
+makeShow = makeShowOptions defaultShowOptions
 
--- | Like 'makeShow', but takes an 'Options' argument.
-makeShowOptions :: Options -> Name -> Q Exp
+-- | Like 'makeShow', but takes a 'ShowOptions' argument.
+makeShowOptions :: ShowOptions -> Name -> Q Exp
 makeShowOptions opts name = do
     x <- newName "x"
     lam1E (varP x) $ makeShowsPrecOptions opts name
@@ -114,35 +114,35 @@ makeShowOptions opts name = do
 -- | Generates a lambda expression which behaves like 'showsPrec' (without
 -- requiring a 'Show' instance).
 makeShowsPrec :: Name -> Q Exp
-makeShowsPrec = makeShowsPrecOptions defaultOptions
+makeShowsPrec = makeShowsPrecOptions defaultShowOptions
 
--- | Like 'makeShowsPrec', but takes an 'Options' argument.
-makeShowsPrecOptions :: Options -> Name -> Q Exp
+-- | Like 'makeShowsPrec', but takes a 'ShowOptions' argument.
+makeShowsPrecOptions :: ShowOptions -> Name -> Q Exp
 makeShowsPrecOptions = makeShowsPrecClass Show
 
 -- | Generates a lambda expression which behaves like 'showList' (without
 -- requiring a 'Show' instance).
 makeShowList :: Name -> Q Exp
-makeShowList = makeShowListOptions defaultOptions
+makeShowList = makeShowListOptions defaultShowOptions
 
--- | Like 'makeShowList', but takes an 'Options' argument.
-makeShowListOptions :: Options -> Name -> Q Exp
+-- | Like 'makeShowList', but takes a 'ShowOptions' argument.
+makeShowListOptions :: ShowOptions -> Name -> Q Exp
 makeShowListOptions opts name =
     varE showListWithValName `appE` (makeShowsPrecOptions opts name `appE` litE (integerL 0))
 
 -- | Generates a 'Show1' instance declaration for the given data type or data
 -- family instance.
 deriveShow1 :: Name -> Q [Dec]
-deriveShow1 = deriveShow1Options defaultOptions
+deriveShow1 = deriveShow1Options defaultShowOptions
 
--- | Like 'deriveShow1', but takes an 'Options' argument.
-deriveShow1Options :: Options -> Name -> Q [Dec]
+-- | Like 'deriveShow1', but takes a 'ShowOptions' argument.
+deriveShow1Options :: ShowOptions -> Name -> Q [Dec]
 deriveShow1Options = deriveShowClass Show1
 
 -- | Generates a lambda expression which behaves like 'showsPrec1' (without
 -- requiring a 'Show1' instance).
 makeShowsPrec1 :: Name -> Q Exp
-makeShowsPrec1 = makeShowsPrec1Options defaultOptions
+makeShowsPrec1 = makeShowsPrec1Options defaultShowOptions
 
 #if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftShowsPrec' (without
@@ -150,12 +150,12 @@ makeShowsPrec1 = makeShowsPrec1Options defaultOptions
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowsPrec :: Name -> Q Exp
-makeLiftShowsPrec = makeLiftShowsPrecOptions defaultOptions
+makeLiftShowsPrec = makeLiftShowsPrecOptions defaultShowOptions
 
--- | Like 'makeLiftShowsPrec', but takes an 'Options' argument.
+-- | Like 'makeLiftShowsPrec', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-makeLiftShowsPrecOptions :: Options -> Name -> Q Exp
+makeLiftShowsPrecOptions :: ShowOptions -> Name -> Q Exp
 makeLiftShowsPrecOptions = makeShowsPrecClass Show1
 
 -- | Generates a lambda expression which behaves like 'liftShowList' (without
@@ -163,12 +163,12 @@ makeLiftShowsPrecOptions = makeShowsPrecClass Show1
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowList :: Name -> Q Exp
-makeLiftShowList = makeLiftShowListOptions defaultOptions
+makeLiftShowList = makeLiftShowListOptions defaultShowOptions
 
--- | Like 'makeLiftShowList', but takes an 'Options' argument.
+-- | Like 'makeLiftShowList', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-makeLiftShowListOptions :: Options -> Name -> Q Exp
+makeLiftShowListOptions :: ShowOptions -> Name -> Q Exp
 makeLiftShowListOptions opts name = do
     sp' <- newName "sp'"
     sl' <- newName "sl'"
@@ -176,14 +176,14 @@ makeLiftShowListOptions opts name = do
         (makeLiftShowsPrecOptions opts name `appE` varE sp' `appE` varE sl'
                                             `appE` litE (integerL 0))
 
--- | Like 'makeShowsPrec1', but takes an 'Options' argument.
-makeShowsPrec1Options :: Options -> Name -> Q Exp
+-- | Like 'makeShowsPrec1', but takes a 'ShowOptions' argument.
+makeShowsPrec1Options :: ShowOptions -> Name -> Q Exp
 makeShowsPrec1Options opts name = makeLiftShowsPrecOptions opts name
                            `appE` varE showsPrecValName
                            `appE` varE showListValName
 #else
--- | Like 'makeShowsPrec1', but takes an 'Options' argument.
-makeShowsPrec1Options :: Options -> Name -> Q Exp
+-- | Like 'makeShowsPrec1', but takes a 'ShowOptions' argument.
+makeShowsPrec1Options :: ShowOptions -> Name -> Q Exp
 makeShowsPrec1Options = makeShowsPrecClass Show1
 #endif
 
@@ -193,12 +193,12 @@ makeShowsPrec1Options = makeShowsPrecClass Show1
 --
 -- This function is not available with @transformers-0.4@.
 deriveShow2 :: Name -> Q [Dec]
-deriveShow2 = deriveShow2Options defaultOptions
+deriveShow2 = deriveShow2Options defaultShowOptions
 
--- | Like 'deriveShow2', but takes an 'Options' argument.
+-- | Like 'deriveShow2', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-deriveShow2Options :: Options -> Name -> Q [Dec]
+deriveShow2Options :: ShowOptions -> Name -> Q [Dec]
 deriveShow2Options = deriveShowClass Show2
 
 -- | Generates a lambda expression which behaves like 'liftShowsPrec2' (without
@@ -206,12 +206,12 @@ deriveShow2Options = deriveShowClass Show2
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowsPrec2 :: Name -> Q Exp
-makeLiftShowsPrec2 = makeLiftShowsPrec2Options defaultOptions
+makeLiftShowsPrec2 = makeLiftShowsPrec2Options defaultShowOptions
 
--- | Like 'makeLiftShowsPrec2', but takes an 'Options' argument.
+-- | Like 'makeLiftShowsPrec2', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-makeLiftShowsPrec2Options :: Options -> Name -> Q Exp
+makeLiftShowsPrec2Options :: ShowOptions -> Name -> Q Exp
 makeLiftShowsPrec2Options = makeShowsPrecClass Show2
 
 -- | Generates a lambda expression which behaves like 'liftShowList2' (without
@@ -219,12 +219,12 @@ makeLiftShowsPrec2Options = makeShowsPrecClass Show2
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftShowList2 :: Name -> Q Exp
-makeLiftShowList2 = makeLiftShowList2Options defaultOptions
+makeLiftShowList2 = makeLiftShowList2Options defaultShowOptions
 
--- | Like 'makeLiftShowList2', but takes an 'Options' argument.
+-- | Like 'makeLiftShowList2', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-makeLiftShowList2Options :: Options -> Name -> Q Exp
+makeLiftShowList2Options :: ShowOptions -> Name -> Q Exp
 makeLiftShowList2Options opts name = do
     sp1' <- newName "sp1'"
     sl1' <- newName "sl1'"
@@ -241,12 +241,12 @@ makeLiftShowList2Options opts name = do
 --
 -- This function is not available with @transformers-0.4@.
 makeShowsPrec2 :: Name -> Q Exp
-makeShowsPrec2 = makeShowsPrec2Options defaultOptions
+makeShowsPrec2 = makeShowsPrec2Options defaultShowOptions
 
--- | Like 'makeShowsPrec2', but takes an 'Options' argument.
+-- | Like 'makeShowsPrec2', but takes a 'ShowOptions' argument.
 --
 -- This function is not available with @transformers-0.4@.
-makeShowsPrec2Options :: Options -> Name -> Q Exp
+makeShowsPrec2Options :: ShowOptions -> Name -> Q Exp
 makeShowsPrec2Options opts name = makeLiftShowsPrec2Options opts name
                            `appE` varE showsPrecValName
                            `appE` varE showListValName
@@ -260,7 +260,7 @@ makeShowsPrec2Options opts name = makeLiftShowsPrec2Options opts name
 
 -- | Derive a Show(1)(2) instance declaration (depending on the ShowClass
 -- argument's value).
-deriveShowClass :: ShowClass -> Options -> Name -> Q [Dec]
+deriveShowClass :: ShowClass -> ShowOptions -> Name -> Q [Dec]
 deriveShowClass sClass opts name = withType name fromCons
   where
     fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
@@ -274,7 +274,7 @@ deriveShowClass sClass opts name = withType name fromCons
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (showsPrec for Show, liftShowsPrec for Show1, and
 -- liftShowsPrec2 for Show2).
-showsPrecDecs :: ShowClass -> Options -> [Con] -> [Q Dec]
+showsPrecDecs :: ShowClass -> ShowOptions -> [Con] -> [Q Dec]
 showsPrecDecs sClass opts cons =
     [ funD (showsPrecName sClass)
            [ clause []
@@ -285,7 +285,7 @@ showsPrecDecs sClass opts cons =
 
 -- | Generates a lambda expression which behaves like showsPrec (for Show),
 -- liftShowsPrec (for Show1), or liftShowsPrec2 (for Show2).
-makeShowsPrecClass :: ShowClass -> Options -> Name -> Q Exp
+makeShowsPrecClass :: ShowClass -> ShowOptions -> Name -> Q Exp
 makeShowsPrecClass sClass opts name = withType name fromCons
   where
     fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
@@ -298,7 +298,7 @@ makeShowsPrecClass sClass opts name = withType name fromCons
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeShowForCons :: ShowClass -> Options -> [Con] -> Q Exp
+makeShowForCons :: ShowClass -> ShowOptions -> [Con] -> Q Exp
 makeShowForCons _ _ [] = noConstructorsError
 makeShowForCons sClass opts cons = do
     p     <- newName "p"
@@ -324,7 +324,12 @@ makeShowForCons sClass opts cons = do
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for a
 -- single constructor.
-makeShowForCon :: Name -> ShowClass -> Options -> [(Name, Name)] -> Con -> Q [Match]
+makeShowForCon :: Name
+               -> ShowClass
+               -> ShowOptions
+               -> [(Name, Name)]
+               -> Con
+               -> Q [Match]
 makeShowForCon _ sClass _ spls (NormalC conName []) = do
     ([], _) <- reifyConTys2 sClass spls conName
     m <- match
@@ -420,7 +425,7 @@ makeShowForCon p sClass opts spls (InfixC _ conName _) = do
     ar   <- newName "argR"
     info <- reify conName
 
-#if __GLASGOW_HASKELL__ >= 711
+#if MIN_VERSION_template_haskell(2,11,0)
     conPrec <- case info of
                         DataConI{} -> do
                             fi <- fromMaybe defaultFixity <$> reifyFixity conName
@@ -473,7 +478,7 @@ makeShowForCon p sClass opts spls (RecGadtC conNames ts _) =
 -- argument of a constructor.
 makeShowForArg :: Int
                -> ShowClass
-               -> Options
+               -> ShowOptions
                -> Name
                -> TyVarMap2
                -> Type
@@ -577,7 +582,7 @@ makeShowForType sClass conName tvMap _ ty = do
       if mentionsName ty varNames
          then lamE [varP p', varP value'] $ varE showsPrec1ValName
                 `appE` varE p'
-                `appE` (makeFmapApply sClass conName ty varName `appE` varE value')
+                `appE` (makeFmapApplyNeg sClass conName ty varName `appE` varE value')
          else varE showsPrecValName
 #endif
 

@@ -297,8 +297,8 @@ makeCaseForType eClass tvMap conName ty = do
     varName:_ ->
       if mentionsName ty varNames
          then lamE (map varP [a',b']) $ varE eq1ValName
-                `appE` (makeFmapApply eClass conName ty varName `appE` varE a')
-                `appE` (makeFmapApply eClass conName ty varName `appE` varE b')
+                `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE a')
+                `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE b')
          else varE showsPrecValName
 #endif
 

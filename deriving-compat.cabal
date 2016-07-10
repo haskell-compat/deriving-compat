@@ -86,13 +86,13 @@ library
                        Data.Functor.Deriving
                        -- Data.Ord.Deriving
                        Data.Traversable.Deriving
-                       -- Text.Read.Deriving
+                       Text.Read.Deriving
                        Text.Show.Deriving
   other-modules:       Data.Eq.Deriving.Internal
                        Data.Deriving.Internal
                        Data.Functor.Deriving.Internal
                        -- Data.Ord.Deriving.Internal
-                       -- Text.Read.Deriving.Internal
+                       Text.Read.Deriving.Internal
                        Text.Show.Deriving.Internal
                        Paths_deriving_compat
   build-depends:       containers          >= 0.1 && < 0.6
@@ -127,8 +127,10 @@ test-suite spec
   other-modules:       EqSpec
                        FunctorSpec
                        -- OrdSpec
-                       -- ReadSpec
+                       ReadSpec
                        ShowSpec
+
+                       Types.ReadShow
   build-depends:       base-compat         >= 0.8.1 && < 1
                      , base-orphans        >= 0.5   && < 1
                      , deriving-compat     == 0.2.2

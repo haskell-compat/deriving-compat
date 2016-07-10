@@ -26,9 +26,9 @@ import           Control.Monad (liftM, when, unless)
 
 import           Data.Foldable (foldr')
 #if !(MIN_VERSION_base(4,9,0))
-import           Data.Functor.Classes (Eq1(..), Show1(..))
+import           Data.Functor.Classes (Eq1(..), Read1(..), Show1(..))
 # if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
-import           Data.Functor.Classes (Eq2(..), Show2(..))
+import           Data.Functor.Classes (Eq2(..), Read2(..), Show2(..))
 # endif
 #endif
 import           Data.List
@@ -166,6 +166,27 @@ liftEq2Const :: Bool
              -> f a c -> f b d -> Bool
 liftEq2Const x _ _ _ _ = x
 {-# INLINE liftEq2Const #-}
+
+readsPrecConst :: ReadS a -> Int -> ReadS a
+readsPrecConst x _ = x
+{-# INLINE readsPrecConst #-}
+
+readsPrec1Const :: ReadS (f a) -> Int -> ReadS (f a)
+readsPrec1Const x _ = x
+{-# INLINE readsPrec1Const #-}
+
+liftReadsPrecConst :: ReadS (f a)
+                   -> (Int -> ReadS a) -> ReadS [a]
+                   -> Int -> ReadS (f a)
+liftReadsPrecConst x _ _ _ = x
+{-# INLINE liftReadsPrecConst #-}
+
+liftReadsPrec2Const :: ReadS (f a b)
+                    -> (Int -> ReadS a) -> ReadS [a]
+                    -> (Int -> ReadS b) -> ReadS [b]
+                    -> Int -> ReadS (f a b)
+liftReadsPrec2Const x _ _ _ _ _ = x
+{-# INLINE liftReadsPrec2Const #-}
 
 showsPrecConst :: ShowS
                -> Int -> a -> ShowS
@@ -1011,7 +1032,26 @@ stealKindForType _   t        = t
 
 -- | Monadic version of concatMap
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
-concatMapM f xs = liftM concat (mapM f xs)
+concatMapM f xs = concat `liftM` mapM f xs
+
+zipWithAndUnzipM :: Monad m
+                 => (a -> b -> m (c, d)) -> [a] -> [b] -> m ([c], [d])
+zipWithAndUnzipM f (x:xs) (y:ys) = do
+    (c, d) <- f x y
+    (cs, ds) <- zipWithAndUnzipM f xs ys
+    return (c:cs, d:ds)
+zipWithAndUnzipM _ _ _ = return ([], [])
+{-# INLINE zipWithAndUnzipM #-}
+
+zipWith3AndUnzipM :: Monad m
+                 => (a -> b -> c -> m (d, e)) -> [a] -> [b] -> [c]
+                 -> m ([d], [e])
+zipWith3AndUnzipM f (x:xs) (y:ys) (z:zs) = do
+    (d, e) <- f x y z
+    (ds, es) <- zipWith3AndUnzipM f xs ys zs
+    return (d:ds, e:es)
+zipWith3AndUnzipM _ _ _ _ = return ([], [])
+{-# INLINE zipWith3AndUnzipM #-}
 
 thd3 :: (a, b, c) -> c
 thd3 (_, _, c) = c
@@ -1263,6 +1303,18 @@ liftEqConstValName = mkDerivingCompatName_v "liftEqConst"
 liftEq2ConstValName :: Name
 liftEq2ConstValName = mkDerivingCompatName_v "liftEq2Const"
 
+readsPrecConstValName :: Name
+readsPrecConstValName = mkDerivingCompatName_v "readsPrecConst"
+
+readsPrec1ConstValName :: Name
+readsPrec1ConstValName = mkDerivingCompatName_v "readsPrec1Const"
+
+liftReadsPrecConstValName :: Name
+liftReadsPrecConstValName = mkDerivingCompatName_v "liftReadsPrecConst"
+
+liftReadsPrec2ConstValName :: Name
+liftReadsPrec2ConstValName = mkDerivingCompatName_v "liftReadsPrec2Const"
+
 showsPrecConstValName :: Name
 showsPrecConstValName = mkDerivingCompatName_v "showsPrecConst"
 
@@ -1293,8 +1345,17 @@ endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
 fHashDataName :: Name
 fHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "F#"
 
+identDataName :: Name
+identDataName = mkNameG_d "base" "Text.Read.Lex" "Ident"
+
 iHashDataName :: Name
 iHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "I#"
+
+puncDataName :: Name
+puncDataName = mkNameG_d "base" "Text.Read.Lex" "Punc"
+
+symbolDataName :: Name
+symbolDataName = mkNameG_d "base" "Text.Read.Lex" "Symbol"
 
 wrapMonadDataName :: Name
 wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
@@ -1320,6 +1381,9 @@ functorTypeName = mkNameG_tc "base" "GHC.Base" "Functor"
 intHashTypeName :: Name
 intHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int#"
 
+readTypeName :: Name
+readTypeName = mkNameG_tc "base" "GHC.Read" "Read"
+
 showTypeName :: Name
 showTypeName = mkNameG_tc "base" "GHC.Show" "Show"
 
@@ -1329,8 +1393,14 @@ traversableTypeName = mkNameG_tc "base" "Data.Traversable" "Traversable"
 wordHashTypeName :: Name
 wordHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word#"
 
+altValName :: Name
+altValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "+++"
+
 appEndoValName :: Name
 appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
+
+chooseValName :: Name
+chooseValName = mkNameG_v "base" "GHC.Read" "choose"
 
 composeValName :: Name
 composeValName = mkNameG_v "base" "GHC.Base" "."
@@ -1377,6 +1447,33 @@ getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
 idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
 
+parensValName :: Name
+parensValName = mkNameG_v "base" "GHC.Read" "parens"
+
+pfailValName :: Name
+pfailValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "pfail"
+
+precValName :: Name
+precValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "prec"
+
+readPrec_to_SValName :: Name
+readPrec_to_SValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readPrec_to_S"
+
+readS_to_PrecValName :: Name
+readS_to_PrecValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readS_to_Prec"
+
+readsPrecValName :: Name
+readsPrecValName = mkNameG_v "base" "GHC.Read" "readsPrec"
+
+readListValName :: Name
+readListValName = mkNameG_v "base" "GHC.Read" "readList"
+
+resetValName :: Name
+resetValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "reset"
+
+returnValName :: Name
+returnValName = mkNameG_v "base" "GHC.Base" "return"
+
 showCharValName :: Name
 showCharValName = mkNameG_v "base" "GHC.Show" "showChar"
 
@@ -1397,6 +1494,9 @@ showSpaceValName = mkNameG_v "base" "GHC.Show" "showSpace"
 
 showStringValName :: Name
 showStringValName = mkNameG_v "base" "GHC.Show" "showString"
+
+stepValName :: Name
+stepValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "step"
 
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
@@ -1463,6 +1563,19 @@ starKindName :: Name
 starKindName = mkNameG_tc "ghc-prim" "GHC.Prim" "*"
 #endif
 
+#if MIN_VERSION_base(4,7,0)
+expectPValName :: Name
+expectPValName = mkNameG_v "base" "GHC.Read" "expectP"
+#else
+expectP :: Lexeme -> ReadPrec ()
+expectP lexeme = do
+  thing <- lexP
+  if thing == lexeme then return () else pfail
+
+expectPValName :: Name
+expectPValName = mkDerivingCompatName_v "expectP"
+#endif
+
 #if MIN_VERSION_base(4,8,0)
 pureValName :: Name
 pureValName = mkNameG_v "base" "GHC.Base" "pure"
@@ -1502,6 +1615,24 @@ liftEqValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq"
 liftEq2ValName :: Name
 liftEq2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq2"
 
+read1TypeName :: Name
+read1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Read1"
+
+read2TypeName :: Name
+read2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Read2"
+
+liftReadsPrecValName :: Name
+liftReadsPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadsPrec"
+
+liftReadListValName :: Name
+liftReadListValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadList"
+
+liftReadsPrec2ValName :: Name
+liftReadsPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadsPrec2"
+
+liftReadList2ValName :: Name
+liftReadList2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadList2"
+
 show1TypeName :: Name
 show1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Show1"
 
@@ -1535,6 +1666,24 @@ liftEqValName = 'liftEq
 liftEq2ValName :: Name
 liftEq2ValName = 'liftEq2
 
+read1TypeName :: Name
+read1TypeName = ''Read1
+
+read2TypeName :: Name
+read2TypeName = ''Read2
+
+liftReadsPrecValName :: Name
+liftReadsPrecValName = 'liftReadsPrec
+
+liftReadListValName :: Name
+liftReadListName = 'liftReadList
+
+liftReadsPrec2ValName :: Name
+liftReadsPrec2ValName = 'liftReadsPrec2
+
+liftReadList2ValName :: Name
+liftReadList2ValName = 'liftReadList2
+
 show1TypeName :: Name
 show1TypeName = ''Show1
 
@@ -1559,6 +1708,12 @@ eq1TypeName = ''Eq1
 eq1ValName :: Name
 eq1ValName = 'eq1
 
+read1TypeName :: Name
+read1TypeName = ''Read1
+
+readsPrec1ValName :: Name
+readsPrec1ValName = 'readsPrec1
+
 show1TypeName :: Name
 show1TypeName = ''Show1
 
@@ -1567,15 +1722,24 @@ showsPrec1ValName = 'showsPrec1
 
 newtype Apply f a = Apply { unApply :: f a }
 
-instance (Eq1 g, Eq a) => Eq (Apply g a) where
+instance (Eq1 f, Eq a) => Eq (Apply f a) where
     Apply x == Apply y = eq1 x y
+
+instance (Read1 f, Read a) => Read (Apply f a) where
+    readsPrec d s = [(Apply a, t) | (a, t) <- readsPrec1 d s]
 
 instance (Show1 f, Show a) => Show (Apply f a) where
     showsPrec p (Apply x) = showsPrec1 p x
 
-makeFmapApply :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
-makeFmapApply cRep conName (SigT ty _) name = makeFmapApply cRep conName ty name
-makeFmapApply cRep conName t name = do
+makeFmapApplyNeg :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
+makeFmapApplyNeg = makeFmapApply False
+
+makeFmapApplyPos :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
+makeFmapApplyPos = makeFmapApply True
+
+makeFmapApply :: ClassRep a => Bool -> a -> Name -> Type -> Name -> Q Exp
+makeFmapApply pos cRep conName (SigT ty _) name = makeFmapApply pos cRep conName ty name
+makeFmapApply pos cRep conName t name = do
     let tyCon :: Type
         tyArgs :: [Type]
         tyCon:tyArgs = unapplyTy t
@@ -1590,9 +1754,11 @@ makeFmapApply cRep conName t name = do
         inspectTy (SigT ty _) = inspectTy ty
         inspectTy (VarT a) | a == name = varE idValName
         inspectTy beta = varE fmapValName `appE`
-                           infixApp (conE applyDataName)
+                           infixApp (if pos then makeFmapApply pos cRep conName beta name
+                                            else conE applyDataName)
                                     (varE composeValName)
-                                    (makeFmapApply cRep conName beta name)
+                                    (if pos then varE unApplyValName
+                                            else makeFmapApply pos cRep conName beta name)
 
     itf <- isTyFamily tyCon
     if any (`mentionsName` [name]) lhsArgs
@@ -1602,5 +1768,8 @@ makeFmapApply cRep conName t name = do
 
 applyDataName :: Name
 applyDataName = mkNameG_d derivingCompatPackageKey "Data.Deriving.Internal" "Apply"
+
+unApplyValName :: Name
+unApplyValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "unApply"
 # endif
 #endif

@@ -40,10 +40,10 @@ module Text.Show.Deriving (
     , makeShowsPrec2
     , makeShowsPrec2Options
 #endif
-      -- * 'Options'
-    , Options(..)
-    , defaultOptions
-    , legacyOptions
+      -- * 'ShowOptions'
+    , ShowOptions(..)
+    , defaultShowOptions
+    , legacyShowOptions
       -- * 'deriveShow' limitations
       -- $constraints
     ) where
