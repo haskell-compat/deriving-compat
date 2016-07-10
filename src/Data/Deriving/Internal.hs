@@ -38,6 +38,14 @@ import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
 
+#if !(MIN_VERSION_base(4,7,0))
+import           GHC.Read (lexP)
+
+import           Text.ParserCombinators.ReadPrec (ReadPrec)
+import           Text.Read (pfail)
+import           Text.Read.Lex (Lexeme)
+#endif
+
 #if MIN_VERSION_ghc_prim(0,3,1)
 import           GHC.Prim (Int#, tagToEnum#)
 #endif
@@ -1676,7 +1684,7 @@ liftReadsPrecValName :: Name
 liftReadsPrecValName = 'liftReadsPrec
 
 liftReadListValName :: Name
-liftReadListName = 'liftReadList
+liftReadListValName = 'liftReadList
 
 liftReadsPrec2ValName :: Name
 liftReadsPrec2ValName = 'liftReadsPrec2
