@@ -299,7 +299,7 @@ makeCaseForType eClass tvMap conName ty = do
          then lamE (map varP [a',b']) $ varE eq1ValName
                 `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE a')
                 `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE b')
-         else varE showsPrecValName
+         else varE eqValName
 #endif
 
 -------------------------------------------------------------------------------
@@ -350,19 +350,3 @@ eqName Eq2 = liftEq2ValName
 #else
 eqName Eq1 = eq1ValName
 #endif
-
--------------------------------------------------------------------------------
--- Assorted utilities
--------------------------------------------------------------------------------
-
-untagExpr :: [(Name, Name)] -> Q Exp -> Q Exp
-untagExpr [] e = e
-untagExpr ((untagThis, putTagHere) : more) e =
-    caseE (varE getTagValName `appE` varE untagThis)
-          [match (varP putTagHere)
-                 (normalB $ untagExpr more e)
-                 []]
-
-primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
-primOpAppExpr e1 op e2 = varE tagToEnumValName `appE`
-                           infixApp e1 (varE op) e2

@@ -183,12 +183,17 @@ $(deriveFoldable    ''OneTwoCompose)
 $(deriveTraversable ''OneTwoCompose)
 
 instance Functor (f Int Int) => Functor (ComplexConstraint f g a) where
-    fmap    = $(makeFmap      ''ComplexConstraint)
+    fmap      = $(makeFmap      ''ComplexConstraint)
 instance Foldable (f Int Int) => Foldable (ComplexConstraint f g a) where
-    foldr   = $(makeFoldr     ''ComplexConstraint)
-    foldMap = $(makeFoldMap   ''ComplexConstraint)
+    foldr     = $(makeFoldr     ''ComplexConstraint)
+    foldMap   = $(makeFoldMap   ''ComplexConstraint)
+    fold      = $(makeFold      ''ComplexConstraint)
+    foldl     = $(makeFoldl     ''ComplexConstraint)
 instance Traversable (f Int Int) => Traversable (ComplexConstraint f g a) where
-    traverse = $(makeTraverse ''ComplexConstraint)
+    traverse  = $(makeTraverse  ''ComplexConstraint)
+    sequenceA = $(makeSequenceA ''ComplexConstraint)
+    mapM      = $(makeMapM      ''ComplexConstraint)
+    sequence  = $(makeSequence  ''ComplexConstraint)
 
 $(deriveFunctor     ''Universal)
 
@@ -221,12 +226,17 @@ $(deriveFoldable    'OneTwoComposeFam)
 $(deriveTraversable 'OneTwoComposeFam)
 
 instance Functor (f Int Int) => Functor (ComplexConstraintFam f g a) where
-    fmap    = $(makeFmap      'ComplexConstraintFam)
+    fmap      = $(makeFmap      'ComplexConstraintFam)
 instance Foldable (f Int Int) => Foldable (ComplexConstraintFam f g a) where
-    foldr   = $(makeFoldr     'ComplexConstraintFam)
-    foldMap = $(makeFoldMap   'ComplexConstraintFam)
+    foldr     = $(makeFoldr     'ComplexConstraintFam)
+    foldMap   = $(makeFoldMap   'ComplexConstraintFam)
+    fold      = $(makeFold      'ComplexConstraintFam)
+    foldl     = $(makeFoldl     'ComplexConstraintFam)
 instance Traversable (f Int Int) => Traversable (ComplexConstraintFam f g a) where
-    traverse = $(makeTraverse 'ComplexConstraintFam)
+    traverse  = $(makeTraverse  'ComplexConstraintFam)
+    sequenceA = $(makeSequenceA 'ComplexConstraintFam)
+    mapM      = $(makeMapM      'ComplexConstraintFam)
+    sequence  = $(makeSequence  'ComplexConstraintFam)
 
 $(deriveFunctor     'UniversalFam)
 

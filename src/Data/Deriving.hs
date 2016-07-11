@@ -22,7 +22,7 @@ module Data.Deriving (
 import Data.Eq.Deriving          as Exports
 import Data.Foldable.Deriving    as Exports
 import Data.Functor.Deriving     as Exports
--- import Data.Ord.Deriving         as Exports
+import Data.Ord.Deriving         as Exports
 import Data.Traversable.Deriving as Exports
 import Text.Read.Deriving        as Exports
 import Text.Show.Deriving        as Exports

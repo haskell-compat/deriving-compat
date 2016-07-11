@@ -27,6 +27,9 @@ description:         Provides Template Haskell functions that mimic deriving
                        the output of showing an unlifted type is suffixed with the same
                        number of hash signs as the corresponding primitive literals.
                      .
+                     * In GHC 8.2, deriving `Ord` was changed so that it generates concrete
+                       @if@-expressions that are not subject to @RebindableSyntax@.
+                     .
                      Note that some recent GHC extensions are not covered by this package:
                      .
                      * @DeriveGeneric@, which was introducted in GHC 7.2 for deriving
@@ -84,14 +87,14 @@ library
                        Data.Eq.Deriving
                        Data.Foldable.Deriving
                        Data.Functor.Deriving
-                       -- Data.Ord.Deriving
+                       Data.Ord.Deriving
                        Data.Traversable.Deriving
                        Text.Read.Deriving
                        Text.Show.Deriving
   other-modules:       Data.Eq.Deriving.Internal
                        Data.Deriving.Internal
                        Data.Functor.Deriving.Internal
-                       -- Data.Ord.Deriving.Internal
+                       Data.Ord.Deriving.Internal
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving.Internal
                        Paths_deriving_compat
@@ -126,10 +129,11 @@ test-suite spec
   main-is:             Spec.hs
   other-modules:       EqSpec
                        FunctorSpec
-                       -- OrdSpec
+                       OrdSpec
                        ReadSpec
                        ShowSpec
 
+                       Types.EqOrd
                        Types.ReadShow
   build-depends:       base-compat         >= 0.8.1 && < 1
                      , base-orphans        >= 0.5   && < 1

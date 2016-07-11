@@ -26,9 +26,9 @@ import           Control.Monad (liftM, when, unless)
 
 import           Data.Foldable (foldr')
 #if !(MIN_VERSION_base(4,9,0))
-import           Data.Functor.Classes (Eq1(..), Read1(..), Show1(..))
+import           Data.Functor.Classes (Eq1(..), Ord1(..), Read1(..), Show1(..))
 # if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
-import           Data.Functor.Classes (Eq2(..), Read2(..), Show2(..))
+import           Data.Functor.Classes (Eq2(..), Ord2(..), Read2(..), Show2(..))
 # endif
 #endif
 import           Data.List
@@ -174,6 +174,29 @@ liftEq2Const :: Bool
              -> f a c -> f b d -> Bool
 liftEq2Const x _ _ _ _ = x
 {-# INLINE liftEq2Const #-}
+
+compareConst :: Ordering -> a -> a -> Ordering
+compareConst x _ _ = x
+{-# INLINE compareConst #-}
+
+ltConst :: Bool -> a -> a -> Bool
+ltConst x _ _ = x
+{-# INLINE ltConst #-}
+
+compare1Const :: Ordering -> f a -> f a -> Ordering
+compare1Const x _ _ = x
+{-# INLINE compare1Const #-}
+
+liftCompareConst :: Ordering
+                 -> (a -> b -> Ordering) -> f a -> f b -> Ordering
+liftCompareConst x _ _ _ = x
+{-# INLINE liftCompareConst #-}
+
+liftCompare2Const :: Ordering
+                  -> (a -> b -> Ordering) -> (c -> d -> Ordering)
+                  -> f a c -> f b d -> Ordering
+liftCompare2Const x _ _ _ _ = x
+{-# INLINE liftCompare2Const #-}
 
 readsPrecConst :: ReadS a -> Int -> ReadS a
 readsPrecConst x _ = x
@@ -1135,6 +1158,13 @@ canEtaReduce remaining dropped =
     droppedNames :: [Name]
     droppedNames = map varTToName dropped
 
+-- | Extract the Name from a type constructor. If the argument Type is not a
+-- type variable, throw an error.
+conTToName :: Type -> Name
+conTToName (ConT n)   = n
+conTToName (SigT t _) = conTToName t
+conTToName _          = error "Not a type constructor!"
+
 -- | Extract Just the Name from a type variable. If the argument Type is not a
 -- type variable, return Nothing.
 varTToName_maybe :: Type -> Maybe Name
@@ -1269,6 +1299,18 @@ uncurryKind (ArrowK k1 k2) = k1:uncurryKind k2
 uncurryKind k              = [k]
 #endif
 
+untagExpr :: [(Name, Name)] -> Q Exp -> Q Exp
+untagExpr [] e = e
+untagExpr ((untagThis, putTagHere) : more) e =
+    caseE (varE getTagValName `appE` varE untagThis)
+          [match (varP putTagHere)
+                 (normalB $ untagExpr more e)
+                 []]
+
+primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
+primOpAppExpr e1 op e2 = varE tagToEnumValName `appE`
+                           infixApp e1 (varE op) e2
+
 -------------------------------------------------------------------------------
 -- Manually quoted names
 -------------------------------------------------------------------------------
@@ -1310,6 +1352,21 @@ liftEqConstValName = mkDerivingCompatName_v "liftEqConst"
 
 liftEq2ConstValName :: Name
 liftEq2ConstValName = mkDerivingCompatName_v "liftEq2Const"
+
+compareConstValName :: Name
+compareConstValName = mkDerivingCompatName_v "compareConst"
+
+ltConstValName :: Name
+ltConstValName = mkDerivingCompatName_v "ltConst"
+
+compare1ConstValName :: Name
+compare1ConstValName = mkDerivingCompatName_v "compare1Const"
+
+liftCompareConstValName :: Name
+liftCompareConstValName = mkDerivingCompatName_v "liftCompareConst"
+
+liftCompare2ConstValName :: Name
+liftCompare2ConstValName = mkDerivingCompatName_v "liftCompare2Const"
 
 readsPrecConstValName :: Name
 readsPrecConstValName = mkDerivingCompatName_v "readsPrecConst"
@@ -1446,14 +1503,86 @@ foldrValName = mkNameG_v "base" "Data.Foldable" "foldr"
 foldMapValName :: Name
 foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
 
+geAddrHashValName :: Name
+geAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geAddr#"
+
+geCharHashValName :: Name
+geCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geChar#"
+
+geDoubleHashValName :: Name
+geDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">=##"
+
+geFloatHashValName :: Name
+geFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geFloat#"
+
+geIntHashValName :: Name
+geIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">=#"
+
 getDualValName :: Name
 getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
 
 getTagValName :: Name
 getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
 
+geWordHashValName :: Name
+geWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord#"
+
+gtAddrHashValName :: Name
+gtAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtAddr#"
+
+gtCharHashValName :: Name
+gtCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtChar#"
+
+gtDoubleHashValName :: Name
+gtDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">##"
+
+gtFloatHashValName :: Name
+gtFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtFloat#"
+
+gtIntHashValName :: Name
+gtIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">#"
+
+gtWordHashValName :: Name
+gtWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord#"
+
 idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
+
+leAddrHashValName :: Name
+leAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leAddr#"
+
+leCharHashValName :: Name
+leCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leChar#"
+
+leDoubleHashValName :: Name
+leDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<=##"
+
+leFloatHashValName :: Name
+leFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leFloat#"
+
+leIntHashValName :: Name
+leIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<=#"
+
+leWordHashValName :: Name
+leWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord#"
+
+ltAddrHashValName :: Name
+ltAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltAddr#"
+
+ltCharHashValName :: Name
+ltCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltChar#"
+
+ltDoubleHashValName :: Name
+ltDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<##"
+
+ltFloatHashValName :: Name
+ltFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltFloat#"
+
+ltIntHashValName :: Name
+ltIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<#"
+
+ltWordHashValName :: Name
+ltWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord#"
 
 parensValName :: Name
 parensValName = mkNameG_v "base" "GHC.Read" "parens"
@@ -1513,12 +1642,18 @@ unwrapMonadValName :: Name
 unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"
 
 #if MIN_VERSION_base(4,4,0)
+boolTypeName :: Name
+boolTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Bool"
+
 falseDataName :: Name
 falseDataName = mkNameG_v "ghc-prim" "GHC.Types" "False"
 
 trueDataName :: Name
 trueDataName = mkNameG_v "ghc-prim" "GHC.Types" "True"
 #else
+boolTypeName :: Name
+boolTypeName = mkNameG_tc "ghc-prim" "GHC.Bool" "Bool"
+
 falseDataName :: Name
 falseDataName = mkNameG_v "ghc-prim" "GHC.Bool" "False"
 
@@ -1527,14 +1662,38 @@ trueDataName = mkNameG_v "ghc-prim" "GHC.Bool" "True"
 #endif
 
 #if MIN_VERSION_base(4,5,0)
+eqDataName :: Name
+eqDataName = mkNameG_d "ghc-prim" "GHC.Types" "EQ"
+
+gtDataName :: Name
+gtDataName = mkNameG_d "ghc-prim" "GHC.Types" "GT"
+
+ltDataName :: Name
+ltDataName = mkNameG_d "ghc-prim" "GHC.Types" "LT"
+
 eqTypeName :: Name
 eqTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Eq"
+
+ordTypeName :: Name
+ordTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Ord"
 
 andValName :: Name
 andValName = mkNameG_v "ghc-prim" "GHC.Classes" "&&"
 
+compareValName :: Name
+compareValName = mkNameG_v "ghc-prim" "GHC.Classes" "compare"
+
 eqValName :: Name
 eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
+
+geValName :: Name
+geValName = mkNameG_v "ghc-prim" "GHC.Classes" "<="
+
+gtValName :: Name
+gtValName = mkNameG_v "ghc-prim" "GHC.Classes" "<"
+
+leValName :: Name
+leValName = mkNameG_v "ghc-prim" "GHC.Classes" ">="
 
 ltValName :: Name
 ltValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
@@ -1542,14 +1701,38 @@ ltValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
 notValName :: Name
 notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
 #else
+eqDataName :: Name
+eqDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "EQ"
+
+gtDataName :: Name
+gtDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "GT"
+
+ltDataName :: Name
+ltDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "LT"
+
 eqTypeName :: Name
 eqTypeName = mkNameG_tc "base" "GHC.Classes" "Eq"
+
+ordTypeName :: Name
+ordTypeName = mkNameG_tc "base" "GHC.Classes" "Ord"
 
 andValName :: Name
 andValName = mkNameG_v "base" "GHC.Classes" "&&"
 
+compareValName :: Name
+compareValName = mkNameG_v "base" "GHC.Classes" "compare"
+
 eqValName :: Name
 eqValName = mkNameG_v "base" "GHC.Classes" "=="
+
+geValName :: Name
+geValName = mkNameG_v "base" "GHC.Classes" "<="
+
+gtValName :: Name
+gtValName = mkNameG_v "base" "GHC.Classes" "<"
+
+leValName :: Name
+leValName = mkNameG_v "base" "GHC.Classes" ">="
 
 ltValName :: Name
 ltValName = mkNameG_v "base" "GHC.Classes" ">"
@@ -1623,6 +1806,18 @@ liftEqValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq"
 liftEq2ValName :: Name
 liftEq2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq2"
 
+ord1TypeName :: Name
+ord1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Ord1"
+
+ord2TypeName :: Name
+ord2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Ord2"
+
+liftCompareValName :: Name
+liftCompareValName = mkNameG_v "base" "Data.Functor.Classes" "liftCompare"
+
+liftCompare2ValName :: Name
+liftCompare2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftCompare2"
+
 read1TypeName :: Name
 read1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Read1"
 
@@ -1674,6 +1869,18 @@ liftEqValName = 'liftEq
 liftEq2ValName :: Name
 liftEq2ValName = 'liftEq2
 
+ord1TypeName :: Name
+ord1TypeName = ''Ord1
+
+ord2TypeName :: Name
+ord2TypeName = ''Ord2
+
+liftCompareValName :: Name
+liftCompareValName = 'liftCompare
+
+liftCompare2ValName :: Name
+liftCompare2ValName = 'liftCompare2
+
 read1TypeName :: Name
 read1TypeName = ''Read1
 
@@ -1716,6 +1923,12 @@ eq1TypeName = ''Eq1
 eq1ValName :: Name
 eq1ValName = 'eq1
 
+ord1TypeName :: Name
+ord1TypeName = ''Ord1
+
+compare1ValName :: Name
+compare1ValName = 'compare1
+
 read1TypeName :: Name
 read1TypeName = ''Read1
 
@@ -1732,6 +1945,9 @@ newtype Apply f a = Apply { unApply :: f a }
 
 instance (Eq1 f, Eq a) => Eq (Apply f a) where
     Apply x == Apply y = eq1 x y
+
+instance (Ord1 g, Ord a) => Ord (Apply g a) where
+    compare (Apply x) (Apply y) = compare1 x y
 
 instance (Read1 f, Read a) => Read (Apply f a) where
     readsPrec d s = [(Apply a, t) | (a, t) <- readsPrec1 d s]

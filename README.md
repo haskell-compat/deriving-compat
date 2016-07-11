@@ -26,6 +26,7 @@ The following changes have been backported:
 * In GHC 8.0, `DeriveFoldable` was changed to allow folding over data types with existential constraints.
 * In GHC 8.0, `DeriveFoldable` and `DeriveTraversable` were changed so as not to generate superfluous `mempty` or `pure` expressions in generated code. As a result, this allows deriving `Traversable` instances for datatypes with unlifted argument types.
 * In GHC 8.0, deriving `Show` was changed so that constructor fields with unlifted types are no longer shown with parentheses, and the output of showing an unlifted type is suffixed with the same number of hash signs as the corresponding primitive literals.
+* In GHC 8.2, deriving `Ord` was changed so that it generates concrete `if`-expressions that are not subject to `RebindableSyntax`.
 
 Note that some recent GHC extensions are not covered by this package:
 

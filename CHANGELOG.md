@@ -1,5 +1,6 @@
 ## 0.3
 * Added `Data.Eq.Deriving`, which allows deriving `Eq`, `Eq1`, and `Eq2` with TH.
+* Added `Data.Ord.Deriving`, which allows deriving `Ord`, `Ord1`, and `Ord2` with TH.
 * Added `Data.Read.Deriving`, which allows deriving `Read`, `Read1`, and `Eq2` with TH.
 * Renamed `Text.Show.Deriving.Options` to `ShowOptions` so as to disambiguate it from the options datatypes in other `deriving-compat` modules.
 

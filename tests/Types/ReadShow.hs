@@ -104,6 +104,8 @@ $(deriveShow  ''TyConGADT)
 instance (Show (f a), Show (f (g a)), Show (f (g (h a))))
   => Show (TyConWrap f g h a) where
     showsPrec = $(makeShowsPrec ''TyConWrap)
+    show      = $(makeShow      ''TyConWrap)
+    showList  = $(makeShowList  ''TyConWrap)
 
 $(deriveShow1 ''TyCon1)
 $(deriveShow1 ''TyConPlain)
@@ -153,6 +155,8 @@ $(deriveShow  '(:*))
 instance (Show (f a), Show (f (g a)), Show (f (g (h a))))
   => Show (TyFamilyWrap f g h a) where
     showsPrec = $(makeShowsPrec 'TyFamilyWrap1)
+    show      = $(makeShow      'TyFamilyWrap1)
+    showList  = $(makeShowList  'TyFamilyWrap1)
 
 $(deriveShow1 '(:!:))
 $(deriveShow1 '(:$:))
