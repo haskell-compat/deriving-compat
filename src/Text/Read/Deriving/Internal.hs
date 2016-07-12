@@ -379,7 +379,7 @@ makeLiftReadPrec2 = makeReadPrecClass Read2 True
 --
 -- This function is only available with @base-4.10@ or later.
 makeReadPrec2 :: Name -> Q Exp
-makeReadPrec2 name = makeLiftReadPrec2name
+makeReadPrec2 name = makeLiftReadPrec2 name
                      `appE` varE readPrecValName
                      `appE` varE readListPrecValName
                      `appE` varE readPrecValName
