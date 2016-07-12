@@ -13,46 +13,50 @@ module Text.Read.Deriving (
       deriveRead
     , deriveReadOptions
     , makeReadsPrec
-    , makeReadsPrecOptions
-    , makeReadList
-    , makeReadListOptions
+--     , makeReadsPrecOptions
+--     , makeReadList
+--     , makeReadListOptions
     , makeReadPrec
-    , makeReadPrecOptions
-    , makeReadListPrec
-    , makeReadListPrecOptions
+--     , makeReadPrecOptions
+--     , makeReadListPrec
+--     , makeReadListPrecOptions
       -- * 'Read1'
     , deriveRead1
     , deriveRead1Options
 #if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftReadsPrec
-    , makeLiftReadsPrecOptions
-    , makeLiftReadList
-    , makeLiftReadListOptions
+--     , makeLiftReadsPrecOptions
+--     , makeLiftReadList
+--     , makeLiftReadListOptions
 # if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec
-    , makeLiftReadPrecOptions
-    , makeLiftReadListPrec
-    , makeLiftReadListPrecOptions
+--     , makeLiftReadPrecOptions
+--     , makeLiftReadListPrec
+--     , makeLiftReadListPrecOptions
+    , makeReadPrec1
+--     , makeReadPrec1Options
 # endif
 #endif
     , makeReadsPrec1
-    , makeReadsPrec1Options
+--     , makeReadsPrec1Options
 #if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Read2'
     , deriveRead2
     , deriveRead2Options
     , makeLiftReadsPrec2
-    , makeLiftReadsPrec2Options
-    , makeLiftReadList2
-    , makeLiftReadList2Options
+--     , makeLiftReadsPrec2Options
+--     , makeLiftReadList2
+--     , makeLiftReadList2Options
 # if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec2
-    , makeLiftReadPrec2Options
-    , makeLiftReadListPrec2
-    , makeLiftReadListPrec2Options
+--     , makeLiftReadPrec2Options
+--     , makeLiftReadListPrec2
+--     , makeLiftReadListPrec2Options
+    , makeReadPrec2
+--     , makeReadPrec2Options
 # endif
     , makeReadsPrec2
-    , makeReadsPrec2Options
+--     , makeReadsPrec2Options
 #endif
       -- * 'ReadOptions'
     , ReadOptions(..)
@@ -81,5 +85,10 @@ Be aware of the following potential gotchas:
   result, neither are Template Haskell functions that deal with 'Read2' when this
   library is built against @transformers-0.4@.
 
-* TODO: GHC 8.2 changes
+* The 'Read1' and 'Read2' classes have new methods ('liftReadPrec'/'liftReadListPrec'
+  and 'liftReadPrec2'/'liftReadListPrec2', respectively) that were introduced in
+  @base-4.10@. For now, these methods are only defined when deriving 'Read1'/'Read2'
+  if built against @base-4.10@ (until @transformers-compat@ catches up), and
+  the corresponding @make-@ functions are also only available when built against
+  @base-4.10@.
 -}

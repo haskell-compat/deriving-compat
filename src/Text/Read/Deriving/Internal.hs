@@ -14,46 +14,50 @@ module Text.Read.Deriving.Internal (
       deriveRead
     , deriveReadOptions
     , makeReadsPrec
-    , makeReadsPrecOptions
-    , makeReadList
-    , makeReadListOptions
+--     , makeReadsPrecOptions
+--     , makeReadList
+--     , makeReadListOptions
     , makeReadPrec
-    , makeReadPrecOptions
-    , makeReadListPrec
-    , makeReadListPrecOptions
+--     , makeReadPrecOptions
+--     , makeReadListPrec
+--     , makeReadListPrecOptions
       -- * 'Read1'
     , deriveRead1
     , deriveRead1Options
 #if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftReadsPrec
-    , makeLiftReadsPrecOptions
-    , makeLiftReadList
-    , makeLiftReadListOptions
+--     , makeLiftReadsPrecOptions
+--     , makeLiftReadList
+--     , makeLiftReadListOptions
 # if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec
-    , makeLiftReadPrecOptions
-    , makeLiftReadListPrec
-    , makeLiftReadListPrecOptions
+--     , makeLiftReadPrecOptions
+--     , makeLiftReadListPrec
+--     , makeLiftReadListPrecOptions
+    , makeReadPrec1
+--     , makeReadPrec1Options
 # endif
 #endif
     , makeReadsPrec1
-    , makeReadsPrec1Options
+--     , makeReadsPrec1Options
 #if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Read2'
     , deriveRead2
     , deriveRead2Options
     , makeLiftReadsPrec2
-    , makeLiftReadsPrec2Options
-    , makeLiftReadList2
-    , makeLiftReadList2Options
+--     , makeLiftReadsPrec2Options
+--     , makeLiftReadList2
+--     , makeLiftReadList2Options
 # if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec2
-    , makeLiftReadPrec2Options
-    , makeLiftReadListPrec2
-    , makeLiftReadListPrec2Options
+--     , makeLiftReadPrec2Options
+--     , makeLiftReadListPrec2
+--     , makeLiftReadListPrec2Options
+    , makeReadPrec2
+--     , makeReadPrec2Options
 # endif
     , makeReadsPrec2
-    , makeReadsPrec2Options
+--     , makeReadsPrec2Options
 #endif
       -- * 'ReadOptions'
     , ReadOptions(..)
@@ -80,10 +84,42 @@ import           GHC.Lexeme (startsConSym, startsVarSym)
 import           Data.Char (isSymbol, ord)
 #endif
 
-data ReadOptions = ReadOptions
+-- | Options that further configure how the functions in "Text.Read.Deriving"
+-- should behave.
+newtype ReadOptions = ReadOptions
+  { useReadPrec :: Bool
+    -- ^ If 'True':
+    --
+    -- * Derived 'Read' instances will implement 'readPrec', not 'readsPrec', and
+    --   will provide a default implementation of 'readListPrec' in terms of
+    --   'readPrec'.
+    --
+    -- * If built against @base-4.10@ or later, derived 'Read1'/'Read2'
+    --   instances will implement 'liftReadPrec'/'liftReadPrec2', not
+    --   'liftReadsPrec'/'liftReadsPrec2', and will provide default implementations
+    --   of 'liftReadListPrec'/'liftReadListPrec2' in terms of
+    --   'liftReadPrec'/'liftReadPrec2'. If built against an earlier version of
+    --   @base@, derived 'Read1'/'Read2' instances are not affected, so they will
+    --   act as if this flag were 'False'.
+    --
+    -- If 'False':
+    --
+    -- * Derived 'Read' instances will implement 'readsPrec'.
+    --
+    -- * Derived 'Read1' instances will implement 'readsPrec1' (if built against
+    --   @transformers-0.4@) or 'liftReadsPrec' (otherwise). If not built against
+    --   @transformers-0.4@, derived 'Read2' instances will implement
+    --   'liftReadsPrec2'.
+    --
+    -- It's generally a good idea to enable this option, since 'readPrec' and
+    -- friends are more efficient than 'readsPrec' and friends, since the former
+    -- use the efficient 'ReadPrec' parser datatype while the latter use the
+    -- slower, list-based 'ReadS' type.
+  } deriving (Eq, Ord, Read, Show)
 
+-- | 'ReadOptions' that favor 'readPrec' over 'readsPrec'.
 defaultReadOptions :: ReadOptions
-defaultReadOptions = undefined
+defaultReadOptions = ReadOptions { useReadPrec = True }
 
 -- | Generates a 'Read' instance declaration for the given data type or data
 -- family instance.
@@ -97,38 +133,49 @@ deriveReadOptions = deriveReadClass Read
 -- | Generates a lambda expression which behaves like 'readsPrec' (without
 -- requiring a 'Read' instance).
 makeReadsPrec :: Name -> Q Exp
-makeReadsPrec = makeReadsPrecOptions defaultReadOptions
+makeReadsPrec = makeReadPrecClass Read False
 
--- | Like 'readsPrec', but takes a 'ReadOptions' argument.
-makeReadsPrecOptions :: ReadOptions -> Name -> Q Exp
-makeReadsPrecOptions = makeReadPrecClass Read
-
--- | Generates a lambda expression which behaves like 'readList' (without
--- requiring a 'Read' instance).
-makeReadList :: Name -> Q Exp
-makeReadList = makeReadListOptions defaultReadOptions
-
--- | Like 'readList', but takes a 'ReadOptions' argument.
-makeReadListOptions :: ReadOptions -> Name -> Q Exp
-makeReadListOptions = undefined
+-- -- | Like 'readsPrec', but takes a 'ReadOptions' argument.
+-- makeReadsPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeReadsPrecOptions _ = makeReadPrecClass Read False
+--
+-- -- | Generates a lambda expression which behaves like 'readList' (without
+-- -- requiring a 'Read' instance).
+-- makeReadList :: Name -> Q Exp
+-- makeReadList = makeReadListOptions defaultReadOptions
+--
+-- -- | Like 'readList', but takes a 'ReadOptions' argument.
+-- makeReadListOptions :: ReadOptions -> Name -> Q Exp
+-- makeReadListOptions opts name =
+--     if shouldDefineReadPrec Read opts
+--        then varE readPrec_to_SValName
+--             `appE` makeReadListPrecOptions opts name
+--             `appE` integerE 0
+--        else varE readPrec_to_SValName
+--             `appE` (varE listValName `appE` makeReadPrecOptions opts name)
+--             `appE` integerE 0
 
 -- | Generates a lambda expression which behaves like 'readPrec' (without
 -- requiring a 'Read' instance).
 makeReadPrec :: Name -> Q Exp
-makeReadPrec = makeReadPrecOptions defaultReadOptions
+makeReadPrec = makeReadPrecClass Read True
 
--- | Like 'readPrec', but takes a 'ReadOptions' argument.
-makeReadPrecOptions :: ReadOptions -> Name -> Q Exp
-makeReadPrecOptions = undefined
-
--- | Generates a lambda expression which behaves like 'readListPrec' (without
--- requiring a 'Read' instance).
-makeReadListPrec :: Name -> Q Exp
-makeReadListPrec = makeReadListPrecOptions defaultReadOptions
-
--- | Like 'readListPrec', but takes a 'ReadOptions' argument.
-makeReadListPrecOptions :: ReadOptions -> Name -> Q Exp
-makeReadListPrecOptions = undefined
+-- -- | Like 'readPrec', but takes a 'ReadOptions' argument.
+-- makeReadPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeReadPrecOptions _ = makeReadPrecClass Read True
+--
+-- -- | Generates a lambda expression which behaves like 'readListPrec' (without
+-- -- requiring a 'Read' instance).
+-- makeReadListPrec :: Name -> Q Exp
+-- makeReadListPrec = makeReadListPrecOptions defaultReadOptions
+--
+-- -- | Like 'readListPrec', but takes a 'ReadOptions' argument.
+-- makeReadListPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeReadListPrecOptions opts name =
+--     if shouldDefineReadPrec Read opts
+--        then varE listValName `appE` makeReadPrecOptions opts name
+--        else varE readS_to_PrecValName
+--             `appE` (varE constValName `appE` makeReadListOptions opts name)
 
 -- | Generates a 'Read1' instance declaration for the given data type or data
 -- family instance.
@@ -139,10 +186,10 @@ deriveRead1 = deriveRead1Options defaultReadOptions
 deriveRead1Options :: ReadOptions -> Name -> Q [Dec]
 deriveRead1Options = deriveReadClass Read1
 
--- | Generates a lambda expression which behaves like 'readsPrec1' (without
--- requiring a 'Read1' instance).
-makeReadsPrec1 :: Name -> Q Exp
-makeReadsPrec1 = makeReadsPrec1Options defaultReadOptions
+-- -- | Generates a lambda expression which behaves like 'readsPrec1' (without
+-- -- requiring a 'Read1' instance).
+-- makeReadsPrec1 :: Name -> Q Exp
+-- makeReadsPrec1 = makeReadsPrec1Options defaultReadOptions
 
 #if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftReadsPrec' (without
@@ -150,48 +197,92 @@ makeReadsPrec1 = makeReadsPrec1Options defaultReadOptions
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftReadsPrec :: Name -> Q Exp
-makeLiftReadsPrec = makeLiftReadsPrecOptions defaultReadOptions
+makeLiftReadsPrec = makeReadPrecClass Read1 False
 
--- | Like 'makeLiftReadsPrec', but takes a 'ReadOptions' argument.
+-- -- | Like 'makeLiftReadsPrec', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadsPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadsPrecOptions _ = makeReadPrecClass Read1 False
 --
--- This function is not available with @transformers-0.4@.
-makeLiftReadsPrecOptions :: ReadOptions -> Name -> Q Exp
-makeLiftReadsPrecOptions = makeReadPrecClass Read1
-
--- | Generates a lambda expression which behaves like 'liftReadList' (without
--- requiring a 'Read1' instance).
+-- -- | Generates a lambda expression which behaves like 'liftReadList' (without
+-- -- requiring a 'Read1' instance).
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadList :: Name -> Q Exp
+-- makeLiftReadList = makeLiftReadListOptions defaultReadOptions
 --
--- This function is not available with @transformers-0.4@.
-makeLiftReadList :: Name -> Q Exp
-makeLiftReadList = makeLiftReadListOptions defaultReadOptions
-
--- | Like 'makeLiftReadList', but takes a 'ReadOptions' argument.
---
--- This function is not available with @transformers-0.4@.
-makeLiftReadListOptions :: ReadOptions -> Name -> Q Exp
-makeLiftReadListOptions = undefined
+-- -- | Like 'makeLiftReadList', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadListOptions :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadListOptions = undefined
 
 # if __GLASGOW_HASKELL__ >= 801
+-- | Generates a lambda expression which behaves like 'liftReadPrec' (without
+-- requiring a 'Read1' instance).
+--
+-- This function is only available with @base-4.10@ or later.
 makeLiftReadPrec :: Name -> Q Exp
-makeLiftReadPrec = makeLiftReadPrecOptions defaultReadOptions
+makeLiftReadPrec = makeReadPrecClass Read1 True
 
-makeLiftReadPrecOptions :: ReadOptions -> Name -> Q Exp
-makeLiftReadPrecOptions = undefined
+-- -- | Like 'makeLiftReadPrec', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadPrecOptions _ = makeReadPrecClass Read1 True
+--
+-- -- | Generates a lambda expression which behaves like 'liftReadListPrec' (without
+-- -- requiring a 'Read1' instance).
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadListPrec :: Name -> Q Exp
+-- makeLiftReadListPrec = makeLiftReadListPrecOptions defaultReadOptions
+--
+-- -- | Like 'makeLiftReadListPrec', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadListPrecOptions :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadListPrecOptions = undefined
 
-makeLiftReadListPrec :: Name -> Q Exp
-makeLiftReadListPrec = makeLiftReadListPrecOptions defaultReadOptions
+-- | Generates a lambda expression which behaves like 'readPrec1' (without
+-- requiring a 'Read1' instance).
+--
+-- This function is only available with @base-4.10@ or later.
+makeReadPrec1 :: Name -> Q Exp
+makeReadPrec1 name = makeLiftReadPrec name
+                     `appE` varE readPrecValName
+                     `appE` varE readListPrecValName
 
-makeLiftReadListPrecOptions :: ReadOptions -> Name -> Q Exp
-makeLiftReadListPrecOptions = undefined
+-- -- | Like 'makeReadPrec1', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeReadPrec1Options :: ReadOptions -> Name -> Q Exp
+-- makeReadPrec1Options opts name = makeLiftReadPrecOptions opts name
+--                           `appE` varE readPrecValName
+--                           `appE` varE readListPrecValName
 # endif
+-- | Generates a lambda expression which behaves like 'readsPrec1' (without
+-- requiring a 'Read1' instance).
+makeReadsPrec1 :: Name -> Q Exp
+makeReadsPrec1 name = makeLiftReadsPrec name
+                      `appE` varE readsPrecValName
+                      `appE` varE readListValName
 
--- | Like 'readsPrec1', but takes a 'ReadOptions' argument.
-makeReadsPrec1Options :: ReadOptions -> Name -> Q Exp
-makeReadsPrec1Options = undefined
+-- -- | Like 'makeReadsPrec1Options', but takes a 'ReadOptions' argument.
+-- makeReadsPrec1Options :: ReadOptions -> Name -> Q Exp
+-- makeReadsPrec1Options opts name = makeLiftReadsPrecOptions opts name
+--                            `appE` varE readsPrecValName
+--                            `appE` varE readListValName
 #else
--- | Like 'readsPrec1', but takes a 'ReadOptions' argument.
-makeReadsPrec1Options :: ReadOptions -> Name -> Q Exp
-makeReadsPrec1Options = makeReadPrecClass Read1
+-- | Generates a lambda expression which behaves like 'readsPrec1' (without
+-- requiring a 'Read1' instance).
+makeReadsPrec1 :: Name -> Q Exp
+makeReadsPrec1 = makeReadPrecClass Read1 False
+
+-- -- | Like 'makeReadsPrec1Options', but takes a 'ReadOptions' argument.
+-- makeReadsPrec1Options :: ReadOptions -> Name -> Q Exp
+-- makeReadsPrec1Options _ = makeReadPrecClass Read1 False
 #endif
 
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -213,39 +304,96 @@ deriveRead2Options = deriveReadClass Read2
 --
 -- This function is not available with @transformers-0.4@.
 makeLiftReadsPrec2 :: Name -> Q Exp
-makeLiftReadsPrec2 = makeLiftReadsPrec2Options defaultReadOptions
+makeLiftReadsPrec2 = makeReadPrecClass Read2 False
 
--- | Like 'makeLiftReadsPrec2', but takes a 'ReadOptions' argument.
+-- -- | Like 'makeLiftReadsPrec2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadsPrec2Options :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadsPrec2Options _ = makeReadPrecClass Read2 False
 --
--- This function is not available with @transformers-0.4@.
-makeLiftReadsPrec2Options :: ReadOptions -> Name -> Q Exp
-makeLiftReadsPrec2Options = makeReadPrecClass Read2
-
--- | Generates a lambda expression which behaves like 'liftReadList2' (without
--- requiring a 'Read2' instance).
+-- -- | Generates a lambda expression which behaves like 'liftReadList2' (without
+-- -- requiring a 'Read2' instance).
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadList2 :: Name -> Q Exp
+-- makeLiftReadList2 = makeLiftReadList2Options defaultReadOptions
 --
--- This function is not available with @transformers-0.4@.
-makeLiftReadList2 :: Name -> Q Exp
-makeLiftReadList2 = makeLiftReadList2Options defaultReadOptions
-
--- | Like 'makeLiftReadList2', but takes a 'ReadOptions' argument.
---
--- This function is not available with @transformers-0.4@.
-makeLiftReadList2Options :: ReadOptions -> Name -> Q Exp
-makeLiftReadList2Options = undefined
+-- -- | Like 'makeLiftReadList2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftReadList2Options :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadList2Options opts name = do
+--     let rp1Expr   = VarE `fmap` newName "rp1'"
+--         rl1Expr   = VarE `fmap` newName "rl1'"
+--         rp2Expr   = VarE `fmap` newName "rp2'"
+--         rl2Expr   = VarE `fmap` newName "rl2'"
+--     let rp2sExpr  = varE readPrec_to_SValName
+--         rs2pExpr  = varE readS_to_PrecValName
+--         constExpr = varE constValName
+--     if shouldDefineReadPrec Read2 opts
+--        then rp2sExpr
+--             `appE` (makeLiftReadListPrec2Options opts name
+--                     `appE` (rs2pExpr `appE` rp1Expr)
+--                     `appE` (rs2pExpr `appE` (constExpr `appE` rl1Expr))
+--                     `appE` (rs2pExpr `appE` rp2Expr)
+--                     `appE` (rs2pExpr `appE` (constExpr `appE` rl2Expr)))
+--             `appE` integerE 0
+--        else rp2sExpr `appE` (varE listValName
+--             `appE` (makeLiftReadPrec2Options opts name
+--                     `appE` (rs2pExpr `appE` rp1Expr)
+--                     `appE` (rs2pExpr `appE` (constExpr `appE` rl1Expr))
+--                     `appE` (rs2pExpr `appE` rp2Expr)
+--                     `appE` (rs2pExpr `appE` (constExpr `appE` rl2Expr))))
+--             `appE` integerE 0
 
 # if __GLASGOW_HASKELL__ >= 801
+-- | Generates a lambda expression which behaves like 'liftReadPrec2' (without
+-- requiring a 'Read2' instance).
+--
+-- This function is only available with @base-4.10@ or later.
 makeLiftReadPrec2 :: Name -> Q Exp
-makeLiftReadPrec2 = makeLiftReadPrec2Options defaultReadOptions
+makeLiftReadPrec2 = makeReadPrecClass Read2 True
 
-makeLiftReadPrec2Options :: ReadOptions -> Name -> Q Exp
-makeLiftReadPrec2Options = undefined
+-- -- | Like 'makeLiftReadPrec2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadPrec2Options :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadPrec2Options _ = makeReadPrecClass Read2 True
+--
+-- -- | Generates a lambda expression which behaves like 'liftReadListPrec2' (without
+-- -- requiring a 'Read2' instance).
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadListPrec2 :: Name -> Q Exp
+-- makeLiftReadListPrec2 = makeLiftReadListPrec2Options defaultReadOptions
+--
+-- -- | Like 'makeLiftReadListPrec2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeLiftReadListPrec2Options :: ReadOptions -> Name -> Q Exp
+-- makeLiftReadListPrec2Options = undefined
 
-makeLiftReadListPrec2 :: Name -> Q Exp
-makeLiftReadListPrec2 = makeLiftReadListPrec2Options defaultReadOptions
+-- | Generates a lambda expression which behaves like 'readPrec2' (without
+-- requiring a 'Read2' instance).
+--
+-- This function is only available with @base-4.10@ or later.
+makeReadPrec2 :: Name -> Q Exp
+makeReadPrec2 name = makeLiftReadPrec2name
+                     `appE` varE readPrecValName
+                     `appE` varE readListPrecValName
+                     `appE` varE readPrecValName
+                     `appE` varE readListPrecValName
 
-makeLiftReadListPrec2Options :: ReadOptions -> Name -> Q Exp
-makeLiftReadListPrec2Options = undefined
+-- -- | Like 'makeReadPrec2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is only available with @base-4.10@ or later.
+-- makeReadPrec2Options :: ReadOptions -> Name -> Q Exp
+-- makeReadPrec2Options opts name = makeLiftReadPrec2Options opts name
+--                           `appE` varE readPrecValName
+--                           `appE` varE readListPrecValName
+--                           `appE` varE readPrecValName
+--                           `appE` varE readListPrecValName
 # endif
 
 -- | Generates a lambda expression which behaves like 'readsPrec2' (without
@@ -253,13 +401,21 @@ makeLiftReadListPrec2Options = undefined
 --
 -- This function is not available with @transformers-0.4@.
 makeReadsPrec2 :: Name -> Q Exp
-makeReadsPrec2 = makeReadsPrec2Options defaultReadOptions
+makeReadsPrec2 name = makeLiftReadsPrec2 name
+                      `appE` varE readsPrecValName
+                      `appE` varE readListValName
+                      `appE` varE readsPrecValName
+                      `appE` varE readListValName
 
--- | Like 'makeReadsPrec2', but takes a 'ReadOptions' argument.
---
--- This function is not available with @transformers-0.4@.
-makeReadsPrec2Options :: ReadOptions -> Name -> Q Exp
-makeReadsPrec2Options = undefined
+-- -- | Like 'makeReadsPrec2', but takes a 'ReadOptions' argument.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeReadsPrec2Options :: ReadOptions -> Name -> Q Exp
+-- makeReadsPrec2Options opts name = makeLiftReadsPrec2Options opts name
+--                           `appE` varE readsPrecValName
+--                           `appE` varE readListValName
+--                           `appE` varE readsPrecValName
+--                           `appE` varE readListValName
 #endif
 
 -------------------------------------------------------------------------------
@@ -284,17 +440,27 @@ deriveReadClass rClass opts name = withType name fromCons
 -- liftRead(s)Prec2 for Read2).
 readPrecDecs :: ReadClass -> ReadOptions -> [Con] -> [Q Dec]
 readPrecDecs rClass opts cons =
-    [ funD (readsPrecName rClass)
+    [ funD ((if defineReadPrec then readPrecName else readsPrecName) rClass)
            [ clause []
-                    (normalB $ makeReadForCons rClass opts cons)
+                    (normalB $ makeReadForCons rClass defineReadPrec cons)
                     []
            ]
-    ]
+    ] ++ if defineReadPrec
+            then [ funD (readListPrecName rClass)
+                        [ clause []
+                                 (normalB . varE $ readListPrecDefaultName rClass)
+                                 []
+                        ]
+                 ]
+            else []
+  where
+    defineReadPrec :: Bool
+    defineReadPrec = shouldDefineReadPrec rClass opts
 
 -- | Generates a lambda expression which behaves like read(s)Prec (for Read),
 -- liftRead(s)Prec (for Read1), or liftRead(s)Prec2 (for Read2).
-makeReadPrecClass :: ReadClass -> ReadOptions -> Name -> Q Exp
-makeReadPrecClass rClass opts name = withType name fromCons
+makeReadPrecClass :: ReadClass -> Bool -> Name -> Q Exp
+makeReadPrecClass rClass urp name = withType name fromCons
   where
     fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
     fromCons name' ctxt tvbs cons mbTys =
@@ -303,12 +469,12 @@ makeReadPrecClass rClass opts name = withType name fromCons
         -- read(s)Prec/liftRead(s)Prec/etc. implemented for it, and produces errors
         -- if it can't.
         buildTypeInstance rClass name' ctxt tvbs mbTys
-          `seq` makeReadForCons rClass opts cons
+          `seq` makeReadForCons rClass urp cons
 
 -- | Generates a lambda expression for read(s)Prec/liftRead(s)Prec/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeReadForCons :: ReadClass -> ReadOptions -> [Con] -> Q Exp
-makeReadForCons rClass _opts cons = do
+makeReadForCons :: ReadClass -> Bool -> [Con] -> Q Exp
+makeReadForCons rClass urp cons = do
     p   <- newName "p"
     rps <- newNameList "rp" $ arity rClass
     rls <- newNameList "rl" $ arity rClass
@@ -322,7 +488,7 @@ makeReadForCons rClass _opts cons = do
         readConsExpr
           | null cons = varE pfailValName
           | otherwise = do
-                readNonNullaryCons <- concatMapM (makeReadForCon rClass rpls)
+                readNonNullaryCons <- concatMapM (makeReadForCon rClass urp rpls)
                                                  nonNullaryCons
                 foldr1 mkAlt (readNullaryCons ++ map return readNonNullaryCons)
 
@@ -348,42 +514,46 @@ makeReadForCons rClass _opts cons = do
           where
             conStr = dataConStr con
 
+        mainRhsExpr :: Q Exp
+        mainRhsExpr = varE parensValName `appE` readConsExpr
+
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)
                      _rpsAndRls ++
 #endif
-                     [p]
+                     if urp then [] else [p]
          ) . appsE
-         $ [ varE $ readsPrecConstName rClass
-           , varE readPrec_to_SValName
-               `appE` (varE parensValName `appE` readConsExpr)
-               `appE` varE p
+         $ [ varE $ (if urp then readPrecConstName else readsPrecConstName) rClass
+           , if urp
+                then mainRhsExpr
+                else varE readPrec_to_SValName `appE` mainRhsExpr `appE` varE p
            ]
 #if defined(NEW_FUNCTOR_CLASSES)
              ++ map varE _rpsAndRls
 #endif
-             ++ [varE p]
+             ++ if urp then [] else [varE p]
 
 makeReadForCon :: ReadClass
+               -> Bool
                -> [(Name, Name)]
                -> Con
                -> Q [Exp]
-makeReadForCon rClass rpls (NormalC conName _)  = do
+makeReadForCon rClass urp rpls (NormalC conName _)  = do
     (argTys, tvMap) <- reifyConTys2 rClass rpls conName
     args <- newNameList "arg" $ length argTys
     (readStmts, varExps) <-
-        zipWithAndUnzipM (makeReadForArg rClass tvMap conName) argTys args
+        zipWithAndUnzipM (makeReadForArg rClass urp tvMap conName) argTys args
     let body   = resultExpr conName varExps
         conStr = nameBase conName
         prefixStmts = readPrefixCon conStr ++ readStmts
 
     e <- mkParser appPrec prefixStmts body
     return [e]
-makeReadForCon rClass rpls (RecC conName ts) = do
+makeReadForCon rClass urp rpls (RecC conName ts) = do
     (argTys, tvMap) <- reifyConTys2 rClass rpls conName
     args <- newNameList "arg" $ length argTys
     (readStmts, varExps) <- zipWith3AndUnzipM
-        (\(argName, _, _) argTy arg -> makeReadForField rClass tvMap conName
+        (\(argName, _, _) argTy arg -> makeReadForField rClass urp tvMap conName
                                            (nameBase argName) argTy arg)
         ts argTys args
     let body        = resultExpr conName varExps
@@ -394,12 +564,12 @@ makeReadForCon rClass rpls (RecC conName ts) = do
 
     e <- mkParser appPrec1 recordStmts body
     return [e]
-makeReadForCon rClass rpls (InfixC _ conName _) = do
+makeReadForCon rClass urp rpls (InfixC _ conName _) = do
     ([alTy, arTy], tvMap) <- reifyConTys2 rClass rpls conName
     al   <- newName "argL"
     ar   <- newName "argR"
     ([readStmt1, readStmt2], varExps) <-
-        zipWithAndUnzipM (makeReadForArg rClass tvMap conName)
+        zipWithAndUnzipM (makeReadForArg rClass urp tvMap conName)
                          [alTy, arTy] [al, ar]
     info <- reify conName
 
@@ -424,10 +594,10 @@ makeReadForCon rClass rpls (InfixC _ conName _) = do
 
     e <- mkParser conPrec infixStmts body
     return [e]
-makeReadForCon rClass rpls (ForallC _ _ con) =
-    makeReadForCon rClass rpls con
+makeReadForCon rClass urp rpls (ForallC _ _ con) =
+    makeReadForCon rClass urp rpls con
 #if MIN_VERSION_template_haskell(2,11,0)
-makeReadForCon rClass rpls (GadtC conNames ts _) =
+makeReadForCon rClass urp rpls (GadtC conNames ts _) =
     let con :: Name -> Q Con
         con conName = do
             mbFi <- reifyFixity conName
@@ -437,36 +607,36 @@ makeReadForCon rClass rpls (GadtC conNames ts _) =
                       then let [t1, t2] = ts in InfixC t1 conName t2
                       else NormalC conName ts
 
-    in concatMapM (makeReadForCon rClass rpls <=< con) conNames
-makeReadForCon rClass rpls (RecGadtC conNames ts _) =
-    concatMapM (makeReadForCon rClass rpls . flip RecC ts) conNames
+    in concatMapM (makeReadForCon rClass urp rpls <=< con) conNames
+makeReadForCon rClass urp rpls (RecGadtC conNames ts _) =
+    concatMapM (makeReadForCon rClass urp rpls . flip RecC ts) conNames
 #endif
 
 makeReadForArg :: ReadClass
+               -> Bool
                -> TyVarMap2
                -> Name
                -> Type
                -> Name
                -> Q (Q Stmt, Exp)
-makeReadForArg rClass tvMap conName ty tyExpName = do
-    (rExp, varExp) <- makeReadForType rClass tvMap conName tyExpName False ty
+makeReadForArg rClass urp tvMap conName ty tyExpName = do
+    (rExp, varExp) <- makeReadForType rClass urp tvMap conName tyExpName False ty
     let readStmt = bindS (varP tyExpName) $
-                         varE stepValName
-                            `appE` (varE readS_to_PrecValName `appE` return rExp)
+                         varE stepValName `appE` wrapReadS urp (return rExp)
     return (readStmt, varExp)
 
 makeReadForField :: ReadClass
+                 -> Bool
                  -> TyVarMap2
                  -> Name
                  -> String
                  -> Type
                  -> Name
                  -> Q ([Q Stmt], Exp)
-makeReadForField rClass tvMap conName lblStr ty tyExpName = do
-    (rExp, varExp) <- makeReadForType rClass tvMap conName tyExpName False ty
+makeReadForField rClass urp tvMap conName lblStr ty tyExpName = do
+    (rExp, varExp) <- makeReadForType rClass urp tvMap conName tyExpName False ty
     let readStmt = bindS (varP tyExpName) $
-                         varE resetValName
-                            `appE` (varE readS_to_PrecValName `appE` return rExp)
+                         varE resetValName `appE` wrapReadS urp (return rExp)
     return (readLbl ++ [readStmt], varExp)
   where
     readLbl | isSym lblStr
@@ -475,6 +645,7 @@ makeReadForField rClass tvMap conName lblStr ty tyExpName = do
             = identHPat lblStr
 
 makeReadForType :: ReadClass
+                -> Bool
                 -> TyVarMap2
                 -> Name
                 -> Name
@@ -482,21 +653,21 @@ makeReadForType :: ReadClass
                 -> Type
                 -> Q (Exp, Exp)
 #if defined(NEW_FUNCTOR_CLASSES)
-makeReadForType _ tvMap _ tyExpName rl (VarT tyName) =
+makeReadForType _ urp tvMap _ tyExpName rl (VarT tyName) =
     let tyExp = VarE tyExpName
     in return $ case Map.lookup tyName tvMap of
       Just (TwoNames rpExp rlExp) -> (VarE $ if rl then rlExp else rpExp, tyExp)
-      Nothing -> (VarE $ if rl then readListValName else readsPrecValName, tyExp)
+      Nothing                     -> (VarE $ readsOrReadName urp rl Read, tyExp)
 #else
-makeReadForType _ _ _ tyExpName _ VarT{} =
-    return (VarE readsPrecValName, VarE tyExpName)
+makeReadForType _ urp _ _ tyExpName _ VarT{} =
+    return (VarE $ readsOrReadName urp False Read, VarE tyExpName)
 #endif
-makeReadForType rClass tvMap conName tyExpName rl (SigT ty _) =
-    makeReadForType rClass tvMap conName tyExpName rl ty
-makeReadForType rClass tvMap conName tyExpName rl (ForallT _ _ ty) =
-    makeReadForType rClass tvMap conName tyExpName rl ty
+makeReadForType rClass urp tvMap conName tyExpName rl (SigT ty _) =
+    makeReadForType rClass urp tvMap conName tyExpName rl ty
+makeReadForType rClass urp tvMap conName tyExpName rl (ForallT _ _ ty) =
+    makeReadForType rClass urp tvMap conName tyExpName rl ty
 #if defined(NEW_FUNCTOR_CLASSES)
-makeReadForType rClass tvMap conName tyExpName rl ty = do
+makeReadForType rClass urp tvMap conName tyExpName rl ty = do
     let tyCon :: Type
         tyArgs :: [Type]
         tyCon:tyArgs = unapplyTy ty
@@ -515,24 +686,27 @@ makeReadForType rClass tvMap conName tyExpName rl ty = do
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError rClass conName
        else do
-        readExp <- appsE $ [ varE . readsPrecOrListName rl $ toEnum numLastArgs]
+        readExp <- appsE $ [ varE . readsOrReadName urp rl $ toEnum numLastArgs]
                    ++ zipWith (\b -> fmap fst
-                                   . makeReadForType rClass tvMap conName tyExpName b)
+                                   . makeReadForType rClass urp tvMap conName tyExpName b)
                               (cycle [False,True])
                               (interleave rhsArgs rhsArgs)
         return (readExp, VarE tyExpName)
 #else
-makeReadForType rClass tvMap conName tyExpName _ ty = do
+makeReadForType rClass urp tvMap conName tyExpName _ ty = do
   let varNames = Map.keys tvMap
+      rpExpr   = VarE $ readsOrReadName urp False Read
+      rp1Expr  = VarE $ readsOrReadName urp False Read1
+      tyExpr   = VarE tyExpName
 
   case varNames of
-    [] -> return (VarE readsPrecValName, VarE tyExpName)
+    [] -> return (rpExpr, tyExpr)
     varName:_ -> do
       if mentionsName ty varNames
          then do
              applyExp <- makeFmapApplyPos rClass conName ty varName
-             return (VarE readsPrec1ValName, applyExp `AppE` VarE tyExpName)
-         else return (VarE readsPrecValName, VarE tyExpName)
+             return (rp1Expr, applyExp `AppE` tyExpr)
+         else return (rpExpr, tyExpr)
 #endif
 
 -------------------------------------------------------------------------------
@@ -575,12 +749,12 @@ readsPrecConstName Read2 = liftReadsPrec2ConstValName
 readsPrecConstName Read1 = readsPrec1ConstValName
 #endif
 
--- readPrecConstName :: ReadClass -> Name
--- readPrecConstName Read  = readPrecConstValName
--- #if defined(NEW_FUNCTOR_CLASSES) && __GLASGOW_HASKELL__ >= 801
--- readPrecConstName Read1 = liftReadPrecConstValName
--- readPrecConstName Read2 = liftReadPrec2ConstValName
--- #endif
+readPrecConstName :: ReadClass -> Name
+readPrecConstName Read  = readPrecConstValName
+readPrecConstName Read1 = liftReadPrecConstValName
+#if defined(NEW_FUNCTOR_CLASSES)
+readPrecConstName Read2 = liftReadPrec2ConstValName
+#endif
 
 readsPrecName :: ReadClass -> Name
 readsPrecName Read  = readsPrecValName
@@ -591,39 +765,61 @@ readsPrecName Read2 = liftReadsPrec2ValName
 readsPrecName Read1 = readsPrec1ValName
 #endif
 
--- readPrecName :: ReadClass -> Name
--- readPrecName Read  = readPrecValName
--- #if defined(NEW_FUNCTOR_CLASSES) && __GLASGOW_HASKELL__ >= 801
--- readPrecName Read1 = liftReadPrecValName
--- readPrecName Read2 = liftReadPrec2ValName
--- #endif
-
+readPrecName :: ReadClass -> Name
+readPrecName Read  = readPrecValName
+readPrecName Read1 = liftReadPrecValName
 #if defined(NEW_FUNCTOR_CLASSES)
+readPrecName Read2 = liftReadPrec2ValName
+#endif
+
+readListPrecDefaultName :: ReadClass -> Name
+readListPrecDefaultName Read  = readListPrecDefaultValName
+readListPrecDefaultName Read1 = liftReadListPrecDefaultValName
+#if defined(NEW_FUNCTOR_CLASSES)
+readListPrecDefaultName Read2 = liftReadListPrec2DefaultValName
+#endif
+
+readListPrecName :: ReadClass -> Name
+readListPrecName Read  = readListPrecValName
+readListPrecName Read1 = liftReadListPrecValName
+#if defined(NEW_FUNCTOR_CLASSES)
+readListPrecName Read2 = liftReadListPrec2ValName
+#endif
+
 readListName :: ReadClass -> Name
 readListName Read  = readListValName
+#if defined(NEW_FUNCTOR_CLASSES)
 readListName Read1 = liftReadListValName
 readListName Read2 = liftReadList2ValName
+#else
+readListName Read1 = error "Text.Read.Deriving.Internal.readListName"
+#endif
 
--- readListPrecName :: ReadClass -> Name
--- readListPrecName Read  = readListPrecValName
--- readListPrecName Read1 = liftReadListPrecValName
--- readListPrecName Read2 = liftReadListPrec2ValName
-
-readsPrecOrListName :: Bool -- ^ readListName if True, readsPrecName if False
+readsPrecOrListName :: Bool -- ^ readsListName if True, readsPrecName if False
                     -> ReadClass
                     -> Name
 readsPrecOrListName False = readsPrecName
 readsPrecOrListName True  = readListName
-#endif
+
+readPrecOrListName :: Bool -- ^ readListPrecName if True, readPrecName if False
+                   -> ReadClass
+                   -> Name
+readPrecOrListName False = readPrecName
+readPrecOrListName True  = readListPrecName
+
+readsOrReadName :: Bool -- ^ readPrecOrListName if True, readsPrecOrListName if False
+                -> Bool -- ^ read(s)List(Prec)Name if True, read(s)PrecName if False
+                -> ReadClass
+                -> Name
+readsOrReadName False = readsPrecOrListName
+readsOrReadName True  = readPrecOrListName
 
 -------------------------------------------------------------------------------
 -- Assorted utilities
 -------------------------------------------------------------------------------
 
 mkParser :: Int -> [Q Stmt] -> Q Exp -> Q Exp
-mkParser p ss b = varE precValName
-           `appE` litE (integerL $ fromIntegral p)
-           `appE` doE (ss ++ [noBindS b])
+mkParser p ss b = varE precValName `appE` integerE p `appE` doE (ss ++ [noBindS b])
 
 resultExpr :: Name -> [Exp] -> Q Exp
 resultExpr conName as = varE returnValName `appE` conApp
@@ -678,3 +874,25 @@ readPrefixCon :: String -> [Q Stmt]
 readPrefixCon conStr
   | isSym conStr = [readPunc "(", symbolPat conStr, readPunc ")"]
   | otherwise    = identHPat conStr
+
+wrapReadS :: Bool -> Q Exp -> Q Exp
+wrapReadS urp e = if urp then e
+                         else varE readS_to_PrecValName `appE` e
+
+shouldDefineReadPrec :: ReadClass -> ReadOptions -> Bool
+shouldDefineReadPrec rClass opts = useReadPrec opts && baseCompatible
+  where
+    base4'10OrLater :: Bool
+#if __GLASGOW_HASKELL__ >= 801
+    base4'10OrLater = True
+#else
+    base4'10OrLater = False
+#endif
+
+    baseCompatible :: Bool
+    baseCompatible = case rClass of
+        Read  -> True
+        Read1 -> base4'10OrLater
+#if defined(NEW_FUNCTOR_CLASSES)
+        Read2 -> base4'10OrLater
+#endif

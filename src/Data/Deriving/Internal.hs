@@ -38,10 +38,11 @@ import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
 
+import           Text.ParserCombinators.ReadPrec (ReadPrec)
+
 #if !(MIN_VERSION_base(4,7,0))
 import           GHC.Read (lexP)
 
-import           Text.ParserCombinators.ReadPrec (ReadPrec)
 import           Text.Read (pfail)
 import           Text.Read.Lex (Lexeme)
 #endif
@@ -202,6 +203,11 @@ readsPrecConst :: ReadS a -> Int -> ReadS a
 readsPrecConst x _ = x
 {-# INLINE readsPrecConst #-}
 
+-- This isn't really necessary, but it makes for an easier implementation
+readPrecConst :: ReadPrec a -> ReadPrec a
+readPrecConst x = x
+{-# INLINE readPrecConst #-}
+
 readsPrec1Const :: ReadS (f a) -> Int -> ReadS (f a)
 readsPrec1Const x _ = x
 {-# INLINE readsPrec1Const #-}
@@ -212,12 +218,25 @@ liftReadsPrecConst :: ReadS (f a)
 liftReadsPrecConst x _ _ _ = x
 {-# INLINE liftReadsPrecConst #-}
 
+liftReadPrecConst :: ReadPrec (f a)
+                  -> ReadPrec a -> ReadPrec [a]
+                  -> ReadPrec (f a)
+liftReadPrecConst x _ _ = x
+{-# INLINE liftReadPrecConst #-}
+
 liftReadsPrec2Const :: ReadS (f a b)
                     -> (Int -> ReadS a) -> ReadS [a]
                     -> (Int -> ReadS b) -> ReadS [b]
                     -> Int -> ReadS (f a b)
 liftReadsPrec2Const x _ _ _ _ _ = x
 {-# INLINE liftReadsPrec2Const #-}
+
+liftReadPrec2Const :: ReadPrec (f a b)
+                   -> ReadPrec a -> ReadPrec [a]
+                   -> ReadPrec b -> ReadPrec [b]
+                   -> ReadPrec (f a b)
+liftReadPrec2Const x _ _ _ _ = x
+{-# INLINE liftReadPrec2Const #-}
 
 showsPrecConst :: ShowS
                -> Int -> a -> ShowS
@@ -1000,6 +1019,9 @@ appEitherE e1Q e2Q = do
         e2' = (`AppE` e2)
     either (Left . e2') (Right . e2') `fmap` e1Q
 
+integerE :: Int -> Q Exp
+integerE = litE . integerL . fromIntegral
+
 -- | Returns True if a Type has kind *.
 hasKindStar :: Type -> Bool
 hasKindStar VarT{}         = True
@@ -1371,14 +1393,23 @@ liftCompare2ConstValName = mkDerivingCompatName_v "liftCompare2Const"
 readsPrecConstValName :: Name
 readsPrecConstValName = mkDerivingCompatName_v "readsPrecConst"
 
+readPrecConstValName :: Name
+readPrecConstValName = mkDerivingCompatName_v "readPrecConst"
+
 readsPrec1ConstValName :: Name
 readsPrec1ConstValName = mkDerivingCompatName_v "readsPrec1Const"
 
 liftReadsPrecConstValName :: Name
 liftReadsPrecConstValName = mkDerivingCompatName_v "liftReadsPrecConst"
 
+liftReadPrecConstValName :: Name
+liftReadPrecConstValName = mkDerivingCompatName_v "liftReadPrecConst"
+
 liftReadsPrec2ConstValName :: Name
 liftReadsPrec2ConstValName = mkDerivingCompatName_v "liftReadsPrec2Const"
+
+liftReadPrec2ConstValName :: Name
+liftReadPrec2ConstValName = mkDerivingCompatName_v "liftReadPrec2Const"
 
 showsPrecConstValName :: Name
 showsPrecConstValName = mkDerivingCompatName_v "showsPrecConst"
@@ -1469,6 +1500,9 @@ chooseValName = mkNameG_v "base" "GHC.Read" "choose"
 
 composeValName :: Name
 composeValName = mkNameG_v "base" "GHC.Base" "."
+
+constValName :: Name
+constValName = mkNameG_v "base" "GHC.Base" "const"
 
 eqAddrHashValName :: Name
 eqAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqAddr#"
@@ -1566,6 +1600,27 @@ leIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<=#"
 leWordHashValName :: Name
 leWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord#"
 
+liftReadListPrecDefaultValName :: Name
+liftReadListPrecDefaultValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrecDefault"
+
+liftReadListPrec2DefaultValName :: Name
+liftReadListPrec2DefaultValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec2Default"
+
+liftReadListPrecValName :: Name
+liftReadListPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec"
+
+liftReadListPrec2ValName :: Name
+liftReadListPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec2"
+
+liftReadPrecValName :: Name
+liftReadPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadPrec"
+
+liftReadPrec2ValName :: Name
+liftReadPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadPrec2"
+
+listValName :: Name
+listValName = mkNameG_v "base" "GHC.Read" "list"
+
 ltAddrHashValName :: Name
 ltAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltAddr#"
 
@@ -1593,17 +1648,26 @@ pfailValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "pfail"
 precValName :: Name
 precValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "prec"
 
+readListValName :: Name
+readListValName = mkNameG_v "base" "GHC.Read" "readList"
+
+readListPrecDefaultValName :: Name
+readListPrecDefaultValName = mkNameG_v "base" "GHC.Read" "readListPrecDefault"
+
+readListPrecValName :: Name
+readListPrecValName = mkNameG_v "base" "GHC.Read" "readListPrec"
+
 readPrec_to_SValName :: Name
 readPrec_to_SValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readPrec_to_S"
+
+readPrecValName :: Name
+readPrecValName = mkNameG_v "base" "GHC.Read" "readPrec"
 
 readS_to_PrecValName :: Name
 readS_to_PrecValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readS_to_Prec"
 
 readsPrecValName :: Name
 readsPrecValName = mkNameG_v "base" "GHC.Read" "readsPrec"
-
-readListValName :: Name
-readListValName = mkNameG_v "base" "GHC.Read" "readList"
 
 resetValName :: Name
 resetValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "reset"

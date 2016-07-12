@@ -107,9 +107,9 @@ makeShowOptions :: ShowOptions -> Name -> Q Exp
 makeShowOptions opts name = do
     x <- newName "x"
     lam1E (varP x) $ makeShowsPrecOptions opts name
-              `appE` litE (integerL 0)
-              `appE` varE x
-              `appE` stringE ""
+                     `appE` integerE 0
+                     `appE` varE x
+                     `appE` stringE ""
 
 -- | Generates a lambda expression which behaves like 'showsPrec' (without
 -- requiring a 'Show' instance).
@@ -128,7 +128,7 @@ makeShowList = makeShowListOptions defaultShowOptions
 -- | Like 'makeShowList', but takes a 'ShowOptions' argument.
 makeShowListOptions :: ShowOptions -> Name -> Q Exp
 makeShowListOptions opts name =
-    varE showListWithValName `appE` (makeShowsPrecOptions opts name `appE` litE (integerL 0))
+    varE showListWithValName `appE` (makeShowsPrecOptions opts name `appE` integerE 0)
 
 -- | Generates a 'Show1' instance declaration for the given data type or data
 -- family instance.
@@ -174,7 +174,7 @@ makeLiftShowListOptions opts name = do
     sl' <- newName "sl'"
     lamE [varP sp', varP sl'] $ varE showListWithValName `appE`
         (makeLiftShowsPrecOptions opts name `appE` varE sp' `appE` varE sl'
-                                            `appE` litE (integerL 0))
+                                            `appE` integerE 0)
 
 -- | Like 'makeShowsPrec1', but takes a 'ShowOptions' argument.
 makeShowsPrec1Options :: ShowOptions -> Name -> Q Exp
@@ -234,7 +234,7 @@ makeLiftShowList2Options opts name = do
         varE showListWithValName `appE`
             (makeLiftShowsPrec2Options opts name `appE` varE sp1' `appE` varE sl1'
                                                  `appE` varE sp2' `appE` varE sl2'
-                                                 `appE` litE (integerL 0))
+                                                 `appE` integerE 0)
 
 -- | Generates a lambda expression which behaves like 'showsPrec2' (without
 -- requiring a 'Show2' instance).
@@ -349,9 +349,7 @@ makeShowForCon p sClass opts spls (NormalC conName [_]) = do
     m <- match
            (conP conName [varP arg])
            (normalB $ varE showParenValName
-                       `appE` infixApp (varE p)
-                                       (varE ltValName)
-                                       (litE . integerL $ fromIntegral appPrec)
+                       `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
                        `appE` namedArg)
            []
     return [m]
@@ -362,10 +360,10 @@ makeShowForCon p sClass opts spls (NormalC conName _) = do
     m <- if isNonUnitTuple conName
          then do
            let showArgs       = zipWith (makeShowForArg 0 sClass opts conName tvMap) argTys args
-               parenCommaArgs = (varE showCharValName `appE` litE (charL '('))
-                                : intersperse (varE showCharValName `appE` litE (charL ',')) showArgs
+               parenCommaArgs = (varE showCharValName `appE` charE '(')
+                                : intersperse (varE showCharValName `appE` charE ',') showArgs
                mappendArgs    = foldr (`infixApp` varE composeValName)
-                                      (varE showCharValName `appE` litE (charL ')'))
+                                      (varE showCharValName `appE` charE ')')
                                       parenCommaArgs
 
            match (conP conName $ map varP args)
@@ -383,9 +381,7 @@ makeShowForCon p sClass opts spls (NormalC conName _) = do
 
            match (conP conName $ map varP args)
                  (normalB $ varE showParenValName
-                              `appE` infixApp (varE p)
-                                              (varE ltValName)
-                                              (litE . integerL $ fromIntegral appPrec)
+                              `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
                               `appE` namedArgs)
                  []
     return [m]
@@ -402,9 +398,9 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
                                          ]
                                    )
                                    (zip3 ts argTys args)
-        braceCommaArgs = (varE showCharValName `appE` litE (charL '{')) : take (length showArgs - 1) showArgs
+        braceCommaArgs = (varE showCharValName `appE` charE '{') : take (length showArgs - 1) showArgs
         mappendArgs    = foldr (`infixApp` varE composeValName)
-                               (varE showCharValName `appE` litE (charL '}'))
+                               (varE showCharValName `appE` charE '}')
                                braceCommaArgs
         namedArgs      = infixApp (varE showStringValName `appE` stringE (parenInfixConName conName " "))
                                   (varE composeValName)
@@ -413,9 +409,7 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
     m <- match
            (conP conName $ map varP args)
            (normalB $ varE showParenValName
-                        `appE` infixApp (varE p)
-                                        (varE ltValName)
-                                        (litE . integerL $ fromIntegral appPrec)
+                        `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
                         `appE` namedArgs)
            []
     return [m]
@@ -445,9 +439,7 @@ makeShowForCon p sClass opts spls (InfixC _ conName _) = do
 
     m <- match
            (infixP (varP al) conName (varP ar))
-           (normalB $ (varE showParenValName `appE` infixApp (varE p)
-                                                             (varE ltValName)
-                                                             (litE . integerL $ fromIntegral conPrec))
+           (normalB $ (varE showParenValName `appE` infixApp (varE p) (varE ltValName) (integerE conPrec))
                         `appE` (infixApp (makeShowForArg (conPrec + 1) sClass opts conName tvMap alTy al)
                                          (varE composeValName)
                                          (infixApp infixOpE
@@ -496,9 +488,7 @@ makeShowForArg p _ opts _ _ (ConT tyName) tyExpName =
           | tyName == floatHashTypeName  = showPrimE fHashDataName oneHashE
           | tyName == intHashTypeName    = showPrimE iHashDataName oneHashE
           | tyName == wordHashTypeName   = showPrimE wHashDataName twoHashE
-          | otherwise = varE showsPrecValName
-                          `appE` litE (integerL $ fromIntegral p)
-                          `appE` tyVarE
+          | otherwise = varE showsPrecValName `appE` integerE p `appE` tyVarE
 
     -- Starting with GHC 7.10, data types containing unlifted types with derived Show
     -- instances show hashed literals with actual hash signs, and negative hashed
@@ -506,22 +496,16 @@ makeShowForArg p _ opts _ _ (ConT tyName) tyExpName =
     showPrimE :: Name -> Q Exp -> Q Exp
     showPrimE con hashE
       | ghc8ShowBehavior opts
-      = infixApp (varE showsPrecValName
-                   `appE` litE (integerL 0)
-                   `appE` (conE con `appE` tyVarE))
+      = infixApp (varE showsPrecValName `appE` integerE 0 `appE` (conE con `appE` tyVarE))
                  (varE composeValName)
                  hashE
-      | otherwise = varE showsPrecValName
-                      `appE` litE (integerL $ fromIntegral p)
-                      `appE` (conE con `appE` tyVarE)
+      | otherwise = varE showsPrecValName `appE` integerE p `appE` (conE con `appE` tyVarE)
 
     oneHashE, twoHashE :: Q Exp
-    oneHashE = varE showCharValName `appE` litE (charL '#')
+    oneHashE = varE showCharValName `appE` charE '#'
     twoHashE = varE showStringValName `appE` stringE "##"
 makeShowForArg p sClass _ conName tvMap ty tyExpName =
-    makeShowForType sClass conName tvMap False ty
-      `appE` litE (integerL $ fromIntegral p)
-      `appE` varE tyExpName
+    makeShowForType sClass conName tvMap False ty `appE` integerE p `appE` varE tyExpName
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for a
 -- specific type. The generated expression depends on the number of type variables.
@@ -673,3 +657,6 @@ isInfixTypeCon _       = False
 isTupleString :: String -> Bool
 isTupleString ('(':',':_) = True
 isTupleString _           = False
+
+charE :: Char -> Q Exp
+charE = litE . charL

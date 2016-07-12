@@ -21,6 +21,8 @@ import Data.Functor.Classes (Read1(..), Show1(..))
 #endif
 import Data.Deriving
 
+import Text.Read (Read(..), readListPrecDefault)
+
 -------------------------------------------------------------------------------
 
 -- Plain data types
@@ -92,7 +94,8 @@ $(deriveRead  ''TyConPlain)
 $(deriveRead  ''TyConGADT)
 instance (Read (f a), Read (f (g a)), Read (f (g (h a))))
   => Read (TyConWrap f g h a) where
-    readsPrec = $(makeReadsPrec ''TyConWrap)
+    readPrec     = $(makeReadPrec ''TyConWrap)
+    readListPrec = readListPrecDefault
 
 $(deriveRead1 ''TyCon1)
 $(deriveRead1 ''TyConPlain)
