@@ -495,8 +495,12 @@ makeReadForCons rClass urp cons = do
         readNullaryCons :: [Q Exp]
         readNullaryCons = case nullaryCons of
           []    -> []
-          [con] -> [doE $ matchCon con
-                          ++ [noBindS $ resultExpr (constructorName con) []]]
+          [con]
+            | nameBase (constructorName con) == "()"
+           -> [varE parenValName `appE`
+                    mkDoStmts [] (varE returnValName `appE` tupE [])]
+            | otherwise -> [mkDoStmts (matchCon con)
+                                      (resultExpr (constructorName con) [])]
           _     -> [varE chooseValName `appE` listE (map mkPair nullaryCons)]
 
         mkAlt :: Q Exp -> Q Exp -> Q Exp
@@ -541,13 +545,17 @@ makeReadForCon :: ReadClass
 makeReadForCon rClass urp rpls (NormalC conName _)  = do
     (argTys, tvMap) <- reifyConTys2 rClass rpls conName
     args <- newNameList "arg" $ length argTys
+    let conStr = nameBase conName
+        isTup  = isNonUnitTupleString conStr
     (readStmts, varExps) <-
-        zipWithAndUnzipM (makeReadForArg rClass urp tvMap conName) argTys args
-    let body   = resultExpr conName varExps
-        conStr = nameBase conName
-        prefixStmts = readPrefixCon conStr ++ readStmts
+        zipWithAndUnzipM (makeReadForArg rClass isTup urp tvMap conName) argTys args
+    let body = resultExpr conName varExps
 
-    e <- mkParser appPrec prefixStmts body
+    e <- if isTup
+            then let tupleStmts = intersperse (readPunc ",") readStmts
+                 in varE parenValName `appE` mkDoStmts tupleStmts body
+            else let prefixStmts = readPrefixCon conStr ++ readStmts
+                 in mkParser appPrec prefixStmts body
     return [e]
 makeReadForCon rClass urp rpls (RecC conName ts) = do
     (argTys, tvMap) <- reifyConTys2 rClass rpls conName
@@ -569,7 +577,7 @@ makeReadForCon rClass urp rpls (InfixC _ conName _) = do
     al   <- newName "argL"
     ar   <- newName "argR"
     ([readStmt1, readStmt2], varExps) <-
-        zipWithAndUnzipM (makeReadForArg rClass urp tvMap conName)
+        zipWithAndUnzipM (makeReadForArg rClass False urp tvMap conName)
                          [alTy, arTy] [al, ar]
     info <- reify conName
 
@@ -614,15 +622,17 @@ makeReadForCon rClass urp rpls (RecGadtC conNames ts _) =
 
 makeReadForArg :: ReadClass
                -> Bool
+               -> Bool
                -> TyVarMap2
                -> Name
                -> Type
                -> Name
                -> Q (Q Stmt, Exp)
-makeReadForArg rClass urp tvMap conName ty tyExpName = do
+makeReadForArg rClass isTup urp tvMap conName ty tyExpName = do
     (rExp, varExp) <- makeReadForType rClass urp tvMap conName tyExpName False ty
     let readStmt = bindS (varP tyExpName) $
-                         varE stepValName `appE` wrapReadS urp (return rExp)
+                         (if (not isTup) then appE (varE stepValName) else id) $
+                            wrapReadS urp (return rExp)
     return (readStmt, varExp)
 
 makeReadForField :: ReadClass
@@ -819,7 +829,10 @@ readsOrReadName True  = readPrecOrListName
 -------------------------------------------------------------------------------
 
 mkParser :: Int -> [Q Stmt] -> Q Exp -> Q Exp
-mkParser p ss b = varE precValName `appE` integerE p `appE` doE (ss ++ [noBindS b])
+mkParser p ss b = varE precValName `appE` integerE p `appE` mkDoStmts ss b
+
+mkDoStmts :: [Q Stmt] -> Q Exp -> Q Exp
+mkDoStmts ss b = doE (ss ++ [noBindS b])
 
 resultExpr :: Name -> [Exp] -> Q Exp
 resultExpr conName as = varE returnValName `appE` conApp

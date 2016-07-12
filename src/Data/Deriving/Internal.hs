@@ -1333,6 +1333,15 @@ primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
 primOpAppExpr e1 op e2 = varE tagToEnumValName `appE`
                            infixApp e1 (varE op) e2
 
+-- | Checks if a 'Name' represents a tuple type constructor (other than '()')
+isNonUnitTuple :: Name -> Bool
+isNonUnitTuple = isNonUnitTupleString . nameBase
+
+-- | Checks if a 'String' represents a tuple (other than '()')
+isNonUnitTupleString :: String -> Bool
+isNonUnitTupleString ('(':',':_) = True
+isNonUnitTupleString _           = False
+
 -------------------------------------------------------------------------------
 -- Manually quoted names
 -------------------------------------------------------------------------------
@@ -1638,6 +1647,9 @@ ltIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<#"
 
 ltWordHashValName :: Name
 ltWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord#"
+
+parenValName :: Name
+parenValName = mkNameG_v "base" "GHC.Read" "paren"
 
 parensValName :: Name
 parensValName = mkNameG_v "base" "GHC.Read" "parens"

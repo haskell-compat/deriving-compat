@@ -636,10 +636,6 @@ showsPrecOrListName True  = showListName
 -- Assorted utilities
 -------------------------------------------------------------------------------
 
--- | Checks if a 'Name' represents a tuple type constructor (other than '()')
-isNonUnitTuple :: Name -> Bool
-isNonUnitTuple = isTupleString . nameBase
-
 -- | Parenthesize an infix constructor name if it is being applied as a prefix
 -- function (e.g., data Amp a = (:&) a a)
 parenInfixConName :: Name -> ShowS
@@ -652,11 +648,6 @@ parenInfixConName conName =
 isInfixTypeCon :: String -> Bool
 isInfixTypeCon (':':_) = True
 isInfixTypeCon _       = False
-
--- | Checks if a 'String' represents a tuple (other than '()')
-isTupleString :: String -> Bool
-isTupleString ('(':',':_) = True
-isTupleString _           = False
 
 charE :: Char -> Q Exp
 charE = litE . charL
