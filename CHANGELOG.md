@@ -1,3 +1,6 @@
+### next
+* Microoptimization in derived instances of higher-order versions of `Eq`, `Ord`, `Read`, and `Show`
+
 ## 0.3
 * Added `Data.Eq.Deriving`, which allows deriving `Eq`, `Eq1`, and `Eq2` with TH.
 * Added `Data.Ord.Deriving`, which allows deriving `Ord`, `Ord1`, and `Ord2` with TH.

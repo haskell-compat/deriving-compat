@@ -695,13 +695,15 @@ makeReadForType rClass urp tvMap conName tyExpName rl ty = do
     if any (`mentionsName` tyVarNames) lhsArgs
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError rClass conName
-       else do
-        readExp <- appsE $ [ varE . readsOrReadName urp rl $ toEnum numLastArgs]
-                   ++ zipWith (\b -> fmap fst
-                                   . makeReadForType rClass urp tvMap conName tyExpName b)
-                              (cycle [False,True])
-                              (interleave rhsArgs rhsArgs)
-        return (readExp, VarE tyExpName)
+       else if any (`mentionsName` tyVarNames) rhsArgs
+               then do
+                 readExp <- appsE $ [ varE . readsOrReadName urp rl $ toEnum numLastArgs]
+                            ++ zipWith (\b -> fmap fst
+                                            . makeReadForType rClass urp tvMap conName tyExpName b)
+                                       (cycle [False,True])
+                                       (interleave rhsArgs rhsArgs)
+                 return (readExp, VarE tyExpName)
+               else return (VarE $ readsOrReadName urp False Read, VarE tyExpName)
 #else
 makeReadForType rClass urp tvMap conName tyExpName _ ty = do
   let varNames = Map.keys tvMap

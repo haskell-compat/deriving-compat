@@ -411,8 +411,10 @@ makeOrdFunForType oFun tvMap conName ty = do
     if any (`mentionsName` tyVarNames) lhsArgs
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError oClass conName
-       else appsE $ [ varE . ordFunName oFun $ toEnum numLastArgs]
-                    ++ map (makeOrdFunForType oFun tvMap conName) rhsArgs
+       else if any (`mentionsName` tyVarNames) rhsArgs
+               then appsE $ [ varE . ordFunName oFun $ toEnum numLastArgs]
+                            ++ map (makeOrdFunForType oFun tvMap conName) rhsArgs
+               else varE $ ordFunName oFun 0
 #else
 makeOrdFunForType oFun tvMap conName ty = do
   let varNames = Map.keys tvMap

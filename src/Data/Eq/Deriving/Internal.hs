@@ -284,8 +284,10 @@ makeCaseForType eClass tvMap conName ty = do
     if any (`mentionsName` tyVarNames) lhsArgs
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError eClass conName
-       else appsE $ [ varE . eqName $ toEnum numLastArgs]
-                    ++ map (makeCaseForType eClass tvMap conName) rhsArgs
+       else if any (`mentionsName` tyVarNames) rhsArgs
+               then appsE $ [ varE . eqName $ toEnum numLastArgs]
+                            ++ map (makeCaseForType eClass tvMap conName) rhsArgs
+               else varE eqValName
 #else
 makeCaseForType eClass tvMap conName ty = do
   let varNames = Map.keys tvMap

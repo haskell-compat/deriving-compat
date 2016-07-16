@@ -550,10 +550,12 @@ makeShowForType sClass conName tvMap sl ty = do
     if any (`mentionsName` tyVarNames) lhsArgs
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError sClass conName
-       else appsE $ [ varE . showsPrecOrListName sl $ toEnum numLastArgs]
-                    ++ zipWith (makeShowForType sClass conName tvMap)
-                               (cycle [False,True])
-                               (interleave rhsArgs rhsArgs)
+       else if any (`mentionsName` tyVarNames) rhsArgs
+               then appsE $ [ varE . showsPrecOrListName sl $ toEnum numLastArgs]
+                            ++ zipWith (makeShowForType sClass conName tvMap)
+                                       (cycle [False,True])
+                                       (interleave rhsArgs rhsArgs)
+               else varE showsPrecValName
 #else
 makeShowForType sClass conName tvMap _ ty = do
   let varNames = Map.keys tvMap
