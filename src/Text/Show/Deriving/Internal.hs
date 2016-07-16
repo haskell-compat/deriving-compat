@@ -555,7 +555,7 @@ makeShowForType sClass conName tvMap sl ty = do
                             ++ zipWith (makeShowForType sClass conName tvMap)
                                        (cycle [False,True])
                                        (interleave rhsArgs rhsArgs)
-               else varE showsPrecValName
+               else varE $ if sl then showListValName else showsPrecValName
 #else
 makeShowForType sClass conName tvMap _ ty = do
   let varNames = Map.keys tvMap

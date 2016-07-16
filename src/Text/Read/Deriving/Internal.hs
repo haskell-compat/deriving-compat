@@ -703,7 +703,7 @@ makeReadForType rClass urp tvMap conName tyExpName rl ty = do
                                        (cycle [False,True])
                                        (interleave rhsArgs rhsArgs)
                  return (readExp, VarE tyExpName)
-               else return (VarE $ readsOrReadName urp False Read, VarE tyExpName)
+               else return (VarE $ readsOrReadName urp rl Read, VarE tyExpName)
 #else
 makeReadForType rClass urp tvMap conName tyExpName _ ty = do
   let varNames = Map.keys tvMap
