@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-|
 Module:      Data.Functor.Deriving.Internal
@@ -261,8 +262,29 @@ makeFunctorFunForType ff tvMap conName covariant ty =
       mentionsTyArgs :: Bool
       mentionsTyArgs = any (`mentionsName` tyVarNames) tyArgs
 
-      makeFunctorFunTuple :: Type -> Name -> Q (Either Exp Exp)
-      makeFunctorFunTuple fieldTy fieldName =
+      makeFunctorFunTuple :: ([Q Pat] -> Q Pat) -> (Int -> Name) -> Int
+                          -> Q (Either Exp Exp)
+      makeFunctorFunTuple mkTupP mkTupleDataName n = do
+         args <- mapM newName $ catMaybes [ Just "x"
+                                          , guard (ff == Foldr) >> Just "z"
+                                          ]
+         xs <- newNameList "_tup" n
+
+         let x = head args
+             z = last args
+         fmap Right $ lamE (map varP args) $ caseE (varE x)
+              [ match (mkTupP $ map varP xs)
+                      (normalB $ functorFunCombine ff
+                                                   (mkTupleDataName n)
+                                                   z
+                                                   xs
+                                                   (zipWithM makeFunctorFunTupleField tyArgs xs)
+                      )
+                      []
+              ]
+
+      makeFunctorFunTupleField :: Type -> Name -> Q (Either Exp Exp)
+      makeFunctorFunTupleField fieldTy fieldName =
         makeFunctorFunForType ff tvMap conName covariant fieldTy
           `appEitherE` varE fieldName
 
@@ -281,25 +303,12 @@ makeFunctorFunForType ff tvMap conName covariant ty =
          where
            covFunctorFun :: Bool -> Type -> Q Exp
            covFunctorFun cov = fmap fromEither . makeFunctorFunForType ff tvMap conName cov
+#if MIN_VERSION_template_haskell(2,6,0)
+     UnboxedTupleT n
+       | n > 0 && mentionsTyArgs -> makeFunctorFunTuple unboxedTupP unboxedTupleDataName n
+#endif
      TupleT n
-       | n > 0 && mentionsTyArgs -> do
-         args <- mapM newName $ catMaybes [ Just "x"
-                                          , guard (ff == Foldr) >> Just "z"
-                                          ]
-         xs <- newNameList "_tup" n
-
-         let x = head args
-             z = last args
-         fmap Right $ lamE (map varP args) $ caseE (varE x)
-              [ match (tupP $ map varP xs)
-                      (normalB $ functorFunCombine ff
-                                                   (tupleDataName n)
-                                                   z
-                                                   xs
-                                                   (zipWithM makeFunctorFunTuple tyArgs xs)
-                      )
-                      []
-              ]
+       | n > 0 && mentionsTyArgs -> makeFunctorFunTuple tupP tupleDataName n
      _ -> do
          itf <- isTyFamily tyCon
          if any (`mentionsName` tyVarNames) lhsArgs || (itf && mentionsTyArgs)
