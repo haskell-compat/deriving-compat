@@ -55,6 +55,12 @@ import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Ppr (pprint)
 import           Language.Haskell.TH.Syntax
 
+-- Ensure, beyond a shadow of a doubt, that the instances are in-scope
+import           Data.Functor ()
+import           Data.Functor.Classes ()
+import           Data.Foldable ()
+import           Data.Traversable ()
+
 #ifndef CURRENT_PACKAGE_KEY
 import           Data.Version (showVersion)
 import           Paths_deriving_compat (version)
