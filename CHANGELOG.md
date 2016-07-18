@@ -1,4 +1,4 @@
-### next
+### 0.3.1
 * Allow deriving `Functor` and `Foldable` instances for datatypes containing unboxed tuples
 * Microoptimization in derived instances of higher-order versions of `Eq`, `Ord`, `Read`, and `Show`
 
