@@ -195,7 +195,7 @@ ordFunDecs oClass cons =
                                      -- OrdLT is included to mirror the fix to
                                      -- GHC Trac #10858.
 #if defined(NEW_FUNCTOR_CLASSES)
-                                   , Ord1LiftCompare, Ord2LiftCompare
+                                   , Ord1LiftCompare, Ord2LiftCompare2
 #else
                                    , Ord1Compare1
 #endif
