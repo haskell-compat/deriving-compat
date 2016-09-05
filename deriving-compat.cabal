@@ -143,6 +143,7 @@ test-suite spec
                      , deriving-compat     == 0.3.2
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
+                     , template-haskell    >= 2.5   && < 2.12
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9 && < 5
