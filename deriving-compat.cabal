@@ -5,6 +5,14 @@ description:         Provides Template Haskell functions that mimic deriving
                      extensions that were introduced or modified in recent versions
                      of GHC. Currently, the following extensions are covered:
                      .
+                     * Deriving @Eq@, @Eq1@, and @Eq2@
+                     .
+                     * Deriving @Ord@, @Ord1@, and @Ord2@
+                     .
+                     * Deriving @Read@, @Read1@, and @Read2@
+                     .
+                     * Deriving @Show@, @Show1@, and @Show2@
+                     .
                      * @DeriveFoldable@
                      .
                      * @DeriveFunctor@
@@ -45,6 +53,12 @@ description:         Provides Template Haskell functions that mimic deriving
                        @Lift@ instances. Use @Language.Haskell.TH.Lift@ from
                        @<http://hackage.haskell.org/package/th-lift th-lift>@
                        to derive @Lift@ using Template Haskell.
+                     .
+                     * The @Bifunctor@ typeclass, which was introduced in GHC 7.10,
+                       as well as the @Bifoldable@ and @Bitraversable@ typeclasses, which
+                       were introduced in GHC 8.2. Use @Data.Bifunctor.TH@ from
+                       @<http://hackage.haskell.org/package/bifunctors bifunctors>@
+                       to derive these typeclasses using Template Haskell.
 homepage:            https://github.com/haskell-compat/deriving-compat
 bug-reports:         https://github.com/haskell-compat/deriving-compat/issues
 license:             BSD3
