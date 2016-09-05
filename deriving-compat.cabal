@@ -1,5 +1,5 @@
 name:                deriving-compat
-version:             0.3.1
+version:             0.3.2
 synopsis:            Backports of GHC deriving extensions
 description:         Provides Template Haskell functions that mimic deriving
                      extensions that were introduced or modified in recent versions
@@ -28,7 +28,10 @@ description:         Provides Template Haskell functions that mimic deriving
                        number of hash signs as the corresponding primitive literals.
                      .
                      * In GHC 8.2, deriving `Ord` was changed so that it generates concrete
-                       @if@-expressions that are not subject to @RebindableSyntax@.
+                       @if@-expressions that are not subject to @RebindableSyntax@. It was
+                       also changed so that derived @(<=)@, @(>)@, and @(>=)@ methods are
+                       expressed through @(<)@, which avoids generating a substantial
+                       amount of code.
                      .
                      Note that some recent GHC extensions are not covered by this package:
                      .
@@ -137,7 +140,7 @@ test-suite spec
                        Types.ReadShow
   build-depends:       base-compat         >= 0.8.1 && < 1
                      , base-orphans        >= 0.5   && < 1
-                     , deriving-compat     == 0.3.1
+                     , deriving-compat     == 0.3.2
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
 

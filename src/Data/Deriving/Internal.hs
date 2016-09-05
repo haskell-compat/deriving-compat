@@ -1769,16 +1769,16 @@ eqValName :: Name
 eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
 
 geValName :: Name
-geValName = mkNameG_v "ghc-prim" "GHC.Classes" "<="
+geValName = mkNameG_v "ghc-prim" "GHC.Classes" ">="
 
 gtValName :: Name
-gtValName = mkNameG_v "ghc-prim" "GHC.Classes" "<"
+gtValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
 
 leValName :: Name
-leValName = mkNameG_v "ghc-prim" "GHC.Classes" ">="
+leValName = mkNameG_v "ghc-prim" "GHC.Classes" "<="
 
 ltValName :: Name
-ltValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
+ltValName = mkNameG_v "ghc-prim" "GHC.Classes" "<"
 
 notValName :: Name
 notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
@@ -1808,16 +1808,16 @@ eqValName :: Name
 eqValName = mkNameG_v "base" "GHC.Classes" "=="
 
 geValName :: Name
-geValName = mkNameG_v "base" "GHC.Classes" "<="
+geValName = mkNameG_v "base" "GHC.Classes" ">="
 
 gtValName :: Name
-gtValName = mkNameG_v "base" "GHC.Classes" "<"
+gtValName = mkNameG_v "base" "GHC.Classes" ">"
 
 leValName :: Name
-leValName = mkNameG_v "base" "GHC.Classes" ">="
+leValName = mkNameG_v "base" "GHC.Classes" "<="
 
 ltValName :: Name
-ltValName = mkNameG_v "base" "GHC.Classes" ">"
+ltValName = mkNameG_v "base" "GHC.Classes" "<"
 
 notValName :: Name
 notValName = mkNameG_v "base" "GHC.Classes" "not"

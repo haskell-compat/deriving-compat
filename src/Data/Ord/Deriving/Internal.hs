@@ -177,9 +177,34 @@ ordFunDecs oClass cons =
     makeFunD oFun =
       funD (ordFunName oFun $ arity oClass)
            [ clause []
-                    (normalB $ makeOrdFunForCons oFun cons)
+                    (normalB $ dispatchFun oFun)
                     []
            ]
+
+    negateExpr :: Q Exp -> Q Exp
+    negateExpr = appE (varE notValName)
+
+    dispatchLT :: (Q Exp -> Q Exp -> Q Exp -> Q Exp) -> Q Exp
+    dispatchLT f = do
+        x <- newName "x"
+        y <- newName "y"
+        lamE [varP x, varP y] $ f (varE ltValName) (varE x) (varE y)
+
+    dispatchFun :: OrdFun -> Q Exp
+    dispatchFun oFun | oFun `elem` [ OrdCompare, OrdLT
+                                     -- OrdLT is included to mirror the fix to
+                                     -- GHC Trac #10858.
+#if defined(NEW_FUNCTOR_CLASSES)
+                                   , Ord1LiftCompare, Ord2LiftCompare
+#else
+                                   , Ord1Compare1
+#endif
+                                   ]
+                      = makeOrdFunForCons oFun cons
+    dispatchFun OrdLE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` y `appE` x
+    dispatchFun OrdGT = dispatchLT $ \lt x y ->              lt `appE` y `appE` x
+    dispatchFun OrdGE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` x `appE` y
+    dispatchFun _     = fail "ordFunDecs"
 
 -- | Generates a lambda expression which behaves like the OrdFun value. This
 -- function uses heuristics to determine whether to implement the OrdFun from
