@@ -309,7 +309,7 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = do
+spec = parallel $ do
     describe "OneTwoCompose Maybe ((,) Bool) [Int] [Int]" $ do
         prop "satisfies the Functor laws"
             (prop_FunctorEx     :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Bool)

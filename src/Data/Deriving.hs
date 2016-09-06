@@ -19,6 +19,8 @@ module Data.Deriving (
       module Exports
     ) where
 
+import Data.Bounded.Deriving     as Exports
+-- import Data.Enum.Deriving     as Exports
 import Data.Eq.Deriving          as Exports
 import Data.Foldable.Deriving    as Exports
 import Data.Functor.Deriving     as Exports
@@ -66,7 +68,7 @@ $('deriveFunctor' 'AssocDataInt1) -- instance Functor (AssocData Int) where ...
 @derive@-functions in @deriving-compat@ fall into one of three categories:
 
 * Category 0: Typeclasses with an argument of kind @*@.
-  ('deriveEq', 'deriveOrd', 'deriveRead', 'deriveShow')
+  ('deriveBounded', 'deriveEq', 'deriveOrd', 'deriveRead', 'deriveShow')
 
 * Category 1: Typeclasses with an argument of kind @* -> *@, That is, a datatype
   with such an instance must have at least one type variable, and the last type

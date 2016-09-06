@@ -3,7 +3,9 @@ version:             0.3.2
 synopsis:            Backports of GHC deriving extensions
 description:         Provides Template Haskell functions that mimic deriving
                      extensions that were introduced or modified in recent versions
-                     of GHC. Currently, the following extensions are covered:
+                     of GHC. Currently, the following typeclasses/extensions are covered:
+                     .
+                     * Deriving @Bounded@
                      .
                      * Deriving @Eq@, @Eq1@, and @Eq2@
                      .
@@ -41,7 +43,7 @@ description:         Provides Template Haskell functions that mimic deriving
                        expressed through @(<)@, which avoids generating a substantial
                        amount of code.
                      .
-                     Note that some recent GHC extensions are not covered by this package:
+                     Note that some recent GHC typeclasses/extensions are not covered by this package:
                      .
                      * @DeriveGeneric@, which was introducted in GHC 7.2 for deriving
                        @Generic@ instances, and modified in GHC 7.6 to allow derivation
@@ -101,6 +103,8 @@ flag new-functor-classes
 library
   exposed-modules:     Data.Deriving
 
+                       Data.Bounded.Deriving
+                       -- Data.Enum.Deriving
                        Data.Eq.Deriving
                        Data.Foldable.Deriving
                        Data.Functor.Deriving
@@ -108,8 +112,12 @@ library
                        Data.Traversable.Deriving
                        Text.Read.Deriving
                        Text.Show.Deriving
-  other-modules:       Data.Eq.Deriving.Internal
-                       Data.Deriving.Internal
+
+  other-modules:       Data.Deriving.Internal
+
+                       Data.Bounded.Deriving.Internal
+                       -- Data.Enum.Deriving.Internal
+                       Data.Eq.Deriving.Internal
                        Data.Functor.Deriving.Internal
                        Data.Ord.Deriving.Internal
                        Text.Read.Deriving.Internal
@@ -144,7 +152,9 @@ library
 test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
-  other-modules:       EqSpec
+  other-modules:       BoundedSpec
+                       -- EnumSpec
+                       EqSpec
                        FunctorSpec
                        OrdSpec
                        ReadSpec
@@ -174,4 +184,4 @@ test-suite spec
 
   hs-source-dirs:      tests
   default-language:    Haskell2010
-  ghc-options:         -Wall
+  ghc-options:         -Wall -threaded -rtsopts

@@ -1474,6 +1474,9 @@ wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
 addrHashTypeName :: Name
 addrHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Addr#"
 
+boundedTypeName :: Name
+boundedTypeName = mkNameG_tc "base" "GHC.Enum" "Bounded"
+
 charHashTypeName :: Name
 charHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Char#"
 
@@ -1653,6 +1656,12 @@ ltIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<#"
 
 ltWordHashValName :: Name
 ltWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord#"
+
+minBoundValName :: Name
+minBoundValName = mkNameG_v "base" "GHC.Enum" "minBound"
+
+maxBoundValName :: Name
+maxBoundValName = mkNameG_v "base" "GHC.Enum" "maxBound"
 
 parenValName :: Name
 parenValName = mkNameG_v "base" "GHC.Read" "paren"

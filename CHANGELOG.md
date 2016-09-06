@@ -1,3 +1,6 @@
+# next [YYYY.MM.DD]
+* Add `Data.Bounded.Deriving`, which allows deriving `Bounded` with TH.
+
 ### 0.3.2
 * Incorporate a fix to GHC Trac #10858, which will be introduced in GHC 8.2
 * Fix bug in which derived `Ord` instances accidentally swapped their less-than(-or-equal-to) and greater-than(-or-equal-to) methods
