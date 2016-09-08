@@ -18,6 +18,7 @@
 Provides Template Haskell functions that mimic deriving extensions that were introduced or modified in recent versions of GHC. Currently, the following typeclasses/extensions are covered:
 
 * Deriving `Bounded`
+* Deriving `Enum`
 * Deriving `Eq`, `Eq1`, and `Eq2`
 * Deriving `Ord`, `Ord1`, and `Ord2`
 * Deriving `Read`, `Read1`, and `Read2`

@@ -20,7 +20,7 @@ module Data.Deriving (
     ) where
 
 import Data.Bounded.Deriving     as Exports
--- import Data.Enum.Deriving     as Exports
+import Data.Enum.Deriving        as Exports
 import Data.Eq.Deriving          as Exports
 import Data.Foldable.Deriving    as Exports
 import Data.Functor.Deriving     as Exports

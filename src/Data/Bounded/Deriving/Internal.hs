@@ -36,7 +36,7 @@ deriveBounded name = withType name fromCons
             <- buildTypeInstance BoundedClass name' ctxt tvbs mbTys
         instanceD (return instanceCxt)
                   (return instanceType)
-                  (boundedFunDecs cons)
+                  (boundedFunDecs name' cons)
 
 -- | Generates a lambda expression which behaves like 'minBound' (without
 -- requiring a 'Bounded' instance).
@@ -49,14 +49,14 @@ makeMaxBound :: Name -> Q Exp
 makeMaxBound = makeBoundedFun MaxBound
 
 -- | Generates 'minBound' and 'maxBound' method declarations.
-boundedFunDecs :: [Con] -> [Q Dec]
-boundedFunDecs cons = [makeFunD MinBound, makeFunD MaxBound]
+boundedFunDecs :: Name -> [Con] -> [Q Dec]
+boundedFunDecs tyName cons = [makeFunD MinBound, makeFunD MaxBound]
   where
     makeFunD :: BoundedFun -> Q Dec
     makeFunD bf =
       funD (boundedFunName bf)
            [ clause []
-                    (normalB $ makeBoundedFunForCons bf cons)
+                    (normalB $ makeBoundedFunForCons bf tyName cons)
                     []
            ]
 
@@ -69,17 +69,17 @@ makeBoundedFun bf name = withType name fromCons where
     -- or not the provided datatype can actually have minBound/maxBound
     -- implemented for it, and produces errors if it can't.
     buildTypeInstance BoundedClass name' ctxt tvbs mbTys
-      `seq` makeBoundedFunForCons bf cons
+      `seq` makeBoundedFunForCons bf name' cons
 
 -- | Generates a lambda expression for minBound/maxBound. for the
 -- given constructors. All constructors must be from the same type.
-makeBoundedFunForCons :: BoundedFun -> [Con] -> Q Exp
-makeBoundedFunForCons _  [] = noConstructorsError
-makeBoundedFunForCons bf cons
+makeBoundedFunForCons :: BoundedFun -> Name -> [Con] -> Q Exp
+makeBoundedFunForCons _  _      [] = noConstructorsError
+makeBoundedFunForCons bf tyName cons
     | not (isProduct || isEnumeration)
     = fail $ unlines
-        [ "Must be an enumeration type (one or more nullary constructors)"
-        , "\tor have precisely one constructor"
+        [ enumerationErrorStr (nameBase tyName)
+        , "\tor a product type (precisely one constructor)"
         ]
     | isEnumeration
     = pickCon
@@ -88,7 +88,7 @@ makeBoundedFunForCons bf cons
   where
     isProduct, isEnumeration :: Bool
     isProduct     = isProductType cons
-    isEnumeration = all isNullaryCon cons
+    isEnumeration = isEnumerationType cons
 
     con1, conN :: Q Exp
     con1 = conE $ constructorName $ head cons

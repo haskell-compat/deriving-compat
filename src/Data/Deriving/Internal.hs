@@ -22,6 +22,7 @@ Template Haskell-related utilities.
 -}
 module Data.Deriving.Internal where
 
+import           Control.Applicative (liftA2)
 import           Control.Monad (liftM, when, unless)
 
 import           Data.Foldable (foldr')
@@ -931,6 +932,11 @@ dataConIError = fail
   . showString "\n\tuse GHC >= 7.4 instead.)"
   $ ""
 
+enumerationErrorStr :: String -> String
+enumerationErrorStr nb =
+    '\'':nb ++ "’ must be an enumeration type"
+            ++ " (one or more nullary, non-GADT constructors)"
+
 -------------------------------------------------------------------------------
 -- Assorted utilities
 -------------------------------------------------------------------------------
@@ -952,13 +958,13 @@ interleave (a1:a1s) (a2:a2s) = a1:a2:interleave a1s a2s
 interleave _        _        = []
 
 #if MIN_VERSION_ghc_prim(0,3,1)
-tagToEnum :: Int# -> Bool
-tagToEnum x = tagToEnum# x
+isTrue# :: Int# -> Bool
+isTrue# x = tagToEnum# x
 #else
-tagToEnum :: Bool -> Bool
-tagToEnum x = x
+isTrue# :: Bool -> Bool
+isTrue# x = x
 #endif
-{-# INLINE tagToEnum #-}
+{-# INLINE isTrue# #-}
 
 -- isRight and fromEither taken from the extra package (BSD3-licensed)
 
@@ -1136,6 +1142,23 @@ isNullaryCon (GadtC    _ [] _) = True
 isNullaryCon (RecGadtC _ [] _) = True
 #endif
 isNullaryCon _                 = False
+
+-- | Returns 'True' if it's a datatype with one or more nullary, non-GADT
+-- constructors.
+isEnumerationType :: [Con] -> Bool
+isEnumerationType cons@(_:_) = all (liftA2 (&&) isNullaryCon isVanillaCon) cons
+isEnumerationType _          = False
+
+-- | Returns 'False' if we're dealing with existential quantification or GADTs.
+isVanillaCon :: Con -> Bool
+isVanillaCon NormalC{}  = True
+isVanillaCon RecC{}     = True
+isVanillaCon InfixC{}   = True
+isVanillaCon ForallC{}  = False
+#if MIN_VERSION_template_haskell(2,11,0)
+isVanillaCon GadtC{}    = False
+isVanillaCon RecGadtC{} = False
+#endif
 
 -- | Generate a list of fresh names with a common prefix, and numbered suffixes.
 newNameList :: String -> Int -> Q [Name]
@@ -1336,7 +1359,7 @@ untagExpr ((untagThis, putTagHere) : more) e =
                  []]
 
 primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
-primOpAppExpr e1 op e2 = varE tagToEnumValName `appE`
+primOpAppExpr e1 op e2 = varE isTrueHashValName `appE`
                            infixApp e1 (varE op) e2
 
 -- | Checks if a 'Name' represents a tuple type constructor (other than '()')
@@ -1365,6 +1388,9 @@ derivingCompatPackageKey = "deriving-compat-" ++ showVersion version
 
 mkDerivingCompatName_v :: String -> Name
 mkDerivingCompatName_v = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal"
+
+isTrueHashValName :: Name
+isTrueHashValName = mkDerivingCompatName_v "isTrue#"
 
 fmapConstValName :: Name
 fmapConstValName = mkDerivingCompatName_v "fmapConst"
@@ -1438,9 +1464,6 @@ liftShowsPrecConstValName = mkDerivingCompatName_v "liftShowsPrecConst"
 liftShowsPrec2ConstValName :: Name
 liftShowsPrec2ConstValName = mkDerivingCompatName_v "liftShowsPrec2Const"
 
-tagToEnumValName :: Name
-tagToEnumValName = mkDerivingCompatName_v "tagToEnum"
-
 cHashDataName :: Name
 cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"
 
@@ -1483,6 +1506,9 @@ charHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Char#"
 doubleHashTypeName :: Name
 doubleHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Double#"
 
+enumTypeName :: Name
+enumTypeName = mkNameG_tc "base" "GHC.Enum" "Enum"
+
 floatHashTypeName :: Name
 floatHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Float#"
 
@@ -1491,6 +1517,9 @@ foldableTypeName = mkNameG_tc "base" "Data.Foldable" "Foldable"
 
 functorTypeName :: Name
 functorTypeName = mkNameG_tc "base" "GHC.Base" "Functor"
+
+intTypeName :: Name
+intTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Int"
 
 intHashTypeName :: Name
 intHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int#"
@@ -1513,6 +1542,9 @@ altValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "+++"
 appEndoValName :: Name
 appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
 
+appendValName :: Name
+appendValName = mkNameG_v "base" "GHC.Base" "++"
+
 chooseValName :: Name
 chooseValName = mkNameG_v "base" "GHC.Read" "choose"
 
@@ -1521,6 +1553,18 @@ composeValName = mkNameG_v "base" "GHC.Base" "."
 
 constValName :: Name
 constValName = mkNameG_v "base" "GHC.Base" "const"
+
+enumFromValName :: Name
+enumFromValName = mkNameG_v "base" "GHC.Enum" "enumFrom"
+
+enumFromThenValName :: Name
+enumFromThenValName = mkNameG_v "base" "GHC.Enum" "enumFromThen"
+
+enumFromThenToValName :: Name
+enumFromThenToValName = mkNameG_v "base" "GHC.Enum" "enumFromThenTo"
+
+enumFromToValName :: Name
+enumFromToValName = mkNameG_v "base" "GHC.Enum" "enumFromTo"
 
 eqAddrHashValName :: Name
 eqAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqAddr#"
@@ -1554,6 +1598,9 @@ foldrValName = mkNameG_v "base" "Data.Foldable" "foldr"
 
 foldMapValName :: Name
 foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
+
+fromEnumValName :: Name
+fromEnumValName = mkNameG_v "base" "GHC.Enum" "fromEnum"
 
 geAddrHashValName :: Name
 geAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geAddr#"
@@ -1660,6 +1707,9 @@ ltWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord#"
 minBoundValName :: Name
 minBoundValName = mkNameG_v "base" "GHC.Enum" "minBound"
 
+mapValName :: Name
+mapValName = mkNameG_v "base" "GHC.Base" "map"
+
 maxBoundValName :: Name
 maxBoundValName = mkNameG_v "base" "GHC.Enum" "maxBound"
 
@@ -1672,8 +1722,14 @@ parensValName = mkNameG_v "base" "GHC.Read" "parens"
 pfailValName :: Name
 pfailValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "pfail"
 
+plusValName :: Name
+plusValName = mkNameG_v "base" "GHC.Num" "+"
+
 precValName :: Name
 precValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "prec"
+
+predValName :: Name
+predValName = mkNameG_v "base" "GHC.Enum" "pred"
 
 readListValName :: Name
 readListValName = mkNameG_v "base" "GHC.Read" "readList"
@@ -1725,6 +1781,15 @@ showStringValName = mkNameG_v "base" "GHC.Show" "showString"
 
 stepValName :: Name
 stepValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "step"
+
+succValName :: Name
+succValName = mkNameG_v "base" "GHC.Enum" "succ"
+
+tagToEnumHashValName :: Name
+tagToEnumHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "tagToEnum#"
+
+toEnumValName :: Name
+toEnumValName = mkNameG_v "base" "GHC.Enum" "toEnum"
 
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"

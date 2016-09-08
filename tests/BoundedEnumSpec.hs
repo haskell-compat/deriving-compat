@@ -7,15 +7,15 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-|
-Module:      BoundedSpec
+Module:      BoundedEnumSpec
 Copyright:   (C) 2015-2016 Ryan Scott
 License:     BSD-style (see the file LICENSE)
 Maintainer:  Ryan Scott
 Portability: Template Haskell
 
-@hspec@ tests for derived 'Bounded' instances.
+@hspec@ tests for derived 'Bounded' and 'Enum' instances.
 -}
-module BoundedSpec where
+module BoundedEnumSpec where
 
 import Data.Deriving
 
@@ -34,7 +34,7 @@ data TyConEnum = TyConEnum1 | TyConEnum2 | TyConEnum3
 data TyConProduct a b c = TyConProduct a b c
   deriving (Eq, Show)
 
-data TyConUnit = TyConUnit
+data TyConUnit a = TyConUnit
   deriving (Eq, Show)
 
 data TyConExQuant a = Show a => TyConExQuant a
@@ -56,8 +56,8 @@ data family TyFamilyProduct x y z :: *
 data instance TyFamilyProduct a b c = TyFamilyProduct a b c
   deriving (Eq, Show)
 
-data family TyFamilyUnit :: *
-data instance TyFamilyUnit = TyFamilyUnit
+data family TyFamilyUnit x :: *
+data instance TyFamilyUnit a = TyFamilyUnit
   deriving (Eq, Show)
 
 data family TyFamilyExQuant x :: *
@@ -77,7 +77,9 @@ deriving instance Show a => Show (TyFamilyGADT a)
 
 $(deriveBounded ''TyConEnum)
 $(deriveBounded ''TyConProduct)
-$(deriveBounded ''TyConUnit)
+instance Bounded (TyConUnit a) where
+    minBound = $(makeMinBound ''TyConUnit)
+    maxBound = $(makeMaxBound ''TyConUnit)
 instance (Bounded a, Show a) => Bounded (TyConExQuant a) where
     minBound = $(makeMinBound ''TyConExQuant)
     maxBound = $(makeMaxBound ''TyConExQuant)
@@ -85,18 +87,30 @@ instance (Bounded a, Show a) => Bounded (TyConGADT a) where
     minBound = $(makeMinBound ''TyConGADT)
     maxBound = $(makeMaxBound ''TyConGADT)
 
+$(deriveEnum ''TyConEnum)
+instance Enum (TyConUnit a) where
+    toEnum   = $(makeToEnum   ''TyConUnit)
+    fromEnum = $(makeFromEnum ''TyConUnit)
+
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveBounded 'TyFamilyEnum1)
 $(deriveBounded 'TyFamilyProduct)
-$(deriveBounded 'TyFamilyUnit)
+instance Bounded (TyFamilyUnit a) where
+    minBound = $(makeMinBound 'TyFamilyUnit)
+    maxBound = $(makeMaxBound 'TyFamilyUnit)
 instance (Bounded a, Show a) => Bounded (TyFamilyExQuant a) where
     minBound = $(makeMinBound 'TyFamilyExQuant)
     maxBound = $(makeMaxBound 'TyFamilyExQuant)
 instance (Bounded a, Show a) => Bounded (TyFamilyGADT a) where
     minBound = $(makeMinBound 'TyFamilyGADT)
     maxBound = $(makeMaxBound 'TyFamilyGADT)
+
+$(deriveEnum 'TyFamilyEnum1)
+instance Enum (TyFamilyUnit a) where
+    toEnum   = $(makeToEnum   'TyFamilyUnit)
+    fromEnum = $(makeFromEnum 'TyFamilyUnit)
 #endif
 
 -------------------------------------------------------------------------------
@@ -106,18 +120,24 @@ main = hspec spec
 
 spec :: Spec
 spec = parallel $ do
-    describe "TyConEnum" $
+    describe "TyConEnum" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConEnum1
             maxBound `shouldBe` TyConEnum3
+
+        it "has a sensible Enum instance" $
+            [minBound .. maxBound] `shouldBe` [TyConEnum1, TyConEnum2, TyConEnum3]
     describe "TyConProduct Bool Bool Bool" $
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConProduct False False False
             maxBound `shouldBe` TyConProduct True  True  True
-    describe "TyConUnit" $
+    describe "TyConUnit Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConUnit
             maxBound `shouldBe` TyConUnit
+
+        it "has a sensible Enum instance" $
+            [minBound .. maxBound] `shouldBe` [TyConUnit]
     describe "TyConExQuant Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConExQuant False
@@ -127,18 +147,24 @@ spec = parallel $ do
             minBound `shouldBe` TyConGADT False
             maxBound `shouldBe` TyConGADT True
 #if MIN_VERSION_template_haskell(2,7,0)
-    describe "TyFamilyEnum" $
+    describe "TyFamilyEnum" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyEnum1
             maxBound `shouldBe` TyFamilyEnum3
+
+        it "has a sensible Enum instance" $
+            [minBound .. maxBound] `shouldBe` [TyFamilyEnum1, TyFamilyEnum2, TyFamilyEnum3]
     describe "TyFamilyProduct Bool Bool Bool" $
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyProduct False False False
             maxBound `shouldBe` TyFamilyProduct True  True  True
-    describe "TyFamilyUnit" $
+    describe "TyFamilyUnit Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyUnit
             maxBound `shouldBe` TyFamilyUnit
+
+        it "has a sensible Enum instance" $
+            [minBound .. maxBound] `shouldBe` [TyFamilyUnit]
     describe "TyFamilyExQuant Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyExQuant False

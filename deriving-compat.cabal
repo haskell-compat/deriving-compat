@@ -7,6 +7,8 @@ description:         Provides Template Haskell functions that mimic deriving
                      .
                      * Deriving @Bounded@
                      .
+                     * Deriving @Enum@
+                     .
                      * Deriving @Eq@, @Eq1@, and @Eq2@
                      .
                      * Deriving @Ord@, @Ord1@, and @Ord2@
@@ -104,7 +106,7 @@ library
   exposed-modules:     Data.Deriving
 
                        Data.Bounded.Deriving
-                       -- Data.Enum.Deriving
+                       Data.Enum.Deriving
                        Data.Eq.Deriving
                        Data.Foldable.Deriving
                        Data.Functor.Deriving
@@ -116,7 +118,7 @@ library
   other-modules:       Data.Deriving.Internal
 
                        Data.Bounded.Deriving.Internal
-                       -- Data.Enum.Deriving.Internal
+                       Data.Enum.Deriving.Internal
                        Data.Eq.Deriving.Internal
                        Data.Functor.Deriving.Internal
                        Data.Ord.Deriving.Internal
@@ -152,8 +154,7 @@ library
 test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
-  other-modules:       BoundedSpec
-                       -- EnumSpec
+  other-modules:       BoundedEnumSpec
                        EqSpec
                        FunctorSpec
                        OrdSpec
