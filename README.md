@@ -36,6 +36,7 @@ The following changes have been backported:
 
 Note that some recent GHC typeclasses/extensions are not covered by this package:
 
+* `DeriveDataTypeable`
 * `DeriveGeneric`, which was introducted in GHC 7.2 for deriving `Generic` instances, and modified in GHC 7.6 to allow derivation of `Generic1` instances. Use `Generics.Deriving.TH` from [`generic-deriving`](http://hackage.haskell.org/package/generic-deriving) to derive `Generic(1)` using Template Haskell.
 * `DeriveLift`, which was introduced in GHC 8.0 for deriving `Lift` instances. Use `Language.Haskell.TH.Lift` from [`th-lift`](http://hackage.haskell.org/package/th-lift) to derive `Lift` using Template Haskell.
 * The `Bifunctor` typeclass, which was introduced in GHC 7.10, as well as the `Bifoldable` and `Bitraversable` typeclasses, which were introduced in GHC 8.2. Use `Data.Bifunctor.TH` from [`bifunctors`](http://hackage.haskell.org/package/bifunctors) to derive these typeclasses using Template Haskell.

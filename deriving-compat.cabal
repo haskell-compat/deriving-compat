@@ -47,6 +47,8 @@ description:         Provides Template Haskell functions that mimic deriving
                      .
                      Note that some recent GHC typeclasses/extensions are not covered by this package:
                      .
+                     * @DeriveDataTypeable@
+                     .
                      * @DeriveGeneric@, which was introducted in GHC 7.2 for deriving
                        @Generic@ instances, and modified in GHC 7.6 to allow derivation
                        of @Generic1@ instances. Use @Generics.Deriving.TH@ from
