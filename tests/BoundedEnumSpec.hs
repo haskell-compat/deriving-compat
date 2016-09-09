@@ -6,6 +6,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
+#if __GLASGOW_HASKELL__ >= 706
+{-# LANGUAGE PolyKinds #-}
+#endif
+
 {-|
 Module:      BoundedEnumSpec
 Copyright:   (C) 2015-2016 Ryan Scott
@@ -34,7 +38,13 @@ data TyConEnum = TyConEnum1 | TyConEnum2 | TyConEnum3
 data TyConProduct a b c = TyConProduct a b c
   deriving (Eq, Show)
 
-data TyConUnit a = TyConUnit
+data TyConUnit
+#if __GLASGOW_HASKELL__ >= 706
+    (f :: k -> *) (a :: k)
+#else
+    (f :: * -> *) (a :: *)
+#endif
+    = TyConUnit
   deriving (Eq, Show)
 
 data TyConExQuant a = Show a => TyConExQuant a
@@ -56,8 +66,14 @@ data family TyFamilyProduct x y z :: *
 data instance TyFamilyProduct a b c = TyFamilyProduct a b c
   deriving (Eq, Show)
 
-data family TyFamilyUnit x :: *
-data instance TyFamilyUnit a = TyFamilyUnit
+data family TyFamilyUnit
+#if __GLASGOW_HASKELL__ >= 706
+    (f :: k -> *) (a :: k)
+#else
+    (f :: * -> *) (a :: *)
+#endif
+    :: *
+data instance TyFamilyUnit f a = TyFamilyUnit
   deriving (Eq, Show)
 
 data family TyFamilyExQuant x :: *
@@ -77,7 +93,7 @@ deriving instance Show a => Show (TyFamilyGADT a)
 
 $(deriveBounded ''TyConEnum)
 $(deriveBounded ''TyConProduct)
-instance Bounded (TyConUnit a) where
+instance Bounded (TyConUnit f a) where
     minBound = $(makeMinBound ''TyConUnit)
     maxBound = $(makeMaxBound ''TyConUnit)
 instance (Bounded a, Show a) => Bounded (TyConExQuant a) where
@@ -88,7 +104,7 @@ instance (Bounded a, Show a) => Bounded (TyConGADT a) where
     maxBound = $(makeMaxBound ''TyConGADT)
 
 $(deriveEnum ''TyConEnum)
-instance Enum (TyConUnit a) where
+instance Enum (TyConUnit f a) where
     toEnum   = $(makeToEnum   ''TyConUnit)
     fromEnum = $(makeFromEnum ''TyConUnit)
 
@@ -97,7 +113,7 @@ instance Enum (TyConUnit a) where
 
 $(deriveBounded 'TyFamilyEnum1)
 $(deriveBounded 'TyFamilyProduct)
-instance Bounded (TyFamilyUnit a) where
+instance Bounded (TyFamilyUnit f a) where
     minBound = $(makeMinBound 'TyFamilyUnit)
     maxBound = $(makeMaxBound 'TyFamilyUnit)
 instance (Bounded a, Show a) => Bounded (TyFamilyExQuant a) where
@@ -108,7 +124,7 @@ instance (Bounded a, Show a) => Bounded (TyFamilyGADT a) where
     maxBound = $(makeMaxBound 'TyFamilyGADT)
 
 $(deriveEnum 'TyFamilyEnum1)
-instance Enum (TyFamilyUnit a) where
+instance Enum (TyFamilyUnit f a) where
     toEnum   = $(makeToEnum   'TyFamilyUnit)
     fromEnum = $(makeFromEnum 'TyFamilyUnit)
 #endif
@@ -131,7 +147,7 @@ spec = parallel $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConProduct False False False
             maxBound `shouldBe` TyConProduct True  True  True
-    describe "TyConUnit Bool" $ do
+    describe "TyConUnit Maybe Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyConUnit
             maxBound `shouldBe` TyConUnit
@@ -158,7 +174,7 @@ spec = parallel $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyProduct False False False
             maxBound `shouldBe` TyFamilyProduct True  True  True
-    describe "TyFamilyUnit Bool" $ do
+    describe "TyFamilyUnit Maybe Bool" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyUnit
             maxBound `shouldBe` TyFamilyUnit

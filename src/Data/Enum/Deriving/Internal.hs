@@ -174,9 +174,26 @@ makeEnumFunForCons ef tyName ty cons
     tag2ConExpr :: Q Exp
     tag2ConExpr = do
         iHash <- newName "i#"
+        let bareTy = removeEnumApp ty
         lam1E (conP iHashDataName [varP iHash]) $
             varE tagToEnumHashValName `appE` varE iHash
-                                      `sigE` return (removeEnumApp ty)
+                `sigE` return (ForallT (requiredTyVarsOfType bareTy) [] bareTy)
+                -- tagToEnum# is a hack, and won't typecheck unless it's in the
+                -- immediate presence of a type ascription like so:
+                --
+                --   tagToEnum# x :: Foo
+                --
+                -- We have to be careful when dealing with datatypes with type
+                -- variables, since Template Haskell might reject the type variables
+                -- we use for being out-of-scope. To avoid this, we explicitly
+                -- collect the type variable binders with requiredTyVarsOfType
+                -- and shove them into a ForallT.
+                --
+                -- Note that we do NOT collect the kind variable binders, since
+                -- a type signature like `forall k a. Foo (a :: k)` won't typecheck
+                -- unless TypeInType is enabled (i.e., if GHC 8.0 or later is being
+                -- used). Luckily, GHC seems to just accept kind variables, even if
+                -- they aren't actually bound in a ForallT.
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -247,3 +264,13 @@ illegalToEnumTag tp maxtag a =
 removeEnumApp :: Type -> Type
 removeEnumApp (AppT _ t2) = t2
 removeEnumApp t           = t
+
+-- | Gets all of the required type variable binders mentioned in a Type.
+requiredTyVarsOfType :: Type -> [TyVarBndr]
+requiredTyVarsOfType = go
+  where
+    go :: Type -> [TyVarBndr]
+    go (AppT t1 t2) = go t1 ++ go t2
+    go (SigT t _)   = go t
+    go (VarT n)     = [PlainTV n]
+    go _            = []
