@@ -173,8 +173,8 @@ makeEnumFunForCons ef tyName ty cons
 
     tag2ConExpr :: Q Exp
     tag2ConExpr = do
-        iHash <- newName "i#"
-        let bareTy = removeEnumApp ty
+        iHash  <- newName "i#"
+        bareTy <- freshenType $ removeEnumApp ty
         lam1E (conP iHashDataName [varP iHash]) $
             varE tagToEnumHashValName `appE` varE iHash
                 `sigE` return (ForallT (requiredTyVarsOfType bareTy) [] bareTy)
@@ -187,7 +187,9 @@ makeEnumFunForCons ef tyName ty cons
                 -- variables, since Template Haskell might reject the type variables
                 -- we use for being out-of-scope. To avoid this, we explicitly
                 -- collect the type variable binders with requiredTyVarsOfType
-                -- and shove them into a ForallT.
+                -- and shove them into a ForallT. Also make sure to freshen the
+                -- bound type variables to avoid shadowed variable warnings when
+                -- -Wall is enabled.
                 --
                 -- Note that we do NOT collect the kind variable binders, since
                 -- a type signature like `forall k a. Foo (a :: k)` won't typecheck
@@ -264,6 +266,24 @@ illegalToEnumTag tp maxtag a =
 removeEnumApp :: Type -> Type
 removeEnumApp (AppT _ t2) = t2
 removeEnumApp t           = t
+
+-- This is an ugly, but unfortunately necessary hack on older versions of GHC which
+-- don't have a properly working newName. On those GHCs, even running newName on a
+-- variable isn't enought to avoid shadowed variable warnings, so we "fix" the issue by
+-- appending an uncommonly used string to the end of the name. This isn't foolproof,
+-- since a user could freshen a variable named x and still have another x_' variable in
+-- scope, but at least it's unlikely.
+freshen :: Name -> Q Name
+freshen n = newName (nameBase n ++ "_'")
+
+freshenType :: Type -> Q Type
+freshenType (AppT t1 t2) = do t1' <- freshenType t1
+                              t2' <- freshenType t2
+                              return $ AppT t1' t2'
+freshenType (SigT t k)   = do t' <- freshenType t
+                              return $ SigT t' k
+freshenType (VarT n)     = fmap VarT $ freshen n
+freshenType t            = return t
 
 -- | Gets all of the required type variable binders mentioned in a Type.
 requiredTyVarsOfType :: Type -> [TyVarBndr]
