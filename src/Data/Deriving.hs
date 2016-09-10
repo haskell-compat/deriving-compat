@@ -11,6 +11,8 @@ best practices. Typeclass-specific information can be found in their respective
 modules.
 -}
 module Data.Deriving (
+      -- * Backported changes
+      -- $changes
       -- * @derive@- functions
       -- $derive
 
@@ -29,6 +31,39 @@ import Data.Ord.Deriving         as Exports
 import Data.Traversable.Deriving as Exports
 import Text.Read.Deriving        as Exports
 import Text.Show.Deriving        as Exports
+
+{- $changes
+The following changes have been backported:
+
+* In GHC 7.8, deriving standalone 'Read' instances was fixed to avoid crashing on
+  datatypes with no constructors.
+
+* In GHC 7.10, deriving standalone 'Read' and 'Show' instances were fixed to ensure
+  that they use the correct fixity information for a particular datatype.
+
+* In GHC 8.0, @DeriveFoldable@ was changed to allow folding over data types with
+  existential constraints.
+
+* In GHC 8.0, @DeriveFoldable@ and @DeriveTraversable@ were changed so as not to
+  generate superfluous 'mempty' or 'pure' expressions in generated code. As a result,
+  this allows deriving 'Traversable' instances for datatypes with unlifted argument
+  types.
+
+* In GHC 8.0, deriving 'Ix' was changed to use @('&&')@ instead of @if@, as the latter
+  interacts poorly with @RebindableSyntax@.
+
+* In GHC 8.0, deriving 'Show' was changed so that constructor fields with unlifted
+  types are no longer shown with parentheses, and the output of showing an unlifted
+  type is suffixed with the same number of hash signs as the corresponding primitive
+  literals.
+
+* In GHC 8.2, deriving 'Ord' was changed so that it generates concrete @if@-expressions
+  that are not subject to @RebindableSyntax@. It was also changed so that derived
+  @('<=')@, @('>')@, and @('>=')@ methods are expressed through @('<')@, which avoids
+  generating a substantial amount of code.
+
+* In GHC 8.2, deriving 'Ix' was changed TODO
+-}
 
 {- $derive
 
