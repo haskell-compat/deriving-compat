@@ -13,6 +13,7 @@ modules.
 module Data.Deriving (
       -- * Backported changes
       -- $changes
+
       -- * @derive@- functions
       -- $derive
 
