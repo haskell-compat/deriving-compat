@@ -77,13 +77,10 @@ makeBoundedFunForCons :: BoundedFun -> Name -> [Con] -> Q Exp
 makeBoundedFunForCons _  _      [] = noConstructorsError
 makeBoundedFunForCons bf tyName cons
     | not (isProduct || isEnumeration)
-    = fail $ unlines
-        [ enumerationErrorStr (nameBase tyName)
-        , "\tor a product type (precisely one constructor)"
-        ]
+    = enumerationOrProductError $ nameBase tyName
     | isEnumeration
     = pickCon
-    | otherwise
+    | otherwise -- It's a product type
     = pickConApp
   where
     isProduct, isEnumeration :: Bool
@@ -127,25 +124,3 @@ data BoundedFun = MinBound | MaxBound
 boundedFunName :: BoundedFun -> Name
 boundedFunName MinBound = minBoundValName
 boundedFunName MaxBound = maxBoundValName
-
--------------------------------------------------------------------------------
--- Assorted utilities
--------------------------------------------------------------------------------
-
--- | Returns 'True' if it's a datatype with exactly one, non-existential constructor.
-isProductType :: [Con] -> Bool
-isProductType [con] = case con of
-    ForallC tvbs _ _ -> null tvbs
-    _                -> True
-isProductType _ = False
-
--- | Returns the number of fields for the constructor.
-conArity :: Con -> Int
-conArity (NormalC  _ tys)    = length tys
-conArity (RecC     _ tys)    = length tys
-conArity InfixC{}            = 2
-conArity (ForallC  _ _  con) = conArity con
-#if MIN_VERSION_template_haskell(2,11,0)
-conArity (GadtC    _ tys _)  = length tys
-conArity (RecGadtC _ tys _)  = length tys
-#endif

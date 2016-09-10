@@ -1,6 +1,7 @@
 # next [YYYY.MM.DD]
 * Add `Data.Bounded.Deriving`, which allows deriving `Bounded` with TH.
 * Add `Data.Enum.Deriving`, which allows deriving `Enum` with TH.
+* Add `Data.Ix.Deriving`, which allows deriving `Ix` with TH.
 
 ### 0.3.2
 * Incorporate a fix to GHC Trac #10858, which will be introduced in GHC 8.2

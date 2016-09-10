@@ -103,14 +103,14 @@ makeEnumFunForCons :: EnumFun -> Name -> Type -> [Con] -> Q Exp
 makeEnumFunForCons _  _      _  [] = noConstructorsError
 makeEnumFunForCons ef tyName ty cons
     | not $ isEnumerationType cons
-    = fail $ enumerationErrorStr tyNameBase
+    = enumerationError tyNameBase
     | otherwise = case ef of
         Succ -> lamOneHash $ \aHash ->
           condE (varE eqValName `appE` maxTagExpr `appE`
                    (conE iHashDataName `appE` varE aHash))
                 (illegalExpr "succ" tyNameBase
                              "tried to take `succ' of last tag in enumeration")
-                (tag2ConExpr `appE` (varE plusValName `appE`
+                (tag2Con `appE` (varE plusValName `appE`
                   (conE iHashDataName `appE` varE aHash) `appE` integerE 1))
 
         Pred -> lamOneHash $ \aHash ->
@@ -118,7 +118,7 @@ makeEnumFunForCons ef tyName ty cons
                    (conE iHashDataName `appE` varE aHash))
                 (illegalExpr "pred" tyNameBase
                              "tried to take `pred' of first tag in enumeration")
-                (tag2ConExpr `appE` (varE plusValName `appE`
+                (tag2Con `appE` (varE plusValName `appE`
                   (conE iHashDataName `appE` varE aHash) `appE` integerE (-1)))
 
         ToEnum -> lamOne $ \a ->
@@ -126,12 +126,12 @@ makeEnumFunForCons ef tyName ty cons
                        , varE geValName `appE` varE a `appE` integerE 0
                        , varE leValName `appE` varE a `appE` maxTagExpr
                        ])
-                (tag2ConExpr `appE` varE a)
+                (tag2Con `appE` varE a)
                 (illegalToEnumTag tyNameBase maxTagExpr a)
 
         EnumFrom -> lamOneHash $ \aHash ->
           appsE [ varE mapValName
-                , tag2ConExpr
+                , tag2Con
                 , enumFromToExpr (conE iHashDataName `appE` varE aHash) maxTagExpr
                 ]
 
@@ -141,7 +141,7 @@ makeEnumFunForCons ef tyName ty cons
           b     <- newName "b"
           bHash <- newName "b#"
           lamE [varP a, varP b] $ untagExpr [(a, aHash), (b, bHash)] $
-              appE (varE mapValName `appE` tag2ConExpr) $
+              appE (varE mapValName `appE` tag2Con) $
                   enumFromThenToExpr
                     (conE iHashDataName `appE` varE aHash)
                     (conE iHashDataName `appE` varE bHash)
@@ -171,31 +171,8 @@ makeEnumFunForCons ef tyName ty cons
         aHash <- newName "a#"
         untagExpr [(a, aHash)] $ f aHash
 
-    tag2ConExpr :: Q Exp
-    tag2ConExpr = do
-        iHash  <- newName "i#"
-        bareTy <- freshenType $ removeEnumApp ty
-        lam1E (conP iHashDataName [varP iHash]) $
-            varE tagToEnumHashValName `appE` varE iHash
-                `sigE` return (ForallT (requiredTyVarsOfType bareTy) [] bareTy)
-                -- tagToEnum# is a hack, and won't typecheck unless it's in the
-                -- immediate presence of a type ascription like so:
-                --
-                --   tagToEnum# x :: Foo
-                --
-                -- We have to be careful when dealing with datatypes with type
-                -- variables, since Template Haskell might reject the type variables
-                -- we use for being out-of-scope. To avoid this, we explicitly
-                -- collect the type variable binders with requiredTyVarsOfType
-                -- and shove them into a ForallT. Also make sure to freshen the
-                -- bound type variables to avoid shadowed variable warnings when
-                -- -Wall is enabled.
-                --
-                -- Note that we do NOT collect the kind variable binders, since
-                -- a type signature like `forall k a. Foo (a :: k)` won't typecheck
-                -- unless TypeInType is enabled (i.e., if GHC 8.0 or later is being
-                -- used). Luckily, GHC seems to just accept kind variables, even if
-                -- they aren't actually bound in a ForallT.
+    tag2Con :: Q Exp
+    tag2Con = tag2ConExpr $ removeClassApp ty
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -235,9 +212,6 @@ enumFunName EnumFromThen   = enumFromThenValName
 -- Assorted utilities
 -------------------------------------------------------------------------------
 
-enumFromToExpr :: Q Exp -> Q Exp -> Q Exp
-enumFromToExpr f t = varE enumFromToValName `appE` f `appE` t
-
 enumFromThenToExpr :: Q Exp -> Q Exp -> Q Exp -> Q Exp
 enumFromThenToExpr f t1 t2 = varE enumFromThenToValName `appE` f `appE` t1 `appE` t2
 
@@ -262,35 +236,3 @@ illegalToEnumTag tp maxtag a =
                          (integerE 0))
                          maxtag)
                          (stringE ")")))))
-
-removeEnumApp :: Type -> Type
-removeEnumApp (AppT _ t2) = t2
-removeEnumApp t           = t
-
--- This is an ugly, but unfortunately necessary hack on older versions of GHC which
--- don't have a properly working newName. On those GHCs, even running newName on a
--- variable isn't enought to avoid shadowed variable warnings, so we "fix" the issue by
--- appending an uncommonly used string to the end of the name. This isn't foolproof,
--- since a user could freshen a variable named x and still have another x_' variable in
--- scope, but at least it's unlikely.
-freshen :: Name -> Q Name
-freshen n = newName (nameBase n ++ "_'")
-
-freshenType :: Type -> Q Type
-freshenType (AppT t1 t2) = do t1' <- freshenType t1
-                              t2' <- freshenType t2
-                              return $ AppT t1' t2'
-freshenType (SigT t k)   = do t' <- freshenType t
-                              return $ SigT t' k
-freshenType (VarT n)     = fmap VarT $ freshen n
-freshenType t            = return t
-
--- | Gets all of the required type variable binders mentioned in a Type.
-requiredTyVarsOfType :: Type -> [TyVarBndr]
-requiredTyVarsOfType = go
-  where
-    go :: Type -> [TyVarBndr]
-    go (AppT t1 t2) = go t1 ++ go t2
-    go (SigT t _)   = go t
-    go (VarT n)     = [PlainTV n]
-    go _            = []

@@ -932,6 +932,15 @@ dataConIError = fail
   . showString "\n\tuse GHC >= 7.4 instead.)"
   $ ""
 
+enumerationError :: String -> Q a
+enumerationError = fail . enumerationErrorStr
+
+enumerationOrProductError :: String -> Q a
+enumerationOrProductError nb = fail $ unlines
+    [ enumerationErrorStr nb
+    , "\tor a product type (precisely one constructor)"
+    ]
+
 enumerationErrorStr :: String -> String
 enumerationErrorStr nb =
     '\'':nb ++ "’ must be an enumeration type"
@@ -1142,6 +1151,24 @@ isNullaryCon (GadtC    _ [] _) = True
 isNullaryCon (RecGadtC _ [] _) = True
 #endif
 isNullaryCon _                 = False
+
+-- | Returns the number of fields for the constructor.
+conArity :: Con -> Int
+conArity (NormalC  _ tys)    = length tys
+conArity (RecC     _ tys)    = length tys
+conArity InfixC{}            = 2
+conArity (ForallC  _ _  con) = conArity con
+#if MIN_VERSION_template_haskell(2,11,0)
+conArity (GadtC    _ tys _)  = length tys
+conArity (RecGadtC _ tys _)  = length tys
+#endif
+
+-- | Returns 'True' if it's a datatype with exactly one, non-existential constructor.
+isProductType :: [Con] -> Bool
+isProductType [con] = case con of
+    ForallC tvbs _ _ -> null tvbs
+    _                -> True
+isProductType _ = False
 
 -- | Returns 'True' if it's a datatype with one or more nullary, non-GADT
 -- constructors.
@@ -1358,6 +1385,67 @@ untagExpr ((untagThis, putTagHere) : more) e =
                  (normalB $ untagExpr more e)
                  []]
 
+tag2ConExpr :: Type -> Q Exp
+tag2ConExpr ty = do
+    iHash  <- newName "i#"
+    ty' <- freshenType ty
+    lam1E (conP iHashDataName [varP iHash]) $
+        varE tagToEnumHashValName `appE` varE iHash
+            `sigE` return (ForallT (requiredTyVarsOfType ty') [] ty')
+            -- tagToEnum# is a hack, and won't typecheck unless it's in the
+            -- immediate presence of a type ascription like so:
+            --
+            --   tagToEnum# x :: Foo
+            --
+            -- We have to be careful when dealing with datatypes with type
+            -- variables, since Template Haskell might reject the type variables
+            -- we use for being out-of-scope. To avoid this, we explicitly
+            -- collect the type variable binders with requiredTyVarsOfType
+            -- and shove them into a ForallT. Also make sure to freshen the
+            -- bound type variables to avoid shadowed variable warnings when
+            -- -Wall is enabled.
+            --
+            -- Note that we do NOT collect the kind variable binders, since
+            -- a type signature like `forall k a. Foo (a :: k)` won't typecheck
+            -- unless TypeInType is enabled (i.e., if GHC 8.0 or later is being
+            -- used). Luckily, GHC seems to just accept kind variables, even if
+            -- they aren't actually bound in a ForallT.
+
+removeClassApp :: Type -> Type
+removeClassApp (AppT _ t2) = t2
+removeClassApp t           = t
+
+-- This is an ugly, but unfortunately necessary hack on older versions of GHC which
+-- don't have a properly working newName. On those GHCs, even running newName on a
+-- variable isn't enought to avoid shadowed variable warnings, so we "fix" the issue by
+-- appending an uncommonly used string to the end of the name. This isn't foolproof,
+-- since a user could freshen a variable named x and still have another x_' variable in
+-- scope, but at least it's unlikely.
+freshen :: Name -> Q Name
+freshen n = newName (nameBase n ++ "_'")
+
+freshenType :: Type -> Q Type
+freshenType (AppT t1 t2) = do t1' <- freshenType t1
+                              t2' <- freshenType t2
+                              return $ AppT t1' t2'
+freshenType (SigT t k)   = do t' <- freshenType t
+                              return $ SigT t' k
+freshenType (VarT n)     = fmap VarT $ freshen n
+freshenType t            = return t
+
+-- | Gets all of the required type variable binders mentioned in a Type.
+requiredTyVarsOfType :: Type -> [TyVarBndr]
+requiredTyVarsOfType = go
+  where
+    go :: Type -> [TyVarBndr]
+    go (AppT t1 t2) = go t1 ++ go t2
+    go (SigT t _)   = go t
+    go (VarT n)     = [PlainTV n]
+    go _            = []
+
+enumFromToExpr :: Q Exp -> Q Exp -> Q Exp
+enumFromToExpr f t = varE enumFromToValName `appE` f `appE` t
+
 primOpAppExpr :: Q Exp -> Name -> Q Exp -> Q Exp
 primOpAppExpr e1 op e2 = varE isTrueHashValName `appE`
                            infixApp e1 (varE op) e2
@@ -1524,6 +1612,9 @@ intTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Int"
 intHashTypeName :: Name
 intHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int#"
 
+ixTypeName :: Name
+ixTypeName = mkNameG_tc "base" "GHC.Arr" "Ix"
+
 readTypeName :: Name
 readTypeName = mkNameG_tc "base" "GHC.Read" "Read"
 
@@ -1647,6 +1738,12 @@ gtWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord#"
 idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
 
+indexValName :: Name
+indexValName = mkNameG_v "base" "GHC.Arr" "index"
+
+inRangeValName :: Name
+inRangeValName = mkNameG_v "base" "GHC.Arr" "inRange"
+
 leAddrHashValName :: Name
 leAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leAddr#"
 
@@ -1713,6 +1810,9 @@ mapValName = mkNameG_v "base" "GHC.Base" "map"
 maxBoundValName :: Name
 maxBoundValName = mkNameG_v "base" "GHC.Enum" "maxBound"
 
+minusIntHashValName :: Name
+minusIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "-#"
+
 parenValName :: Name
 parenValName = mkNameG_v "base" "GHC.Read" "paren"
 
@@ -1730,6 +1830,12 @@ precValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "prec"
 
 predValName :: Name
 predValName = mkNameG_v "base" "GHC.Enum" "pred"
+
+rangeSizeValName :: Name
+rangeSizeValName = mkNameG_v "base" "GHC.Arr" "rangeSize"
+
+rangeValName :: Name
+rangeValName = mkNameG_v "base" "GHC.Arr" "range"
 
 readListValName :: Name
 readListValName = mkNameG_v "base" "GHC.Read" "readList"
@@ -1788,11 +1894,20 @@ succValName = mkNameG_v "base" "GHC.Enum" "succ"
 tagToEnumHashValName :: Name
 tagToEnumHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "tagToEnum#"
 
+timesValName :: Name
+timesValName = mkNameG_v "base" "GHC.Num" "*"
+
 toEnumValName :: Name
 toEnumValName = mkNameG_v "base" "GHC.Enum" "toEnum"
 
 traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
+
+unsafeIndexValName :: Name
+unsafeIndexValName = mkNameG_v "base" "GHC.Arr" "unsafeIndex"
+
+unsafeRangeSizeValName :: Name
+unsafeRangeSizeValName = mkNameG_v "base" "GHC.Arr" "unsafeRangeSize"
 
 unwrapMonadValName :: Name
 unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"

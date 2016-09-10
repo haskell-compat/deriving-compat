@@ -9,6 +9,8 @@ description:         Provides Template Haskell functions that mimic deriving
                      .
                      * Deriving @Enum@
                      .
+                     * Deriving @Ix@
+                     .
                      * Deriving @Eq@, @Eq1@, and @Eq2@
                      .
                      * Deriving @Ord@, @Ord1@, and @Ord2@
@@ -33,6 +35,9 @@ description:         Provides Template Haskell functions that mimic deriving
                        expressions in generated code. As a result, this allows
                        deriving @Traversable@ instances for datatypes with unlifted
                        argument types.
+                     .
+                     * In GHC 8.0, deriving @Ix@ was changed to use @(&&)@ instead of
+                       @if@, as the latter interacts poorly with @RebindableSyntax@.
                      .
                      * In GHC 8.0, deriving @Show@ was changed so that constructor fields
                        with unlifted types are no longer shown with parentheses, and
@@ -112,6 +117,7 @@ library
                        Data.Eq.Deriving
                        Data.Foldable.Deriving
                        Data.Functor.Deriving
+                       Data.Ix.Deriving
                        Data.Ord.Deriving
                        Data.Traversable.Deriving
                        Text.Read.Deriving
@@ -123,6 +129,7 @@ library
                        Data.Enum.Deriving.Internal
                        Data.Eq.Deriving.Internal
                        Data.Functor.Deriving.Internal
+                       Data.Ix.Deriving.Internal
                        Data.Ord.Deriving.Internal
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving.Internal
@@ -156,7 +163,7 @@ library
 test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
-  other-modules:       BoundedEnumSpec
+  other-modules:       BoundedEnumIxSpec
                        EqSpec
                        FunctorSpec
                        OrdSpec
