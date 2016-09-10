@@ -349,7 +349,7 @@ makeShowForCon p sClass opts spls (NormalC conName [_]) = do
     m <- match
            (conP conName [varP arg])
            (normalB $ varE showParenValName
-                       `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
+                       `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
                        `appE` namedArg)
            []
     return [m]
@@ -381,7 +381,7 @@ makeShowForCon p sClass opts spls (NormalC conName _) = do
 
            match (conP conName $ map varP args)
                  (normalB $ varE showParenValName
-                              `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
+                              `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
                               `appE` namedArgs)
                  []
     return [m]
@@ -409,7 +409,7 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
     m <- match
            (conP conName $ map varP args)
            (normalB $ varE showParenValName
-                        `appE` infixApp (varE p) (varE ltValName) (integerE appPrec)
+                        `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
                         `appE` namedArgs)
            []
     return [m]
@@ -439,7 +439,7 @@ makeShowForCon p sClass opts spls (InfixC _ conName _) = do
 
     m <- match
            (infixP (varP al) conName (varP ar))
-           (normalB $ (varE showParenValName `appE` infixApp (varE p) (varE ltValName) (integerE conPrec))
+           (normalB $ (varE showParenValName `appE` infixApp (varE p) (varE gtValName) (integerE conPrec))
                         `appE` (infixApp (makeShowForArg (conPrec + 1) sClass opts conName tvMap alTy al)
                                          (varE composeValName)
                                          (infixApp infixOpE
