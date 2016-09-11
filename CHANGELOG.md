@@ -1,4 +1,4 @@
-# next [YYYY.MM.DD]
+### 0.3.3 [2016.09.11]
 * Add `Data.Bounded.Deriving`, which allows deriving `Bounded` with TH.
 * Add `Data.Enum.Deriving`, which allows deriving `Enum` with TH.
 * Add `Data.Ix.Deriving`, which allows deriving `Ix` with TH.

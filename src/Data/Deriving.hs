@@ -51,7 +51,8 @@ The following changes have been backported:
   types.
 
 * In GHC 8.0, deriving 'Ix' was changed to use @('&&')@ instead of @if@, as the latter
-  interacts poorly with @RebindableSyntax@.
+  interacts poorly with @RebindableSyntax@. A bug was also fixed so that
+  standalone-derived 'Ix' instances for single-constructor GADTs do not crash GHC.
 
 * In GHC 8.0, deriving 'Show' was changed so that constructor fields with unlifted
   types are no longer shown with parentheses, and the output of showing an unlifted
@@ -62,8 +63,6 @@ The following changes have been backported:
   that are not subject to @RebindableSyntax@. It was also changed so that derived
   @('<=')@, @('>')@, and @('>=')@ methods are expressed through @('<')@, which avoids
   generating a substantial amount of code.
-
-* In GHC 8.2, deriving 'Ix' was changed TODO
 -}
 
 {- $derive
