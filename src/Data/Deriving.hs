@@ -36,8 +36,12 @@ import Text.Show.Deriving        as Exports
 {- $changes
 The following changes have been backported:
 
+* In GHC 7.2, deriving 'Read' was changed so that constructors that use
+  @MagicHash@ now parse correctly.
+
 * In GHC 7.8, deriving standalone 'Read' instances was fixed to avoid crashing on
-  datatypes with no constructors.
+  datatypes with no constructors. Derived 'Read' instances were also changed so
+  as to compile more quickly.
 
 * In GHC 7.10, deriving standalone 'Read' and 'Show' instances were fixed to ensure
   that they use the correct fixity information for a particular datatype.
