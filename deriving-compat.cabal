@@ -1,5 +1,5 @@
 name:                deriving-compat
-version:             0.3.3
+version:             0.3.4
 synopsis:            Backports of GHC deriving extensions
 description:         Provides Template Haskell functions that mimic deriving
                      extensions that were introduced or modified in recent versions
@@ -151,7 +151,7 @@ test-suite spec
                        Types.ReadShow
   build-depends:       base-compat         >= 0.8.1 && < 1
                      , base-orphans        >= 0.5   && < 1
-                     , deriving-compat     == 0.3.3
+                     , deriving-compat     == 0.3.4
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
                      , template-haskell    >= 2.5   && < 2.12
