@@ -28,8 +28,8 @@ import Text.Read (Read(..), readListPrecDefault)
 -- Plain data types
 
 infixl 4 :@:
-data TyCon1 a b = TyConPrefix { tc1 :: a, tc2 :: b }
-                | (:@:) { tc3 :: b, tc4 :: a }
+data TyCon1 a b = TyConPrefix { tc1 :: a, tc2  :: b }
+                | (:@:)       { tc3 :: b, (##) :: a }
 
 infixl 3 :!!:
 infix  4 :@@:
@@ -55,8 +55,8 @@ data TyConWrap f g h a = TyConWrap1 (f a)
 data family TyFamily1 y z :: *
 
 infixl 4 :!:
-data instance TyFamily1 a b = TyFamilyPrefix { tf1 :: a, tf2 :: b }
-                            | (:!:)          { tf3 :: b, tf4 :: a }
+data instance TyFamily1 a b = TyFamilyPrefix { tf1 :: a, tf2   :: b }
+                            | (:!:)          { tf3 :: b, (###) :: a }
 
 data family TyFamilyPlain y z :: *
 

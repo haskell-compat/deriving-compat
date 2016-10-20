@@ -56,9 +56,6 @@ import           Data.Deriving.Internal
 import           Data.List
 import qualified Data.Map as Map
 
-#if __GLASGOW_HASKELL__ >= 800
-import           GHC.Lexeme (startsConSym)
-#endif
 import           GHC.Show (appPrec, appPrec1)
 
 import           Language.Haskell.TH.Lib
@@ -392,10 +389,13 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
     args <- newNameList "arg" $ length argTys
 
     let showArgs       = concatMap (\((argName, _, _), argTy, arg)
-                                      -> [ varE showStringValName `appE` stringE (nameBase argName ++ " = ")
-                                         , makeShowForArg 0 sClass opts conName tvMap argTy arg
-                                         , varE showStringValName `appE` stringE ", "
-                                         ]
+                                      -> let argNameBase = nameBase argName
+                                             infixRec    = showParen (isSym argNameBase)
+                                                                     (showString argNameBase) ""
+                                         in [ varE showStringValName `appE` stringE (infixRec ++ " = ")
+                                            , makeShowForArg 0 sClass opts conName tvMap argTy arg
+                                            , varE showStringValName `appE` stringE ", "
+                                            ]
                                    )
                                    (zip3 ts argTys args)
         braceCommaArgs = (varE showCharValName `appE` charE '{') : take (length showArgs - 1) showArgs
@@ -433,7 +433,7 @@ makeShowForCon p sClass opts spls (InfixC _ conName _) = do
 
     let opName   = nameBase conName
         infixOpE = appE (varE showStringValName) . stringE $
-                     if isInfixTypeCon opName
+                     if isInfixDataCon opName
                         then " "  ++ opName ++ " "
                         else " `" ++ opName ++ "` "
 
@@ -455,7 +455,7 @@ makeShowForCon p sClass opts spls (GadtC conNames ts _) =
     let con :: Name -> Q Con
         con conName = do
             mbFi <- reifyFixity conName
-            return $ if startsConSym (head $ nameBase conName)
+            return $ if isInfixDataCon (nameBase conName)
                         && length ts == 2
                         && isJust mbFi
                       then let [t1, t2] = ts in InfixC t1 conName t2
@@ -643,13 +643,7 @@ showsPrecOrListName True  = showListName
 parenInfixConName :: Name -> ShowS
 parenInfixConName conName =
     let conNameBase = nameBase conName
-     in showParen (isInfixTypeCon conNameBase) $ showString conNameBase
-
--- | Checks if a 'String' names a valid Haskell infix type constructor (i.e., does
--- it begin with a colon?).
-isInfixTypeCon :: String -> Bool
-isInfixTypeCon (':':_) = True
-isInfixTypeCon _       = False
+     in showParen (isInfixDataCon conNameBase) $ showString conNameBase
 
 charE :: Char -> Q Exp
 charE = litE . charL

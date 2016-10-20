@@ -78,12 +78,6 @@ import           GHC.Show (appPrec, appPrec1)
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
-#if defined(MIN_VERSION_ghc_boot)
-import           GHC.Lexeme (startsConSym, startsVarSym)
-#else
-import           Data.Char (isSymbol, ord)
-#endif
-
 -- | Options that further configure how the functions in "Text.Read.Deriving"
 -- should behave.
 newtype ReadOptions = ReadOptions
@@ -609,7 +603,7 @@ makeReadForCon rClass urp rpls (GadtC conNames ts _) =
     let con :: Name -> Q Con
         con conName = do
             mbFi <- reifyFixity conName
-            return $ if startsConSym (head $ nameBase conName)
+            return $ if isInfixDataCon (nameBase conName)
                         && length ts == 2
                         && isJust mbFi
                       then let [t1, t2] = ts in InfixC t1 conName t2
@@ -841,19 +835,6 @@ resultExpr conName as = varE returnValName `appE` conApp
   where
     conApp :: Q Exp
     conApp = appsE $ conE conName : map return as
-
-isSym :: String -> Bool
-isSym ""      = False
-isSym (c : _) = startsVarSym c || startsConSym c
-
-#if !defined(MIN_VERSION_ghc_boot)
-startsVarSym, startsConSym :: Char -> Bool
-startsVarSym c = startsVarSymASCII c || (ord c > 0x7f && isSymbol c) -- Infix Ids
-startsConSym c = c == ':' -- Infix data constructors
-
-startsVarSymASCII :: Char -> Bool
-startsVarSymASCII c = c `elem` "!#$%&*+./<=>?@\\^|~-"
-#endif
 
 identHPat :: String -> [Q Stmt]
 identHPat s

@@ -52,6 +52,12 @@ import           Text.Read.Lex (Lexeme)
 import           GHC.Prim (Int#, tagToEnum#)
 #endif
 
+#if defined(MIN_VERSION_ghc_boot_th)
+import           GHC.Lexeme (startsConSym, startsVarSym)
+#else
+import           Data.Char (isSymbol, ord)
+#endif
+
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Ppr (pprint)
 import           Language.Haskell.TH.Syntax
@@ -1458,6 +1464,25 @@ isNonUnitTuple = isNonUnitTupleString . nameBase
 isNonUnitTupleString :: String -> Bool
 isNonUnitTupleString ('(':',':_) = True
 isNonUnitTupleString _           = False
+
+-- | Checks if a 'String' names a valid Haskell infix data constructor (i.e., does
+-- it begin with a colon?).
+isInfixDataCon :: String -> Bool
+isInfixDataCon (':':_) = True
+isInfixDataCon _       = False
+
+isSym :: String -> Bool
+isSym ""      = False
+isSym (c : _) = startsVarSym c || startsConSym c
+
+#if !defined(MIN_VERSION_ghc_boot_th)
+startsVarSym, startsConSym :: Char -> Bool
+startsVarSym c = startsVarSymASCII c || (ord c > 0x7f && isSymbol c) -- Infix Ids
+startsConSym c = c == ':' -- Infix data constructors
+
+startsVarSymASCII :: Char -> Bool
+startsVarSymASCII c = c `elem` "!#$%&*+./<=>?@\\^|~-"
+#endif
 
 -------------------------------------------------------------------------------
 -- Manually quoted names
