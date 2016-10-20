@@ -641,7 +641,7 @@ makeReadForField rClass urp tvMap conName lblStr ty tyExpName = do
     (rExp, varExp) <- makeReadForType rClass urp tvMap conName tyExpName False ty
     let readStmt = bindS (varP tyExpName) $
                          varE resetValName `appE` wrapReadS urp (return rExp)
-    return (readLbl ++ [readStmt], varExp)
+    return (readLbl ++ [readPunc "=", readStmt], varExp)
   where
     readLbl | isSym lblStr
             = [readPunc "(", symbolPat lblStr, readPunc ")"]

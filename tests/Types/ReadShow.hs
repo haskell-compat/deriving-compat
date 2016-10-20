@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -50,6 +51,10 @@ data TyConWrap f g h a = TyConWrap1 (f a)
                        | TyConWrap2 (f (g a))
                        | TyConWrap3 (f (g (h a)))
 
+data TC# a b = MkTC1# a b
+             | MkTC2# { getTC2# :: b, (#~#) :: a }
+             | a `MkTC3#` b
+
 -- Data families
 
 data family TyFamily1 y z :: *
@@ -85,6 +90,12 @@ data instance TyFamilyWrap f g h a = TyFamilyWrap1 (f a)
                                    | TyFamilyWrap2 (f (g a))
                                    | TyFamilyWrap3 (f (g (h a)))
 
+data family TF# y z :: *
+
+data instance TF# a b = MkTF1# a b
+                      | MkTF2# { getTF2# :: b, (#~~#) :: a }
+                      | a `MkTF3#` b
+
 -------------------------------------------------------------------------------
 
 -- Plain data types
@@ -96,10 +107,12 @@ instance (Read (f a), Read (f (g a)), Read (f (g (h a))))
   => Read (TyConWrap f g h a) where
     readPrec     = $(makeReadPrec ''TyConWrap)
     readListPrec = readListPrecDefault
+$(deriveRead  ''TC#)
 
 $(deriveRead1 ''TyCon1)
 $(deriveRead1 ''TyConPlain)
 $(deriveRead1 ''TyConGADT)
+$(deriveRead1 ''TC#)
 
 $(deriveShow  ''TyCon1)
 $(deriveShow  ''TyConPlain)
@@ -109,10 +122,12 @@ instance (Show (f a), Show (f (g a)), Show (f (g (h a))))
     showsPrec = $(makeShowsPrec ''TyConWrap)
     show      = $(makeShow      ''TyConWrap)
     showList  = $(makeShowList  ''TyConWrap)
+$(deriveShow  ''TC#)
 
 $(deriveShow1 ''TyCon1)
 $(deriveShow1 ''TyConPlain)
 $(deriveShow1 ''TyConGADT)
+$(deriveShow1 ''TC#)
 
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead1 ''TyConWrap)
@@ -132,10 +147,12 @@ instance (Show1 f, Functor f, Show1 g, Functor g, Show1 h)
 $(deriveRead2 ''TyCon1)
 $(deriveRead2 ''TyConPlain)
 $(deriveRead2 ''TyConGADT)
+$(deriveRead2 ''TC#)
 
 $(deriveShow2 ''TyCon1)
 $(deriveShow2 ''TyConPlain)
 $(deriveShow2 ''TyConGADT)
+$(deriveShow2 ''TC#)
 #endif
 
 #if MIN_VERSION_template_haskell(2,7,0)
@@ -147,10 +164,12 @@ $(deriveRead  '(:*))
 instance (Read (f a), Read (f (g a)), Read (f (g (h a))))
   => Read (TyFamilyWrap f g h a) where
     readsPrec = $(makeReadsPrec 'TyFamilyWrap1)
+$(deriveRead  'MkTF1#)
 
 $(deriveRead1 '(:!:))
 $(deriveRead1 '(:$:))
 $(deriveRead1 '(:**))
+$(deriveRead1 'MkTF2#)
 
 $(deriveShow  'TyFamilyPrefix)
 $(deriveShow  '(:#:))
@@ -160,10 +179,12 @@ instance (Show (f a), Show (f (g a)), Show (f (g (h a))))
     showsPrec = $(makeShowsPrec 'TyFamilyWrap1)
     show      = $(makeShow      'TyFamilyWrap1)
     showList  = $(makeShowList  'TyFamilyWrap1)
+$(deriveShow  'MkTF3#)
 
 $(deriveShow1 '(:!:))
 $(deriveShow1 '(:$:))
 $(deriveShow1 '(:**))
+$(deriveShow1 'MkTF1#)
 
 # if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead1 'TyFamilyWrap2)
@@ -183,9 +204,11 @@ instance (Show1 f, Functor f, Show1 g, Functor g, Show1 h)
 $(deriveRead2 'TyFamilyPrefix)
 $(deriveRead2 'TyFamilyPlain)
 $(deriveRead2 '(:***))
+$(deriveRead2 'MkTF2#)
 
 $(deriveShow2 'TyFamilyPrefix)
 $(deriveShow2 'TyFamilyPlain)
 $(deriveShow2 '(:***))
+$(deriveShow2 'MkTF3#)
 # endif
 #endif

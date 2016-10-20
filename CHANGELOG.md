@@ -1,5 +1,6 @@
 ### next [????.??.??]
-* Fix bug in which infix record selectors weren't shown with parentheses
+* Fix bug in which infix record selectors weren't shown with parentheses in derived `Show` instances
+* Fix bug in which record selectors weren't parsed correctly in derived `Read` instances
 
 ### 0.3.3 [2016.09.11]
 * Add `Data.Bounded.Deriving`, which allows deriving `Bounded` with TH.
