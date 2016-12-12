@@ -1,3 +1,7 @@
+### next [2016.12.12]
+* Fix bug in which derived `Ord` instances for datatypes with many constructors
+  would fail to typecheck
+
 ### 0.3.4 [2016.10.20]
 * Fix bug in which infix record selectors weren't shown with parentheses in derived `Show` instances
 * Fix bug in which record selectors weren't parsed correctly in derived `Read` instances

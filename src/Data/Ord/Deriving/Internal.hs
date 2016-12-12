@@ -357,7 +357,7 @@ makeOrdFunForCon oFun v2 v2Hash ords singleConType
                          []
 
       tagLit :: Q Exp
-      tagLit = litE . integerL $ fromIntegral tag
+      tagLit = litE . intPrimL $ fromIntegral tag
 
   match (conP conName $ map varP as)
         (normalB innerRhs)
