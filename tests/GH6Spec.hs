@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 {-|
-Module:      ReadSpec
+Module:      GH6Spec
 Copyright:   (C) 2015-2016 Ryan Scott
 License:     BSD-style (see the file LICENSE)
 Maintainer:  Ryan Scott
@@ -41,4 +41,4 @@ main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = parallel $ describe "GHC6" $ ordSpec (Proxy :: Proxy (Foo Int))
+spec = parallel $ describe "GH6" $ ordSpec (Proxy :: Proxy (Foo Int))

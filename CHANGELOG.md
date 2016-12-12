@@ -1,4 +1,4 @@
-### next [2016.12.12]
+### 0.3.5 [2016.12.12]
 * Fix bug in which derived `Ord` instances for datatypes with many constructors
   would fail to typecheck
 
