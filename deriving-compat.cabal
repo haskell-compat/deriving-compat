@@ -54,7 +54,7 @@ license-file:        LICENSE
 author:              Ryan Scott
 maintainer:          Ryan Scott <ryan.gl.scott@gmail.com>
 stability:           Experimental
-copyright:           (C) 2015-2016 Ryan Scott
+copyright:           (C) 2015-2017 Ryan Scott
 category:            Compatibility
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
