@@ -67,6 +67,10 @@ The following changes have been backported:
   that are not subject to @RebindableSyntax@. It was also changed so that derived
   @('<=')@, @('>')@, and @('>=')@ methods are expressed through @('<')@, which avoids
   generating a substantial amount of code.
+
+* In GHC 8.2, deriving 'Traversable' was changed so that it uses 'liftA2' to implement
+  'traverse' whenever possible. This was done since 'liftA2' was also made a class
+  method of 'Applicative', so sometimes using 'liftA2' produces more efficient code.
 -}
 
 {- $derive
