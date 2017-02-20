@@ -2070,6 +2070,9 @@ pureValName = mkNameG_v "base" "GHC.Base" "pure"
 apValName :: Name
 apValName = mkNameG_v "base" "GHC.Base" "<*>"
 
+liftA2ValName :: Name
+liftA2ValName = mkNameG_v "base" "GHC.Base" "liftA2"
+
 mappendValName :: Name
 mappendValName = mkNameG_v "base" "GHC.Base" "mappend"
 
@@ -2081,6 +2084,9 @@ pureValName = mkNameG_v "base" "Control.Applicative" "pure"
 
 apValName :: Name
 apValName = mkNameG_v "base" "Control.Applicative" "<*>"
+
+liftA2ValName :: Name
+liftA2ValName = mkNameG_v "base" "Control.Applicative" "liftA2"
 
 mappendValName :: Name
 mappendValName = mkNameG_v "base" "Data.Monoid" "mappend"
