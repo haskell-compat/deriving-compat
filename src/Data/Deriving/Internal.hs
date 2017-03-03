@@ -2299,3 +2299,14 @@ unApplyValName :: Name
 unApplyValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "unApply"
 # endif
 #endif
+
+#if MIN_VERSION_base(4,10,0)
+showCommaSpaceValName :: Name
+showCommaSpaceValName = mkNameG_v "base" "GHC.Show" "showCommaSpace"
+#else
+showCommaSpace :: ShowS
+showCommaSpace = showString ", "
+
+showCommaSpaceValName :: Name
+showCommaSpaceValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "showCommaSpace"
+#endif

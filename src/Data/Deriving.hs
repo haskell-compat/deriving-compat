@@ -71,6 +71,9 @@ The following changes have been backported:
 * In GHC 8.2, deriving 'Traversable' was changed so that it uses 'liftA2' to implement
   'traverse' whenever possible. This was done since 'liftA2' was also made a class
   method of 'Applicative', so sometimes using 'liftA2' produces more efficient code.
+
+* In GHC 8.2, deriving 'Show' was changed so that it uses an explicit @showCommaSpace@
+  method, instead of repeating the code @showString \", \"@ in several places.
 -}
 
 {- $derive

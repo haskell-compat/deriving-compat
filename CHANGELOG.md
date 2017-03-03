@@ -1,5 +1,6 @@
 ### next
 * Make `deriveTraversable` use `liftA2` in derived implementations of `traverse` when possible, now that `liftA2` is a class method of `Applicative` (as of GHC 8.2)
+* Make `deriveShow` use `showCommaSpace`, a change introduced in GHC 8.2
 
 ### 0.3.5 [2016.12.12]
 * Fix bug in which derived `Ord` instances for datatypes with many constructors

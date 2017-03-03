@@ -394,7 +394,7 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
                                                                      (showString argNameBase) ""
                                          in [ varE showStringValName `appE` stringE (infixRec ++ " = ")
                                             , makeShowForArg 0 sClass opts conName tvMap argTy arg
-                                            , varE showStringValName `appE` stringE ", "
+                                            , varE showCommaSpaceValName
                                             ]
                                    )
                                    (zip3 ts argTys args)
