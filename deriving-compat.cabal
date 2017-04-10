@@ -121,7 +121,7 @@ library
     build-depends:     base                >= 4.3 && < 4.9
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11 && < 2.12
+    build-depends:     template-haskell    >= 2.11 && < 2.13
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5  && < 2.11
@@ -156,7 +156,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
                      , tagged              >= 0.7   && < 1
-                     , template-haskell    >= 2.5   && < 2.12
+                     , template-haskell    >= 2.5   && < 2.13
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9 && < 5
