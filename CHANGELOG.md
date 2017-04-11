@@ -1,4 +1,4 @@
-### next
+### 0.3.6 [2017.04.10]
 * Make `deriveTraversable` use `liftA2` in derived implementations of `traverse` when possible, now that `liftA2` is a class method of `Applicative` (as of GHC 8.2)
 * Make `deriveShow` use `showCommaSpace`, a change introduced in GHC 8.2
 
