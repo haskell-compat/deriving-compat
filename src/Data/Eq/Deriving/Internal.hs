@@ -33,6 +33,7 @@ import           Data.Deriving.Internal
 import           Data.List (foldl1', partition)
 import qualified Data.Map as Map
 
+import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
@@ -109,24 +110,29 @@ makeEq2 name = makeLiftEq name `appE` varE eqValName `appE` varE eqValName
 -- | Derive an Eq(1)(2) instance declaration (depending on the EqClass
 -- argument's value).
 deriveEqClass :: EqClass -> Name -> Q [Dec]
-deriveEqClass eClass name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance eClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (eqDecs eClass cons)
+deriveEqClass eClass name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance eClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (eqDecs eClass vars cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class ((==) for Eq, liftEq for Eq1, and
 -- liftEq2 for Eq2).
-eqDecs :: EqClass -> [Con] -> [Q Dec]
-eqDecs eClass cons =
+eqDecs :: EqClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
+eqDecs eClass vars cons =
     [ funD (eqName eClass)
            [ clause []
-                    (normalB $ makeEqForCons eClass cons)
+                    (normalB $ makeEqForCons eClass vars cons)
                     []
            ]
     ]
@@ -134,25 +140,33 @@ eqDecs eClass cons =
 -- | Generates a lambda expression which behaves like (==) (for Eq),
 -- liftEq (for Eq1), or liftEq2 (for Eq2).
 makeEqClass :: EqClass -> Name -> Q Exp
-makeEqClass eClass name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-    fromCons name' ctxt tvbs cons mbTys =
-        -- We force buildTypeInstance here since it performs some checks for whether
-        -- or not the provided datatype can actually have (==)/liftEq/etc.
-        -- implemented for it, and produces errors if it can't.
-        buildTypeInstance eClass name' ctxt tvbs mbTys
-          `seq` makeEqForCons eClass cons
+makeEqClass eClass name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have (==)/liftEq/etc.
+      -- implemented for it, and produces errors if it can't.
+      buildTypeInstance eClass parentName ctxt vars variant
+        `seq` makeEqForCons eClass vars cons
 
 -- | Generates a lambda expression for (==)/liftEq/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeEqForCons :: EqClass -> [Con] -> Q Exp
-makeEqForCons _ [] = noConstructorsError
-makeEqForCons eClass cons = do
+makeEqForCons :: EqClass -> [Type] -> [ConstructorInfo] -> Q Exp
+makeEqForCons _ _ [] = noConstructorsError
+makeEqForCons eClass vars cons = do
     value1 <- newName "value1"
     value2 <- newName "value2"
     eqDefn <- newName "eqDefn"
     eqs    <- newNameList "eq" $ arity eClass
+
+    let lastTyVars = map varTToName $ drop (length vars - fromEnum eClass) vars
+        tvMap      = Map.fromList $ zipWith (\x y -> (x, OneName y)) lastTyVars eqs
 
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -161,7 +175,7 @@ makeEqForCons eClass cons = do
                      [value1, value2]
          ) . appsE
          $ [ varE $ eqConstName eClass
-           , letE [ funD eqDefn $ map (makeCaseForCon eClass eqs) patMatchCons
+           , letE [ funD eqDefn $ map (makeCaseForCon eClass tvMap) patMatchCons
                                ++ fallThroughCase
                   ] $ varE eqDefn `appE` varE value1 `appE` varE value2
            ]
@@ -170,10 +184,10 @@ makeEqForCons eClass cons = do
 #endif
              ++ [varE value1, varE value2]
   where
-    nullaryCons, nonNullaryCons :: [Con]
+    nullaryCons, nonNullaryCons :: [ConstructorInfo]
     (nullaryCons, nonNullaryCons) = partition isNullaryCon cons
 
-    tagMatchCons, patMatchCons :: [Con]
+    tagMatchCons, patMatchCons :: [ConstructorInfo]
     (tagMatchCons, patMatchCons)
       | length nullaryCons > 10 = (nullaryCons, nonNullaryCons)
       | otherwise               = ([],          cons)
@@ -199,16 +213,16 @@ makeTagCase = do
 makeFallThroughCase :: Q Clause
 makeFallThroughCase = clause [wildP, wildP] (normalB $ conE falseDataName) []
 
-makeCaseForCon :: EqClass -> [Name] -> Con -> Q Clause
-makeCaseForCon eClass eqs con = do
-  let conName = constructorName con
-  (ts, tvMap) <- reifyConTys1 eClass eqs conName
-  let tsLen = length ts
-  as <- newNameList "a" tsLen
-  bs <- newNameList "b" tsLen
-  clause [conP conName (map varP as), conP conName (map varP bs)]
-         (normalB $ makeCaseForArgs eClass tvMap conName ts as bs)
-         []
+makeCaseForCon :: EqClass -> TyVarMap1 -> ConstructorInfo -> Q Clause
+makeCaseForCon eClass tvMap
+  (ConstructorInfo { constructorName = conName, constructorFields = ts }) = do
+    ts' <- mapM resolveTypeSynonyms ts
+    let tsLen = length ts'
+    as <- newNameList "a" tsLen
+    bs <- newNameList "b" tsLen
+    clause [conP conName (map varP as), conP conName (map varP bs)]
+           (normalB $ makeCaseForArgs eClass tvMap conName ts' as bs)
+           []
 
 makeCaseForArgs :: EqClass
                 -> TyVarMap1

@@ -35,9 +35,10 @@ import           Control.Monad (guard, zipWithM)
 import           Data.Deriving.Internal
 import           Data.Either (rights)
 import           Data.List
-import qualified Data.Map as Map (keys, lookup)
+import qualified Data.Map as Map (keys, lookup, singleton)
 import           Data.Maybe
 
+import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
@@ -131,53 +132,67 @@ makeSequence name = makeMapM name `appE` varE idValName
 
 -- | Derive a class instance declaration (depending on the FunctorClass argument's value).
 deriveFunctorClass :: FunctorClass -> Name -> Q [Dec]
-deriveFunctorClass fc name = withType name fromCons where
-  fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-  fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-    (instanceCxt, instanceType)
-        <- buildTypeInstance fc name' ctxt tvbs mbTys
-    instanceD (return instanceCxt)
-              (return instanceType)
-              (functorFunDecs fc cons)
+deriveFunctorClass fc name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance fc parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (functorFunDecs fc vars cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (fmap for Functor, foldr and foldMap for Foldable, and
 -- traverse for Traversable).
 --
 -- For why both foldr and foldMap are derived for Foldable, see Trac #7436.
-functorFunDecs :: FunctorClass -> [Con] -> [Q Dec]
-functorFunDecs fc cons = map makeFunD $ functorClassToFuns fc where
+functorFunDecs :: FunctorClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
+functorFunDecs fc vars cons = map makeFunD $ functorClassToFuns fc where
   makeFunD :: FunctorFun -> Q Dec
   makeFunD ff =
     funD (functorFunName ff)
          [ clause []
-                  (normalB $ makeFunctorFunForCons ff cons)
+                  (normalB $ makeFunctorFunForCons ff vars cons)
                   []
          ]
 
 -- | Generates a lambda expression which behaves like the FunctorFun argument.
 makeFunctorFun :: FunctorFun -> Name -> Q Exp
-makeFunctorFun ff name = withType name fromCons where
-  fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-  fromCons name' ctxt tvbs cons mbTys =
-    -- We force buildTypeInstance here since it performs some checks for whether
-    -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
-    -- implemented for it, and produces errors if it can't.
-    buildTypeInstance (functorFunToClass ff) name' ctxt tvbs mbTys
-      `seq` makeFunctorFunForCons ff cons
+makeFunctorFun ff name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
+      -- implemented for it, and produces errors if it can't.
+      buildTypeInstance (functorFunToClass ff) parentName ctxt vars variant
+        `seq` makeFunctorFunForCons ff vars cons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
-makeFunctorFunForCons :: FunctorFun -> [Con] -> Q Exp
-makeFunctorFunForCons ff cons = do
+makeFunctorFunForCons :: FunctorFun -> [Type] -> [ConstructorInfo] -> Q Exp
+makeFunctorFunForCons ff vars cons = do
   argNames <- mapM newName $ catMaybes [ Just "f"
                                        , guard (ff == Foldr) >> Just "z"
                                        , Just "value"
                                        ]
   let mapFun:others = argNames
-      z     = head others -- If we're deriving foldr, this will be well defined
-                          -- and useful. Otherwise, it'll be ignored.
-      value = last others
+      z         = head others -- If we're deriving foldr, this will be well defined
+                              -- and useful. Otherwise, it'll be ignored.
+      value     = last others
+      lastTyVar = varTToName $ last vars
+      tvMap     = Map.singleton lastTyVar $ OneName mapFun
   lamE (map varP argNames)
       . appsE
       $ [ varE $ functorFunConstName ff
@@ -185,16 +200,19 @@ makeFunctorFunForCons ff cons = do
              then appE (varE errorValName)
                        (stringE $ "Void " ++ nameBase (functorFunName ff))
              else caseE (varE value)
-                        (map (makeFunctorFunForCon ff z mapFun) cons)
+                        (map (makeFunctorFunForCon ff z tvMap) cons)
         ] ++ map varE argNames
 
 -- | Generates a lambda expression for a single constructor.
-makeFunctorFunForCon :: FunctorFun -> Name -> Name -> Con -> Q Match
-makeFunctorFunForCon ff z mapFun con = do
-  let conName = constructorName con
-  (ts, tvMap) <- reifyConTys1 (functorFunToClass ff) [mapFun] conName
-  argNames    <- newNameList "_arg" $ length ts
-  makeFunctorFunForArgs ff z tvMap conName ts argNames
+makeFunctorFunForCon :: FunctorFun -> Name -> TyVarMap1 -> ConstructorInfo -> Q Match
+makeFunctorFunForCon ff z tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorContext = ctxt
+                   , constructorFields  = ts }) = do
+    ts'      <- mapM resolveTypeSynonyms ts
+    argNames <- newNameList "_arg" $ length ts'
+    checkExistentialContext (functorFunToClass ff) tvMap ctxt conName $
+      makeFunctorFunForArgs ff z tvMap conName ts' argNames
 
 -- | Generates a lambda expression for a single constructor's arguments.
 makeFunctorFunForArgs :: FunctorFun
