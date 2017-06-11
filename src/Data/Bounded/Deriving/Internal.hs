@@ -18,6 +18,7 @@ module Data.Bounded.Deriving.Internal (
 
 import Data.Deriving.Internal
 
+import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Syntax
 
@@ -28,15 +29,20 @@ import Language.Haskell.TH.Syntax
 -- | Generates a 'Bounded' instance declaration for the given data type or data
 -- family instance.
 deriveBounded :: Name -> Q [Dec]
-deriveBounded name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance BoundedClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (boundedFunDecs name' cons)
+deriveBounded name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance BoundedClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                   (return instanceType)
+                   (boundedFunDecs parentName cons)
 
 -- | Generates a lambda expression which behaves like 'minBound' (without
 -- requiring a 'Bounded' instance).
@@ -49,7 +55,7 @@ makeMaxBound :: Name -> Q Exp
 makeMaxBound = makeBoundedFun MaxBound
 
 -- | Generates 'minBound' and 'maxBound' method declarations.
-boundedFunDecs :: Name -> [Con] -> [Q Dec]
+boundedFunDecs :: Name -> [ConstructorInfo] -> [Q Dec]
 boundedFunDecs tyName cons = [makeFunD MinBound, makeFunD MaxBound]
   where
     makeFunD :: BoundedFun -> Q Dec
@@ -62,18 +68,24 @@ boundedFunDecs tyName cons = [makeFunD MinBound, makeFunD MaxBound]
 
 -- | Generates a lambda expression which behaves like the BoundedFun argument.
 makeBoundedFun :: BoundedFun -> Name -> Q Exp
-makeBoundedFun bf name = withType name fromCons where
-  fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-  fromCons name' ctxt tvbs cons mbTys =
-    -- We force buildTypeInstance here since it performs some checks for whether
-    -- or not the provided datatype can actually have minBound/maxBound
-    -- implemented for it, and produces errors if it can't.
-    buildTypeInstance BoundedClass name' ctxt tvbs mbTys
-      `seq` makeBoundedFunForCons bf name' cons
+makeBoundedFun bf name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have minBound/maxBound
+      -- implemented for it, and produces errors if it can't.
+      buildTypeInstance BoundedClass parentName ctxt vars variant
+        `seq` makeBoundedFunForCons bf parentName cons
 
 -- | Generates a lambda expression for minBound/maxBound. for the
 -- given constructors. All constructors must be from the same type.
-makeBoundedFunForCons :: BoundedFun -> Name -> [Con] -> Q Exp
+makeBoundedFunForCons :: BoundedFun -> Name -> [ConstructorInfo] -> Q Exp
 makeBoundedFunForCons _  _      [] = noConstructorsError
 makeBoundedFunForCons bf tyName cons
     | not (isProduct || isEnumeration)

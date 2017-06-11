@@ -39,6 +39,7 @@ import           Data.List (partition)
 import qualified Data.Map as Map
 import           Data.Maybe (isJust)
 
+import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
@@ -156,21 +157,26 @@ makeCompare2 name = makeLiftCompare name
 -- | Derive an Ord(1)(2) instance declaration (depending on the OrdClass
 -- argument's value).
 deriveOrdClass :: OrdClass -> Name -> Q [Dec]
-deriveOrdClass oClass name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance oClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (ordFunDecs oClass cons)
+deriveOrdClass oClass name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance oClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (ordFunDecs oClass vars cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (compare for Ord, liftCompare for Ord1, and
 -- liftCompare2 for Ord2).
-ordFunDecs :: OrdClass -> [Con] -> [Q Dec]
-ordFunDecs oClass cons =
+ordFunDecs :: OrdClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
+ordFunDecs oClass vars cons =
     map makeFunD $ ordClassToCompare oClass : otherFuns oClass cons
   where
     makeFunD :: OrdFun -> Q Dec
@@ -200,7 +206,7 @@ ordFunDecs oClass cons =
                                    , Ord1Compare1
 #endif
                                    ]
-                      = makeOrdFunForCons oFun cons
+                      = makeOrdFunForCons oFun vars cons
     dispatchFun OrdLE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` y `appE` x
     dispatchFun OrdGT = dispatchLT $ \lt x y ->              lt `appE` y `appE` x
     dispatchFun OrdGE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` x `appE` y
@@ -210,26 +216,31 @@ ordFunDecs oClass cons =
 -- function uses heuristics to determine whether to implement the OrdFun from
 -- scratch or define it in terms of compare.
 makeOrdFun :: OrdFun -> [Q Match] -> Name -> Q Exp
-makeOrdFun oFun matches name = withType name fromCons
+makeOrdFun oFun matches name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      let oClass = ordFunToClass oFun
+          others = otherFuns oClass cons
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have compare/liftCompare/etc.
+      -- implemented for it, and produces errors if it can't.
+      buildTypeInstance oClass parentName ctxt vars variant `seq`
+        if oFun `elem` compareFuns || oFun `elem` others
+           then makeOrdFunForCons oFun vars cons
+           else do
+             x <- newName "x"
+             y <- newName "y"
+             lamE [varP x, varP y] $
+                  caseE (makeOrdFunForCons (ordClassToCompare oClass) vars cons
+                             `appE` varE x `appE` varE y)
+                        matches
   where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-    fromCons name' ctxt tvbs cons mbTys = do
-        let oClass = ordFunToClass oFun
-            others = otherFuns oClass cons
-        -- We force buildTypeInstance here since it performs some checks for whether
-        -- or not the provided datatype can actually have compare/liftCompare/etc.
-        -- implemented for it, and produces errors if it can't.
-        buildTypeInstance oClass name' ctxt tvbs mbTys `seq`
-          if oFun `elem` compareFuns || oFun `elem` others
-             then makeOrdFunForCons oFun cons
-             else do
-               x <- newName "x"
-               y <- newName "y"
-               lamE [varP x, varP y] $
-                    caseE (makeOrdFunForCons (ordClassToCompare oClass) cons
-                               `appE` varE x `appE` varE y)
-                          matches
-
     compareFuns :: [OrdFun]
     compareFuns = [ OrdCompare
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -242,17 +253,23 @@ makeOrdFun oFun matches name = withType name fromCons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
-makeOrdFunForCons :: OrdFun -> [Con] -> Q Exp
-makeOrdFunForCons _    []   = noConstructorsError
-makeOrdFunForCons oFun cons = do
+makeOrdFunForCons :: OrdFun -> [Type] -> [ConstructorInfo] -> Q Exp
+makeOrdFunForCons _    _    []   = noConstructorsError
+makeOrdFunForCons oFun vars cons = do
     let oClass = ordFunToClass oFun
-    v1   <- newName "v1"
-    v2   <- newName "v2"
+    v1     <- newName "v1"
+    v2     <- newName "v2"
     v1Hash <- newName "v1#"
     v2Hash <- newName "v2#"
-    ords <- newNameList "ord" $ arity oClass
+    ords   <- newNameList "ord" $ arity oClass
 
-    let nullaryCons, nonNullaryCons :: [Con]
+    let lastTyVars :: [Name]
+        lastTyVars = map varTToName $ drop (length vars - fromEnum oClass) vars
+
+        tvMap :: TyVarMap1
+        tvMap = Map.fromList $ zipWith (\x y -> (x, OneName y)) lastTyVars ords
+
+        nullaryCons, nonNullaryCons :: [ConstructorInfo]
         (nullaryCons, nonNullaryCons) = partition isNullaryCon cons
 
         singleConType :: Bool
@@ -267,8 +284,8 @@ makeOrdFunForCons oFun cons = do
         firstTag = 0
         lastTag  = length cons - 1
 
-        ordMatches :: Int -> Con -> Q Match
-        ordMatches = makeOrdFunForCon oFun v2 v2Hash ords singleConType
+        ordMatches :: Int -> ConstructorInfo -> Q Match
+        ordMatches = makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
                                       firstTag firstConName lastTag lastConName
 
         ordFunRhs :: Q Exp
@@ -302,66 +319,66 @@ makeOrdFunForCons oFun cons = do
 makeOrdFunForCon :: OrdFun
                  -> Name
                  -> Name
-                 -> [Name]
+                 -> TyVarMap1
                  -> Bool
                  -> Int -> Name
                  -> Int -> Name
-                 -> Int -> Con
+                 -> Int -> ConstructorInfo
                  -> Q Match
-makeOrdFunForCon oFun v2 v2Hash ords singleConType
-                 firstTag firstConName lastTag lastConName tag con = do
-  let conName = constructorName con
-  (ts, tvMap) <- reifyConTys1 (ordFunToClass oFun) ords conName
-  let tsLen = length ts
-  as <- newNameList "a" tsLen
-  bs <- newNameList "b" tsLen
+makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
+                 firstTag firstConName lastTag lastConName tag
+  (ConstructorInfo { constructorName = conName, constructorFields = ts }) = do
+    ts' <- mapM resolveTypeSynonyms ts
+    let tsLen = length ts'
+    as <- newNameList "a" tsLen
+    bs <- newNameList "b" tsLen
 
-  let innerRhs :: Q Exp
-      innerRhs
-        | singleConType
-        = caseE (varE v2) [innerEqAlt]
+    let innerRhs :: Q Exp
+        innerRhs
+          | singleConType
+          = caseE (varE v2) [innerEqAlt]
 
-        | tag == firstTag
-        = caseE (varE v2) [innerEqAlt, match wildP (normalB $ ltResult oFun) []]
+          | tag == firstTag
+          = caseE (varE v2) [innerEqAlt, match wildP (normalB $ ltResult oFun) []]
 
-        | tag == lastTag
-        = caseE (varE v2) [innerEqAlt, match wildP (normalB $ gtResult oFun) []]
+          | tag == lastTag
+          = caseE (varE v2) [innerEqAlt, match wildP (normalB $ gtResult oFun) []]
 
-        | tag == firstTag + 1
-        = caseE (varE v2) [ match (recP firstConName []) (normalB $ gtResult oFun) []
-                          , innerEqAlt
-                          , match wildP (normalB $ ltResult oFun) []
-                          ]
+          | tag == firstTag + 1
+          = caseE (varE v2) [ match (recP firstConName []) (normalB $ gtResult oFun) []
+                            , innerEqAlt
+                            , match wildP (normalB $ ltResult oFun) []
+                            ]
 
-        | tag == lastTag - 1
-        = caseE (varE v2) [ match (recP lastConName []) (normalB $ ltResult oFun) []
-                          , innerEqAlt
-                          , match wildP (normalB $ gtResult oFun) []
-                          ]
+          | tag == lastTag - 1
+          = caseE (varE v2) [ match (recP lastConName []) (normalB $ ltResult oFun) []
+                            , innerEqAlt
+                            , match wildP (normalB $ gtResult oFun) []
+                            ]
 
-        | tag > lastTag `div` 2
-        = untagExpr [(v2, v2Hash)] $
-          condE (primOpAppExpr (varE v2Hash) ltIntHashValName tagLit)
-                (gtResult oFun) $
-          caseE (varE v2) [innerEqAlt, match wildP (normalB $ ltResult oFun) []]
+          | tag > lastTag `div` 2
+          = untagExpr [(v2, v2Hash)] $
+            condE (primOpAppExpr (varE v2Hash) ltIntHashValName tagLit)
+                  (gtResult oFun) $
+            caseE (varE v2) [innerEqAlt, match wildP (normalB $ ltResult oFun) []]
 
-        | otherwise
-        = untagExpr [(v2, v2Hash)] $
-          condE (primOpAppExpr (varE v2Hash) gtIntHashValName tagLit)
-                (ltResult oFun) $
-          caseE (varE v2) [innerEqAlt, match wildP (normalB $ gtResult oFun) []]
+          | otherwise
+          = untagExpr [(v2, v2Hash)] $
+            condE (primOpAppExpr (varE v2Hash) gtIntHashValName tagLit)
+                  (ltResult oFun) $
+            caseE (varE v2) [innerEqAlt, match wildP (normalB $ gtResult oFun) []]
 
-      innerEqAlt :: Q Match
-      innerEqAlt = match (conP conName $ map varP bs)
-                         (normalB $ makeOrdFunForFields oFun tvMap conName ts as bs)
-                         []
+        innerEqAlt :: Q Match
+        innerEqAlt = match (conP conName $ map varP bs)
+                           (normalB $ makeOrdFunForFields oFun tvMap conName ts' as bs)
+                           []
 
-      tagLit :: Q Exp
-      tagLit = litE . intPrimL $ fromIntegral tag
+        tagLit :: Q Exp
+        tagLit = litE . intPrimL $ fromIntegral tag
 
-  match (conP conName $ map varP as)
-        (normalB innerRhs)
-        []
+    match (conP conName $ map varP as)
+          (normalB innerRhs)
+          []
 
 makeOrdFunForFields :: OrdFun
                     -> TyVarMap1
@@ -600,7 +617,7 @@ falseExpr = conE falseDataName
 trueExpr  = conE trueDataName
 
 -- Besides compare, that is
-otherFuns :: OrdClass -> [Con] -> [OrdFun]
+otherFuns :: OrdClass -> [ConstructorInfo] -> [OrdFun]
 otherFuns oClass cons = case oClass of
     Ord1 -> []
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -615,7 +632,7 @@ otherFuns oClass cons = case oClass of
     firstTag = 0
     lastTag  = length cons - 1
 
-    nonNullaryCons :: [Con]
+    nonNullaryCons :: [ConstructorInfo]
     nonNullaryCons = filterOut isNullaryCon cons
 
 unliftedOrdFun :: Name -> OrdFun -> Name -> Name -> Q Exp

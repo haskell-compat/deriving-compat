@@ -47,17 +47,14 @@ module Text.Show.Deriving.Internal (
     , legacyShowOptions
     ) where
 
-#if MIN_VERSION_template_haskell(2,11,0)
-import           Control.Monad ((<=<))
-import           Data.Maybe (fromMaybe, isJust)
-#endif
-
 import           Data.Deriving.Internal
 import           Data.List
 import qualified Data.Map as Map
+import           Data.Maybe (fromMaybe)
 
 import           GHC.Show (appPrec, appPrec1)
 
+import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
@@ -258,24 +255,29 @@ makeShowsPrec2Options opts name = makeLiftShowsPrec2Options opts name
 -- | Derive a Show(1)(2) instance declaration (depending on the ShowClass
 -- argument's value).
 deriveShowClass :: ShowClass -> ShowOptions -> Name -> Q [Dec]
-deriveShowClass sClass opts name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance sClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (showsPrecDecs sClass opts cons)
+deriveShowClass sClass opts name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance sClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (showsPrecDecs sClass opts vars cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (showsPrec for Show, liftShowsPrec for Show1, and
 -- liftShowsPrec2 for Show2).
-showsPrecDecs :: ShowClass -> ShowOptions -> [Con] -> [Q Dec]
-showsPrecDecs sClass opts cons =
+showsPrecDecs :: ShowClass -> ShowOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
+showsPrecDecs sClass opts vars cons =
     [ funD (showsPrecName sClass)
            [ clause []
-                    (normalB $ makeShowForCons sClass opts cons)
+                    (normalB $ makeShowForCons sClass opts vars cons)
                     []
            ]
     ]
@@ -283,28 +285,35 @@ showsPrecDecs sClass opts cons =
 -- | Generates a lambda expression which behaves like showsPrec (for Show),
 -- liftShowsPrec (for Show1), or liftShowsPrec2 (for Show2).
 makeShowsPrecClass :: ShowClass -> ShowOptions -> Name -> Q Exp
-makeShowsPrecClass sClass opts name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-    fromCons name' ctxt tvbs cons mbTys =
-        -- We force buildTypeInstance here since it performs some checks for whether
-        -- or not the provided datatype can actually have showsPrec/liftShowsPrec/etc.
-        -- implemented for it, and produces errors if it can't.
-        buildTypeInstance sClass name' ctxt tvbs mbTys
-          `seq` makeShowForCons sClass opts cons
+makeShowsPrecClass sClass opts name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have showsPrec/liftShowsPrec/etc.
+      -- implemented for it, and produces errors if it can't.
+      buildTypeInstance sClass parentName ctxt vars variant
+        `seq` makeShowForCons sClass opts vars cons
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeShowForCons :: ShowClass -> ShowOptions -> [Con] -> Q Exp
-makeShowForCons _ _ [] = noConstructorsError
-makeShowForCons sClass opts cons = do
+makeShowForCons :: ShowClass -> ShowOptions -> [Type] -> [ConstructorInfo] -> Q Exp
+makeShowForCons _ _ _ [] = noConstructorsError
+makeShowForCons sClass opts vars cons = do
     p     <- newName "p"
     value <- newName "value"
     sps   <- newNameList "sp" $ arity sClass
     sls   <- newNameList "sl" $ arity sClass
     let spls       = zip sps sls
         _spsAndSls = interleave sps sls
-    matches <- concatMapM (makeShowForCon p sClass opts spls) cons
+        lastTyVars = map varTToName $ drop (length vars - fromEnum sClass) vars
+        splMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars spls
+    matches <- mapM (makeShowForCon p sClass opts splMap) cons
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)
                      _spsAndSls ++
@@ -324,71 +333,75 @@ makeShowForCons sClass opts cons = do
 makeShowForCon :: Name
                -> ShowClass
                -> ShowOptions
-               -> [(Name, Name)]
-               -> Con
-               -> Q [Match]
-makeShowForCon _ sClass _ spls (NormalC conName []) = do
-    ([], _) <- reifyConTys2 sClass spls conName
-    m <- match
-           (conP conName [])
-           (normalB $ varE showStringValName `appE` stringE (parenInfixConName conName ""))
-           []
-    return [m]
-makeShowForCon p sClass opts spls (NormalC conName [_]) = do
-    ([argTy], tvMap) <- reifyConTys2 sClass spls conName
+               -> TyVarMap2
+               -> ConstructorInfo
+               -> Q Match
+makeShowForCon _ _ _ _
+  (ConstructorInfo { constructorName = conName, constructorFields = [] }) =
+    match
+      (conP conName [])
+      (normalB $ varE showStringValName `appE` stringE (parenInfixConName conName ""))
+      []
+makeShowForCon p sClass opts tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorVariant = NormalConstructor
+                   , constructorFields  = [argTy] }) = do
+    argTy' <- resolveTypeSynonyms argTy
     arg <- newName "arg"
 
-    let showArg  = makeShowForArg appPrec1 sClass opts conName tvMap argTy arg
+    let showArg  = makeShowForArg appPrec1 sClass opts conName tvMap argTy' arg
         namedArg = infixApp (varE showStringValName `appE` stringE (parenInfixConName conName " "))
                             (varE composeValName)
                             showArg
 
-    m <- match
-           (conP conName [varP arg])
-           (normalB $ varE showParenValName
-                       `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
-                       `appE` namedArg)
-           []
-    return [m]
-makeShowForCon p sClass opts spls (NormalC conName _) = do
-    (argTys, tvMap) <- reifyConTys2 sClass spls conName
-    args <- newNameList "arg" $ length argTys
+    match
+      (conP conName [varP arg])
+      (normalB $ varE showParenValName
+                  `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
+                  `appE` namedArg)
+      []
+makeShowForCon p sClass opts tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorVariant = NormalConstructor
+                   , constructorFields  = argTys }) = do
+    argTys' <- mapM resolveTypeSynonyms argTys
+    args <- newNameList "arg" $ length argTys'
 
-    m <- if isNonUnitTuple conName
-         then do
-           let showArgs       = zipWith (makeShowForArg 0 sClass opts conName tvMap) argTys args
-               parenCommaArgs = (varE showCharValName `appE` charE '(')
-                                : intersperse (varE showCharValName `appE` charE ',') showArgs
-               mappendArgs    = foldr (`infixApp` varE composeValName)
-                                      (varE showCharValName `appE` charE ')')
-                                      parenCommaArgs
+    if isNonUnitTuple conName
+       then do
+         let showArgs       = zipWith (makeShowForArg 0 sClass opts conName tvMap) argTys' args
+             parenCommaArgs = (varE showCharValName `appE` charE '(')
+                              : intersperse (varE showCharValName `appE` charE ',') showArgs
+             mappendArgs    = foldr (`infixApp` varE composeValName)
+                                    (varE showCharValName `appE` charE ')')
+                                    parenCommaArgs
 
-           match (conP conName $ map varP args)
-                 (normalB mappendArgs)
-                 []
-         else do
-           let showArgs    = zipWith (makeShowForArg appPrec1 sClass opts conName tvMap) argTys args
-               mappendArgs = foldr1 (\v q -> infixApp v (varE composeValName)
-                                                      (infixApp (varE showSpaceValName)
-                                                              (varE composeValName)
-                                                              q)) showArgs
-               namedArgs   = infixApp (varE showStringValName `appE` stringE (parenInfixConName conName " "))
-                                      (varE composeValName)
-                                      mappendArgs
+         match (conP conName $ map varP args)
+               (normalB mappendArgs)
+               []
+       else do
+         let showArgs    = zipWith (makeShowForArg appPrec1 sClass opts conName tvMap) argTys' args
+             mappendArgs = foldr1 (\v q -> infixApp v (varE composeValName)
+                                                    (infixApp (varE showSpaceValName)
+                                                            (varE composeValName)
+                                                            q)) showArgs
+             namedArgs   = infixApp (varE showStringValName `appE` stringE (parenInfixConName conName " "))
+                                    (varE composeValName)
+                                    mappendArgs
 
-           match (conP conName $ map varP args)
-                 (normalB $ varE showParenValName
-                              `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
-                              `appE` namedArgs)
-                 []
-    return [m]
-makeShowForCon p sClass opts spls (RecC conName []) =
-    makeShowForCon p sClass opts spls $ NormalC conName []
-makeShowForCon p sClass opts spls (RecC conName ts) = do
-    (argTys, tvMap) <- reifyConTys2 sClass spls conName
-    args <- newNameList "arg" $ length argTys
+         match (conP conName $ map varP args)
+               (normalB $ varE showParenValName
+                            `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
+                            `appE` namedArgs)
+               []
+makeShowForCon p sClass opts tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorVariant = RecordConstructor argNames
+                   , constructorFields  = argTys }) = do
+    argTys' <- mapM resolveTypeSynonyms argTys
+    args <- newNameList "arg" $ length argTys'
 
-    let showArgs       = concatMap (\((argName, _, _), argTy, arg)
+    let showArgs       = concatMap (\(argName, argTy, arg)
                                       -> let argNameBase = nameBase argName
                                              infixRec    = showParen (isSym argNameBase)
                                                                      (showString argNameBase) ""
@@ -397,7 +410,7 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
                                             , varE showCommaSpaceValName
                                             ]
                                    )
-                                   (zip3 ts argTys args)
+                                   (zip3 argNames argTys' args)
         braceCommaArgs = (varE showCharValName `appE` charE '{') : take (length showArgs - 1) showArgs
         mappendArgs    = foldr (`infixApp` varE composeValName)
                                (varE showCharValName `appE` charE '}')
@@ -406,65 +419,37 @@ makeShowForCon p sClass opts spls (RecC conName ts) = do
                                   (varE composeValName)
                                   mappendArgs
 
-    m <- match
-           (conP conName $ map varP args)
-           (normalB $ varE showParenValName
-                        `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
-                        `appE` namedArgs)
-           []
-    return [m]
-makeShowForCon p sClass opts spls (InfixC _ conName _) = do
-    ([alTy, arTy], tvMap) <- reifyConTys2 sClass spls conName
+    match
+      (conP conName $ map varP args)
+      (normalB $ varE showParenValName
+                   `appE` infixApp (varE p) (varE gtValName) (integerE appPrec)
+                   `appE` namedArgs)
+      []
+makeShowForCon p sClass opts tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorVariant = InfixConstructor
+                   , constructorFields  = argTys }) = do
+    [alTy, arTy] <- mapM resolveTypeSynonyms argTys
     al   <- newName "argL"
     ar   <- newName "argR"
-    info <- reify conName
-
-#if MIN_VERSION_template_haskell(2,11,0)
-    conPrec <- case info of
-                        DataConI{} -> do
-                            fi <- fromMaybe defaultFixity <$> reifyFixity conName
-                            case fi of
-                                 Fixity prec _ -> return prec
-#else
-    let conPrec  = case info of
-                        DataConI _ _ _ (Fixity prec _) -> prec
-#endif
-                        _ -> error $ "Text.Show.Deriving.Internal.makeShowForCon: Unsupported type: " ++ show info
-
-    let opName   = nameBase conName
+    fi <- fromMaybe defaultFixity `fmap` reifyFixityCompat conName
+    let conPrec  = case fi of Fixity prec _ -> prec
+        opName   = nameBase conName
         infixOpE = appE (varE showStringValName) . stringE $
                      if isInfixDataCon opName
                         then " "  ++ opName ++ " "
                         else " `" ++ opName ++ "` "
 
-    m <- match
-           (infixP (varP al) conName (varP ar))
-           (normalB $ (varE showParenValName `appE` infixApp (varE p) (varE gtValName) (integerE conPrec))
-                        `appE` (infixApp (makeShowForArg (conPrec + 1) sClass opts conName tvMap alTy al)
-                                         (varE composeValName)
-                                         (infixApp infixOpE
-                                                   (varE composeValName)
-                                                   (makeShowForArg (conPrec + 1) sClass opts conName tvMap arTy ar)))
-           )
-           []
-    return [m]
-makeShowForCon p sClass opts spls (ForallC _ _ con) =
-    makeShowForCon p sClass opts spls con
-#if MIN_VERSION_template_haskell(2,11,0)
-makeShowForCon p sClass opts spls (GadtC conNames ts _) =
-    let con :: Name -> Q Con
-        con conName = do
-            mbFi <- reifyFixity conName
-            return $ if isInfixDataCon (nameBase conName)
-                        && length ts == 2
-                        && isJust mbFi
-                      then let [t1, t2] = ts in InfixC t1 conName t2
-                      else NormalC conName ts
-
-    in concatMapM (makeShowForCon p sClass opts spls <=< con) conNames
-makeShowForCon p sClass opts spls (RecGadtC conNames ts _) =
-    concatMapM (makeShowForCon p sClass opts spls . flip RecC ts) conNames
-#endif
+    match
+      (infixP (varP al) conName (varP ar))
+      (normalB $ (varE showParenValName `appE` infixApp (varE p) (varE gtValName) (integerE conPrec))
+                   `appE` (infixApp (makeShowForArg (conPrec + 1) sClass opts conName tvMap alTy al)
+                                    (varE composeValName)
+                                    (infixApp infixOpE
+                                              (varE composeValName)
+                                              (makeShowForArg (conPrec + 1) sClass opts conName tvMap arTy ar)))
+      )
+      []
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for an
 -- argument of a constructor.

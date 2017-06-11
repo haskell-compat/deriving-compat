@@ -20,6 +20,7 @@ module Data.Enum.Deriving.Internal (
 
 import Data.Deriving.Internal
 
+import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Syntax
 
@@ -30,15 +31,20 @@ import Language.Haskell.TH.Syntax
 -- | Generates an 'Enum' instance declaration for the given data type or data
 -- family instance.
 deriveEnum :: Name -> Q [Dec]
-deriveEnum name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance EnumClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (enumFunDecs name' instanceType cons)
+deriveEnum name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance EnumClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (enumFunDecs parentName instanceType cons)
 
 -- | Generates a lambda expression which behaves like 'succ' (without
 -- requiring an 'Enum' instance).
@@ -71,7 +77,7 @@ makeEnumFromThen :: Name -> Q Exp
 makeEnumFromThen = makeEnumFun EnumFromThen
 
 -- | Generates method declarations for an 'Enum' instance.
-enumFunDecs :: Name -> Type -> [Con] -> [Q Dec]
+enumFunDecs :: Name -> Type -> [ConstructorInfo] -> [Q Dec]
 enumFunDecs tyName ty cons =
     map makeFunD [ Succ
                  , Pred
@@ -91,15 +97,21 @@ enumFunDecs tyName ty cons =
 
 -- | Generates a lambda expression which behaves like the EnumFun argument.
 makeEnumFun :: EnumFun -> Name -> Q Exp
-makeEnumFun ef name = withType name fromCons where
-  fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-  fromCons name' ctxt tvbs cons mbTys = do
-    (_, instanceType) <- buildTypeInstance EnumClass name' ctxt tvbs mbTys
-    makeEnumFunForCons ef name' instanceType cons
+makeEnumFun ef name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (_, instanceType) <- buildTypeInstance EnumClass parentName ctxt vars variant
+      makeEnumFunForCons ef parentName instanceType cons
 
 -- | Generates a lambda expression for fromEnum/toEnum/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeEnumFunForCons :: EnumFun -> Name -> Type -> [Con] -> Q Exp
+makeEnumFunForCons :: EnumFun -> Name -> Type -> [ConstructorInfo] -> Q Exp
 makeEnumFunForCons _  _      _  [] = noConstructorsError
 makeEnumFunForCons ef tyName ty cons
     | not $ isEnumerationType cons

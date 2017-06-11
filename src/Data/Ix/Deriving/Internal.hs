@@ -17,6 +17,7 @@ module Data.Ix.Deriving.Internal (
 
 import Data.Deriving.Internal
 
+import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Syntax
 
@@ -27,15 +28,20 @@ import Language.Haskell.TH.Syntax
 -- | Generates a 'Ix' instance declaration for the given data type or data
 -- family instance.
 deriveIx :: Name -> Q [Dec]
-deriveIx name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance IxClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (ixFunDecs name' instanceType cons)
+deriveIx name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance IxClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (ixFunDecs parentName instanceType cons)
 
 -- | Generates a lambda expression which behaves like 'range' (without
 -- requiring an 'Ix' instance).
@@ -53,7 +59,7 @@ makeInRange :: Name -> Q Exp
 makeInRange = makeIxFun InRange
 
 -- | Generates method declarations for an 'Ix' instance.
-ixFunDecs :: Name -> Type -> [Con] -> [Q Dec]
+ixFunDecs :: Name -> Type -> [ConstructorInfo] -> [Q Dec]
 ixFunDecs tyName ty cons =
     [ makeFunD Range
     , makeFunD UnsafeIndex
@@ -70,15 +76,21 @@ ixFunDecs tyName ty cons =
 
 -- | Generates a lambda expression which behaves like the IxFun argument.
 makeIxFun :: IxFun -> Name -> Q Exp
-makeIxFun ixf name = withType name fromCons where
-  fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-  fromCons name' ctxt tvbs cons mbTys = do
-    (_, instanceType) <- buildTypeInstance IxClass name' ctxt tvbs mbTys
-    makeIxFunForCons ixf name' instanceType cons
+makeIxFun ixf name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (_, instanceType) <- buildTypeInstance IxClass parentName ctxt vars variant
+      makeIxFunForCons ixf parentName instanceType cons
 
 -- | Generates a lambda expression for an 'Ix' method for the
 -- given constructors. All constructors must be from the same type.
-makeIxFunForCons :: IxFun -> Name -> Type -> [Con] -> Q Exp
+makeIxFunForCons :: IxFun -> Name -> Type -> [ConstructorInfo] -> Q Exp
 makeIxFunForCons _   _      _  [] = noConstructorsError
 makeIxFunForCons ixf tyName ty cons
     | not (isProduct || isEnumeration)
@@ -129,7 +141,7 @@ makeIxFunForCons ixf tyName ty cons
                     ]
 
     | otherwise -- It's a product type
-    = do let con :: Con
+    = do let con :: ConstructorInfo
              [con] = cons
 
              conName :: Name

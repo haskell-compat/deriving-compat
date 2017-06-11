@@ -64,17 +64,14 @@ module Text.Read.Deriving.Internal (
     , defaultReadOptions
     ) where
 
-#if MIN_VERSION_template_haskell(2,11,0)
-import           Control.Monad ((<=<))
-import           Data.Maybe (fromMaybe, isJust)
-#endif
-
 import           Data.Deriving.Internal
 import           Data.List (intersperse, partition)
 import qualified Data.Map as Map
+import           Data.Maybe (fromMaybe)
 
 import           GHC.Show (appPrec, appPrec1)
 
+import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
@@ -419,24 +416,29 @@ makeReadsPrec2 name = makeLiftReadsPrec2 name
 -- | Derive a Read(1)(2) instance declaration (depending on the ReadClass
 -- argument's value).
 deriveReadClass :: ReadClass -> ReadOptions -> Name -> Q [Dec]
-deriveReadClass rClass opts name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q [Dec]
-    fromCons name' ctxt tvbs cons mbTys = (:[]) `fmap` do
-        (instanceCxt, instanceType)
-            <- buildTypeInstance rClass name' ctxt tvbs mbTys
-        instanceD (return instanceCxt)
-                  (return instanceType)
-                  (readPrecDecs rClass opts cons)
+deriveReadClass rClass opts name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      (instanceCxt, instanceType)
+          <- buildTypeInstance rClass parentName ctxt vars variant
+      (:[]) `fmap` instanceD (return instanceCxt)
+                             (return instanceType)
+                             (readPrecDecs rClass opts vars cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (read(s)Prec for Read, liftRead(s)Prec for Read1, and
 -- liftRead(s)Prec2 for Read2).
-readPrecDecs :: ReadClass -> ReadOptions -> [Con] -> [Q Dec]
-readPrecDecs rClass opts cons =
+readPrecDecs :: ReadClass -> ReadOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
+readPrecDecs rClass opts vars cons =
     [ funD ((if defineReadPrec then readPrecName else readsPrecName) rClass)
            [ clause []
-                    (normalB $ makeReadForCons rClass defineReadPrec cons)
+                    (normalB $ makeReadForCons rClass defineReadPrec vars cons)
                     []
            ]
     ] ++ if defineReadPrec
@@ -454,58 +456,65 @@ readPrecDecs rClass opts cons =
 -- | Generates a lambda expression which behaves like read(s)Prec (for Read),
 -- liftRead(s)Prec (for Read1), or liftRead(s)Prec2 (for Read2).
 makeReadPrecClass :: ReadClass -> Bool -> Name -> Q Exp
-makeReadPrecClass rClass urp name = withType name fromCons
-  where
-    fromCons :: Name -> Cxt -> [TyVarBndr] -> [Con] -> Maybe [Type] -> Q Exp
-    fromCons name' ctxt tvbs cons mbTys =
-        -- We force buildTypeInstance here since it performs some checks for whether
-        -- or not the provided datatype can actually have
-        -- read(s)Prec/liftRead(s)Prec/etc. implemented for it, and produces errors
-        -- if it can't.
-        buildTypeInstance rClass name' ctxt tvbs mbTys
-          `seq` makeReadForCons rClass urp cons
+makeReadPrecClass rClass urp name = do
+  info <- reifyDatatype name
+  case info of
+    DatatypeInfo { datatypeContext = ctxt
+                 , datatypeName    = parentName
+                 , datatypeVars    = vars
+                 , datatypeVariant = variant
+                 , datatypeCons    = cons
+                 } -> do
+      -- We force buildTypeInstance here since it performs some checks for whether
+      -- or not the provided datatype can actually have
+      -- read(s)Prec/liftRead(s)Prec/etc. implemented for it, and produces errors
+      -- if it can't.
+      buildTypeInstance rClass parentName ctxt vars variant
+        `seq` makeReadForCons rClass urp vars cons
 
 -- | Generates a lambda expression for read(s)Prec/liftRead(s)Prec/etc. for the
 -- given constructors. All constructors must be from the same type.
-makeReadForCons :: ReadClass -> Bool -> [Con] -> Q Exp
-makeReadForCons rClass urp cons = do
+makeReadForCons :: ReadClass -> Bool -> [Type] -> [ConstructorInfo] -> Q Exp
+makeReadForCons rClass urp vars cons = do
     p   <- newName "p"
     rps <- newNameList "rp" $ arity rClass
     rls <- newNameList "rl" $ arity rClass
     let rpls       = zip rps rls
         _rpsAndRls = interleave rps rls
+        lastTyVars = map varTToName $ drop (length vars - fromEnum rClass) vars
+        rplMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars rpls
 
-    let nullaryCons, nonNullaryCons :: [Con]
+    let nullaryCons, nonNullaryCons :: [ConstructorInfo]
         (nullaryCons, nonNullaryCons) = partition isNullaryCon cons
 
         readConsExpr :: Q Exp
         readConsExpr
           | null cons = varE pfailValName
           | otherwise = do
-                readNonNullaryCons <- concatMapM (makeReadForCon rClass urp rpls)
-                                                 nonNullaryCons
+                readNonNullaryCons <- mapM (makeReadForCon rClass urp rplMap)
+                                           nonNullaryCons
                 foldr1 mkAlt (readNullaryCons ++ map return readNonNullaryCons)
 
         readNullaryCons :: [Q Exp]
         readNullaryCons = case nullaryCons of
-          []    -> []
+          [] -> []
           [con]
             | nameBase (constructorName con) == "()"
            -> [varE parenValName `appE`
                     mkDoStmts [] (varE returnValName `appE` tupE [])]
             | otherwise -> [mkDoStmts (matchCon con)
                                       (resultExpr (constructorName con) [])]
-          _     -> [varE chooseValName `appE` listE (map mkPair nullaryCons)]
+          _ -> [varE chooseValName `appE` listE (map mkPair nullaryCons)]
 
         mkAlt :: Q Exp -> Q Exp -> Q Exp
         mkAlt e1 e2 = infixApp e1 (varE altValName) e2
 
-        mkPair :: Con -> Q Exp
+        mkPair :: ConstructorInfo -> Q Exp
         mkPair con = tupE [ stringE $ dataConStr con
                           , resultExpr (constructorName con) []
                           ]
 
-        matchCon :: Con -> [Q Stmt]
+        matchCon :: ConstructorInfo -> [Q Stmt]
         matchCon con
           | isSym conStr = [symbolPat conStr]
           | otherwise    = identHPat conStr
@@ -533,86 +542,70 @@ makeReadForCons rClass urp cons = do
 
 makeReadForCon :: ReadClass
                -> Bool
-               -> [(Name, Name)]
-               -> Con
-               -> Q [Exp]
-makeReadForCon rClass urp rpls (NormalC conName _)  = do
-    (argTys, tvMap) <- reifyConTys2 rClass rpls conName
-    args <- newNameList "arg" $ length argTys
+               -> TyVarMap2
+               -> ConstructorInfo
+               -> Q Exp
+makeReadForCon rClass urp tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorContext = ctxt
+                   , constructorVariant = NormalConstructor
+                   , constructorFields  = argTys }) = do
+    argTys' <- mapM resolveTypeSynonyms argTys
+    args    <- newNameList "arg" $ length argTys'
     let conStr = nameBase conName
         isTup  = isNonUnitTupleString conStr
     (readStmts, varExps) <-
-        zipWithAndUnzipM (makeReadForArg rClass isTup urp tvMap conName) argTys args
+        zipWithAndUnzipM (makeReadForArg rClass isTup urp tvMap conName) argTys' args
     let body = resultExpr conName varExps
 
-    e <- if isTup
-            then let tupleStmts = intersperse (readPunc ",") readStmts
-                 in varE parenValName `appE` mkDoStmts tupleStmts body
-            else let prefixStmts = readPrefixCon conStr ++ readStmts
-                 in mkParser appPrec prefixStmts body
-    return [e]
-makeReadForCon rClass urp rpls (RecC conName ts) = do
-    (argTys, tvMap) <- reifyConTys2 rClass rpls conName
-    args <- newNameList "arg" $ length argTys
+    checkExistentialContext rClass tvMap ctxt conName $
+      if isTup
+         then let tupleStmts = intersperse (readPunc ",") readStmts
+              in varE parenValName `appE` mkDoStmts tupleStmts body
+         else let prefixStmts = readPrefixCon conStr ++ readStmts
+              in mkParser appPrec prefixStmts body
+makeReadForCon rClass urp tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorContext = ctxt
+                   , constructorVariant = RecordConstructor argNames
+                   , constructorFields  = argTys }) = do
+    argTys' <- mapM resolveTypeSynonyms argTys
+    args    <- newNameList "arg" $ length argTys'
     (readStmts, varExps) <- zipWith3AndUnzipM
-        (\(argName, _, _) argTy arg -> makeReadForField rClass urp tvMap conName
+        (\argName argTy arg -> makeReadForField rClass urp tvMap conName
                                            (nameBase argName) argTy arg)
-        ts argTys args
+        argNames argTys' args
     let body        = resultExpr conName varExps
         conStr      = nameBase conName
         recordStmts = readPrefixCon conStr ++ [readPunc "{"]
                       ++ concat (intersperse [readPunc ","] readStmts)
                       ++ [readPunc "}"]
 
-    e <- mkParser appPrec1 recordStmts body
-    return [e]
-makeReadForCon rClass urp rpls (InfixC _ conName _) = do
-    ([alTy, arTy], tvMap) <- reifyConTys2 rClass rpls conName
-    al   <- newName "argL"
-    ar   <- newName "argR"
+    checkExistentialContext rClass tvMap ctxt conName $
+      mkParser appPrec1 recordStmts body
+makeReadForCon rClass urp tvMap
+  (ConstructorInfo { constructorName    = conName
+                   , constructorContext = ctxt
+                   , constructorVariant = InfixConstructor
+                   , constructorFields  = argTys }) = do
+    [alTy, arTy] <- mapM resolveTypeSynonyms argTys
+    al <- newName "argL"
+    ar <- newName "argR"
+    fi <- fromMaybe defaultFixity `fmap` reifyFixityCompat conName
     ([readStmt1, readStmt2], varExps) <-
         zipWithAndUnzipM (makeReadForArg rClass False urp tvMap conName)
                          [alTy, arTy] [al, ar]
-    info <- reify conName
 
-#if MIN_VERSION_template_haskell(2,11,0)
-    conPrec <- case info of
-                        DataConI{} -> do
-                            fi <- fromMaybe defaultFixity <$> reifyFixity conName
-                            case fi of
-                                 Fixity prec _ -> return prec
-#else
-    let conPrec  = case info of
-                        DataConI _ _ _ (Fixity prec _) -> prec
-#endif
-                        _ -> error $ "Text.Read.Deriving.Internal.makeReadForCon: Unsupported type: " ++ show info
-
-    let body   = resultExpr conName varExps
-        conStr = nameBase conName
+    let conPrec = case fi of Fixity prec _ -> prec
+        body    = resultExpr conName varExps
+        conStr  = nameBase conName
         readInfixCon
           | isSym conStr = [symbolPat conStr]
           | otherwise    = [readPunc "`"] ++ identHPat conStr ++ [readPunc "`"]
         infixStmts = [readStmt1] ++ readInfixCon ++ [readStmt2]
 
-    e <- mkParser conPrec infixStmts body
-    return [e]
-makeReadForCon rClass urp rpls (ForallC _ _ con) =
-    makeReadForCon rClass urp rpls con
-#if MIN_VERSION_template_haskell(2,11,0)
-makeReadForCon rClass urp rpls (GadtC conNames ts _) =
-    let con :: Name -> Q Con
-        con conName = do
-            mbFi <- reifyFixity conName
-            return $ if isInfixDataCon (nameBase conName)
-                        && length ts == 2
-                        && isJust mbFi
-                      then let [t1, t2] = ts in InfixC t1 conName t2
-                      else NormalC conName ts
-
-    in concatMapM (makeReadForCon rClass urp rpls <=< con) conNames
-makeReadForCon rClass urp rpls (RecGadtC conNames ts _) =
-    concatMapM (makeReadForCon rClass urp rpls . flip RecC ts) conNames
-#endif
+    checkExistentialContext rClass tvMap ctxt conName $
+      mkParser conPrec infixStmts body
 
 makeReadForArg :: ReadClass
                -> Bool
@@ -863,7 +856,7 @@ snocView xs = go [] xs
     go acc (a:as) = go (a:acc) as
     go _   []     = error "Util: snocView"
 
-dataConStr :: Con -> String
+dataConStr :: ConstructorInfo -> String
 dataConStr = nameBase . constructorName
 
 readPrefixCon :: String -> [Q Stmt]
