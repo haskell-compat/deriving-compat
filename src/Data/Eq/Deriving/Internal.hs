@@ -286,7 +286,7 @@ makeCaseForType eClass tvMap conName ty = do
         tyCon:tyArgs = unapplyTy ty
 
         numLastArgs :: Int
-        numLastArgs = min (arity eClass) (length tyArgs)
+        numLastArgs = min (arity (maxBound :: EqClass)) (length tyArgs)
 
         lhsArgs, rhsArgs :: [Type]
         (lhsArgs, rhsArgs) = splitAt (length tyArgs - numLastArgs) tyArgs
