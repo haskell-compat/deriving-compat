@@ -196,12 +196,16 @@ makeFunctorFunForCons ff vars cons = do
   lamE (map varP argNames)
       . appsE
       $ [ varE $ functorFunConstName ff
-        , if null cons
-             then appE (varE errorValName)
-                       (stringE $ "Void " ++ nameBase (functorFunName ff))
-             else caseE (varE value)
-                        (map (makeFunctorFunForCon ff z tvMap) cons)
+        , makeFun z value tvMap
         ] ++ map varE argNames
+  where
+    makeFun z value tvMap
+      | null cons
+      = appE (varE errorValName)
+             (stringE $ "Void " ++ nameBase (functorFunName ff))
+      | otherwise
+      = caseE (varE value)
+              (map (makeFunctorFunForCon ff z tvMap) cons)
 
 -- | Generates a lambda expression for a single constructor.
 makeFunctorFunForCon :: FunctorFun -> Name -> TyVarMap1 -> ConstructorInfo -> Q Match
