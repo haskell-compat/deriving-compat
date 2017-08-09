@@ -199,9 +199,11 @@ makeFunctorFunForCons ff vars cons = do
         , makeFun z value tvMap
         ] ++ map varE argNames
   where
+    makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
     makeFun z value tvMap
       | null cons
-      = appE (varE errorValName)
+      = appE (varE seqValName) (varE value) `appE`
+        appE (varE errorValName)
              (stringE $ "Void " ++ nameBase (functorFunName ff))
       | otherwise
       = caseE (varE value)

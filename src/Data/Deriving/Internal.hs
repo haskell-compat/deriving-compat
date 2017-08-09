@@ -1498,6 +1498,9 @@ resetValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "reset"
 returnValName :: Name
 returnValName = mkNameG_v "base" "GHC.Base" "return"
 
+seqValName :: Name
+seqValName = mkNameG_v "ghc-prim" "GHC.Prim" "seq"
+
 showCharValName :: Name
 showCharValName = mkNameG_v "base" "GHC.Show" "showChar"
 
@@ -1660,8 +1663,8 @@ starKindName = mkNameG_tc "ghc-prim" "GHC.Prim" "*"
 #endif
 
 #if MIN_VERSION_ghc_prim(0,3,1)
-coerceName :: Name
-coerceName = mkNameG_v "ghc-prim" "GHC.Prim" "coerce"
+coerceValName :: Name
+coerceValName = mkNameG_v "ghc-prim" "GHC.Prim" "coerce"
 #endif
 
 #if MIN_VERSION_base(4,7,0)
