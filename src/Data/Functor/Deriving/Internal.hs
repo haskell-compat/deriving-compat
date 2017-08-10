@@ -282,7 +282,7 @@ makeFunctorFunForCons ff opts vars cons = do
     makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
     makeFun z value tvMap
       | emptyCaseBehavior opts && ghc7'8OrLater
-      = caseE (varE value) []
+      = functorFunEmptyCase ff z value
 
       | null cons
       = appE (varE seqValName) (varE value) `appE`
@@ -589,3 +589,15 @@ traverseCombine conName _ args essQ = do
           (VarE liftA2ValName `AppE` conExp `AppE` e1 `AppE` e2) es
 
     return . go . rights $ ess
+
+functorFunEmptyCase :: FunctorFun -> Name -> Name -> Q Exp
+functorFunEmptyCase ff z value = go ff
+  where
+    go :: FunctorFun -> Q Exp
+    go Fmap     = emptyCase
+    go Foldr    = varE z
+    go FoldMap  = varE memptyValName
+    go Traverse = varE pureValName `appE` emptyCase
+
+    emptyCase :: Q Exp
+    emptyCase = caseE (varE value) []
