@@ -30,10 +30,18 @@ For more info on these changes, see
 module Data.Foldable.Deriving (
       -- * 'Foldable'
       deriveFoldable
+    , deriveFoldableOptions
     , makeFoldMap
+    , makeFoldMapOptions
     , makeFoldr
+    , makeFoldrOptions
     , makeFold
+    , makeFoldOptions
     , makeFoldl
+    , makeFoldlOptions
+      -- * 'FFTOptions'
+    , FFTOptions(..)
+    , defaultFFTOptions
       -- * 'deriveFoldable' limitations
       -- $constraints
     ) where

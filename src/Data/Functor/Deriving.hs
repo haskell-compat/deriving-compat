@@ -13,7 +13,12 @@ For more info on how deriving @Functor@ works, see
 module Data.Functor.Deriving (
       -- * 'Functor'
       deriveFunctor
+    , deriveFunctorOptions
     , makeFmap
+    , makeFmapOptions
+      -- * 'FFTOptions'
+    , FFTOptions(..)
+    , defaultFFTOptions
       -- * 'deriveFunctor' limitations
       -- $constraints
     ) where

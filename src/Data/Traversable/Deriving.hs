@@ -29,10 +29,18 @@ For more info on these changes, see
 module Data.Traversable.Deriving (
       -- * 'Traversable'
       deriveTraversable
+    , deriveTraversableOptions
     , makeTraverse
+    , makeTraverseOptions
     , makeSequenceA
+    , makeSequenceAOptions
     , makeMapM
+    , makeMapMOptions
     , makeSequence
+    , makeSequenceOptions
+      -- * 'FFTOptions'
+    , FFTOptions(..)
+    , defaultFFTOptions
       -- * 'deriveTraversable' limitations
       -- $constraints
     ) where

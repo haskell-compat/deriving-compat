@@ -15,19 +15,34 @@ For more info on how deriving @Functor@ works, see
 module Data.Functor.Deriving.Internal (
       -- * 'Foldable'
       deriveFoldable
+    , deriveFoldableOptions
     , makeFoldMap
+    , makeFoldMapOptions
     , makeFoldr
+    , makeFoldrOptions
     , makeFold
+    , makeFoldOptions
     , makeFoldl
+    , makeFoldlOptions
       -- * 'Functor'
     , deriveFunctor
+    , deriveFunctorOptions
     , makeFmap
+    , makeFmapOptions
       -- * 'Traversable'
     , deriveTraversable
+    , deriveTraversableOptions
     , makeTraverse
+    , makeTraverseOptions
     , makeSequenceA
+    , makeSequenceAOptions
     , makeMapM
+    , makeMapMOptions
     , makeSequence
+    , makeSequenceOptions
+      -- * 'FFTOptions'
+    , FFTOptions(..)
+    , defaultFFTOptions
     ) where
 
 import           Control.Monad (guard, zipWithM)
@@ -42,37 +57,73 @@ import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
+-- | Options that further configure how the functions in "Data.Functor.Deriving"
+-- should behave. (@FFT@ stands for 'Functor'/'Foldable'/'Traversable'.)
+newtype FFTOptions = FFTOptions
+  { emptyCaseBehavior :: Bool
+    -- ^ If 'True', derived instances for empty data types (i.e., ones with
+    --   no data constructors) will use the @EmptyCase@ language extension.
+    --   If 'False', derived instances will simply use 'seq' instead.
+    --   (This has no effect on GHCs before 7.8, since @EmptyCase@ is only
+    --   available in 7.8 or later.)
+  } deriving (Eq, Ord, Read, Show)
+
+-- | Conservative 'FFTOptions' that doesn't attempt to use @EmptyCase@ (to
+-- prevent users from having to enable that extension at use sites.)
+defaultFFTOptions :: FFTOptions
+defaultFFTOptions = FFTOptions { emptyCaseBehavior = False }
+
 -- | Generates a 'Foldable' instance declaration for the given data type or data
 -- family instance.
 deriveFoldable :: Name -> Q [Dec]
-deriveFoldable = deriveFunctorClass Foldable
+deriveFoldable = deriveFoldableOptions defaultFFTOptions
+
+-- | Like 'deriveFoldable', but takes an 'FFTOptions' argument.
+deriveFoldableOptions :: FFTOptions -> Name -> Q [Dec]
+deriveFoldableOptions = deriveFunctorClass Foldable
 
 -- | Generates a lambda expression which behaves like 'foldMap' (without requiring a
 -- 'Foldable' instance).
 makeFoldMap :: Name -> Q Exp
-makeFoldMap = makeFunctorFun FoldMap
+makeFoldMap = makeFoldMapOptions defaultFFTOptions
+
+-- | Like 'makeFoldMap', but takes an 'FFTOptions' argument.
+makeFoldMapOptions :: FFTOptions -> Name -> Q Exp
+makeFoldMapOptions = makeFunctorFun FoldMap
 
 -- | Generates a lambda expression which behaves like 'foldr' (without requiring a
 -- 'Foldable' instance).
 makeFoldr :: Name -> Q Exp
-makeFoldr = makeFunctorFun Foldr
+makeFoldr = makeFoldrOptions defaultFFTOptions
+
+-- | Like 'makeFoldr', but takes an 'FFTOptions' argument.
+makeFoldrOptions :: FFTOptions -> Name -> Q Exp
+makeFoldrOptions = makeFunctorFun Foldr
 
 -- | Generates a lambda expression which behaves like 'fold' (without requiring a
 -- 'Foldable' instance).
 makeFold :: Name -> Q Exp
-makeFold name = makeFoldMap name `appE` varE idValName
+makeFold = makeFoldOptions defaultFFTOptions
+
+-- | Like 'makeFold', but takes an 'FFTOptions' argument.
+makeFoldOptions :: FFTOptions -> Name -> Q Exp
+makeFoldOptions opts name = makeFoldMapOptions opts name `appE` varE idValName
 
 -- | Generates a lambda expression which behaves like 'foldl' (without requiring a
 -- 'Foldable' instance).
 makeFoldl :: Name -> Q Exp
-makeFoldl name = do
+makeFoldl = makeFoldlOptions defaultFFTOptions
+
+-- | Like 'makeFoldl', but takes an 'FFTOptions' argument.
+makeFoldlOptions :: FFTOptions -> Name -> Q Exp
+makeFoldlOptions opts name = do
   f <- newName "f"
   z <- newName "z"
   t <- newName "t"
   lamE [varP f, varP z, varP t] $
     appsE [ varE appEndoValName
           , appsE [ varE getDualValName
-                  , appsE [ makeFoldMap name, foldFun f, varE t]
+                  , appsE [ makeFoldMapOptions opts name, foldFun f, varE t]
                   ]
           , varE z
           ]
@@ -88,35 +139,59 @@ makeFoldl name = do
 -- | Generates a 'Functor' instance declaration for the given data type or data
 -- family instance.
 deriveFunctor :: Name -> Q [Dec]
-deriveFunctor = deriveFunctorClass Functor
+deriveFunctor = deriveFunctorOptions defaultFFTOptions
+
+-- | Like 'deriveFunctor', but takes an 'FFTOptions' argument.
+deriveFunctorOptions :: FFTOptions -> Name -> Q [Dec]
+deriveFunctorOptions = deriveFunctorClass Functor
 
 -- | Generates a lambda expression which behaves like 'fmap' (without requiring a
 -- 'Functor' instance).
 makeFmap :: Name -> Q Exp
-makeFmap = makeFunctorFun Fmap
+makeFmap = makeFmapOptions defaultFFTOptions
+
+-- | Like 'makeFmap', but takes an 'FFTOptions' argument.
+makeFmapOptions :: FFTOptions -> Name -> Q Exp
+makeFmapOptions = makeFunctorFun Fmap
 
 -- | Generates a 'Traversable' instance declaration for the given data type or data
 -- family instance.
 deriveTraversable :: Name -> Q [Dec]
-deriveTraversable = deriveFunctorClass Traversable
+deriveTraversable = deriveTraversableOptions defaultFFTOptions
+
+-- | Like 'deriveTraverse', but takes an 'FFTOptions' argument.
+deriveTraversableOptions :: FFTOptions -> Name -> Q [Dec]
+deriveTraversableOptions = deriveFunctorClass Traversable
 
 -- | Generates a lambda expression which behaves like 'traverse' (without requiring a
 -- 'Traversable' instance).
 makeTraverse :: Name -> Q Exp
-makeTraverse = makeFunctorFun Traverse
+makeTraverse = makeTraverseOptions defaultFFTOptions
+
+-- | Like 'makeTraverse', but takes an 'FFTOptions' argument.
+makeTraverseOptions :: FFTOptions -> Name -> Q Exp
+makeTraverseOptions = makeFunctorFun Traverse
 
 -- | Generates a lambda expression which behaves like 'sequenceA' (without requiring a
 -- 'Traversable' instance).
 makeSequenceA :: Name -> Q Exp
-makeSequenceA name = makeTraverse name `appE` varE idValName
+makeSequenceA = makeSequenceAOptions defaultFFTOptions
+
+-- | Like 'makeSequenceA', but takes an 'FFTOptions' argument.
+makeSequenceAOptions :: FFTOptions -> Name -> Q Exp
+makeSequenceAOptions opts name = makeTraverseOptions opts name `appE` varE idValName
 
 -- | Generates a lambda expression which behaves like 'mapM' (without requiring a
 -- 'Traversable' instance).
 makeMapM :: Name -> Q Exp
-makeMapM name = do
+makeMapM = makeMapMOptions defaultFFTOptions
+
+-- | Like 'makeMapM', but takes an 'FFTOptions' argument.
+makeMapMOptions :: FFTOptions -> Name -> Q Exp
+makeMapMOptions opts name = do
   f <- newName "f"
   lam1E (varP f) . infixApp (varE unwrapMonadValName) (varE composeValName) $
-                   makeTraverse name `appE` wrapMonadExp f
+                   makeTraverseOptions opts name `appE` wrapMonadExp f
   where
     wrapMonadExp :: Name -> Q Exp
     wrapMonadExp n = infixApp (conE wrapMonadDataName) (varE composeValName) (varE n)
@@ -124,15 +199,19 @@ makeMapM name = do
 -- | Generates a lambda expression which behaves like 'sequence' (without requiring a
 -- 'Traversable' instance).
 makeSequence :: Name -> Q Exp
-makeSequence name = makeMapM name `appE` varE idValName
+makeSequence = makeSequenceOptions defaultFFTOptions
+
+-- | Like 'makeSequence', but takes an 'FFTOptions' argument.
+makeSequenceOptions :: FFTOptions -> Name -> Q Exp
+makeSequenceOptions opts name = makeMapMOptions opts name `appE` varE idValName
 
 -------------------------------------------------------------------------------
 -- Code generation
 -------------------------------------------------------------------------------
 
 -- | Derive a class instance declaration (depending on the FunctorClass argument's value).
-deriveFunctorClass :: FunctorClass -> Name -> Q [Dec]
-deriveFunctorClass fc name = do
+deriveFunctorClass :: FunctorClass -> FFTOptions -> Name -> Q [Dec]
+deriveFunctorClass fc opts name = do
   info <- reifyDatatype name
   case info of
     DatatypeInfo { datatypeContext = ctxt
@@ -145,26 +224,26 @@ deriveFunctorClass fc name = do
           <- buildTypeInstance fc parentName ctxt vars variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (functorFunDecs fc vars cons)
+                             (functorFunDecs fc opts vars cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (fmap for Functor, foldr and foldMap for Foldable, and
 -- traverse for Traversable).
 --
 -- For why both foldr and foldMap are derived for Foldable, see Trac #7436.
-functorFunDecs :: FunctorClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
-functorFunDecs fc vars cons = map makeFunD $ functorClassToFuns fc where
+functorFunDecs :: FunctorClass -> FFTOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
+functorFunDecs fc opts vars cons = map makeFunD $ functorClassToFuns fc where
   makeFunD :: FunctorFun -> Q Dec
   makeFunD ff =
     funD (functorFunName ff)
          [ clause []
-                  (normalB $ makeFunctorFunForCons ff vars cons)
+                  (normalB $ makeFunctorFunForCons ff opts vars cons)
                   []
          ]
 
 -- | Generates a lambda expression which behaves like the FunctorFun argument.
-makeFunctorFun :: FunctorFun -> Name -> Q Exp
-makeFunctorFun ff name = do
+makeFunctorFun :: FunctorFun -> FFTOptions -> Name -> Q Exp
+makeFunctorFun ff opts name = do
   info <- reifyDatatype name
   case info of
     DatatypeInfo { datatypeContext = ctxt
@@ -177,12 +256,13 @@ makeFunctorFun ff name = do
       -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance (functorFunToClass ff) parentName ctxt vars variant
-        `seq` makeFunctorFunForCons ff vars cons
+        `seq` makeFunctorFunForCons ff opts vars cons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
-makeFunctorFunForCons :: FunctorFun -> [Type] -> [ConstructorInfo] -> Q Exp
-makeFunctorFunForCons ff vars cons = do
+makeFunctorFunForCons :: FunctorFun -> FFTOptions -> [Type] -> [ConstructorInfo]
+                      -> Q Exp
+makeFunctorFunForCons ff opts vars cons = do
   argNames <- mapM newName $ catMaybes [ Just "f"
                                        , guard (ff == Foldr) >> Just "z"
                                        , Just "value"
@@ -201,6 +281,9 @@ makeFunctorFunForCons ff vars cons = do
   where
     makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
     makeFun z value tvMap
+      | emptyCaseBehavior opts && ghc7'8OrLater
+      = caseE (varE value) []
+
       | null cons
       = appE (varE seqValName) (varE value) `appE`
         appE (varE errorValName)
@@ -208,6 +291,13 @@ makeFunctorFunForCons ff vars cons = do
       | otherwise
       = caseE (varE value)
               (map (makeFunctorFunForCon ff z tvMap) cons)
+
+    ghc7'8OrLater :: Bool
+#if __GLASGOW_HASKELL__ >= 708
+    ghc7'8OrLater = True
+#else
+    ghc7'8OrLater = False
+#endif
 
 -- | Generates a lambda expression for a single constructor.
 makeFunctorFunForCon :: FunctorFun -> Name -> TyVarMap1 -> ConstructorInfo -> Q Match

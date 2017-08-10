@@ -9,6 +9,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+#if __GLASGOW_HASKELL__ >= 708
+{-# LANGUAGE EmptyCase #-}
+#endif
+
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 #if __GLASGOW_HASKELL__ >= 800
@@ -27,8 +31,8 @@ Portability: Template Haskell
 module FunctorSpec where
 
 import Data.Char (chr)
-import Data.Deriving
 import Data.Foldable (fold)
+import Data.Deriving
 import Data.Functor.Classes (Eq1)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity (Identity(..))
@@ -100,6 +104,9 @@ data IntHash a b
 
 data IntHashFun a b
     = IntHashFun ((((a -> Int#) -> b) -> Int#) -> a)
+
+data Empty1 a
+data Empty2 a
 
 -- Data families
 
@@ -206,6 +213,18 @@ $(deriveFoldable    ''IntHash)
 $(deriveTraversable ''IntHash)
 
 $(deriveFunctor     ''IntHashFun)
+
+$(deriveFunctor     ''Empty1)
+$(deriveFoldable    ''Empty1)
+$(deriveTraversable ''Empty1)
+
+-- Use EmptyCase here
+ecOptions :: FFTOptions
+ecOptions = defaultFFTOptions{emptyCaseBehavior = True }
+
+$(deriveFunctorOptions     defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
+$(deriveFoldableOptions    defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
+$(deriveTraversableOptions defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
 
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families

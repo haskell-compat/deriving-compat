@@ -1,3 +1,12 @@
+### next [????.??.??]
+* For derived `Functor`, `Foldable`, and `Traversable` instances for empty data
+  types, make `fmap`, `foldr`/`foldMap`, and `traverse` strict in its argument.
+* Add `FFTOptions` (`Functor`/`Foldable`/`Traversable` options) to
+  `Data.Functor.Deriving`, along with variants of existing functions that take
+  `FFTOptions` as an argument. For now, the only configurable option is whether
+  derived instances for empty data types should use the `EmptyCase` extension
+  (this is disabled by default).
+
 ### 0.3.6 [2017.04.10]
 * Make `deriveTraversable` use `liftA2` in derived implementations of `traverse` when possible, now that `liftA2` is a class method of `Applicative` (as of GHC 8.2)
 * Make `deriveShow` use `showCommaSpace`, a change introduced in GHC 8.2
