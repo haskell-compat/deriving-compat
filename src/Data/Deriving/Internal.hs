@@ -1279,6 +1279,9 @@ appendValName = mkNameG_v "base" "GHC.Base" "++"
 chooseValName :: Name
 chooseValName = mkNameG_v "base" "GHC.Read" "choose"
 
+coerceValName :: Name
+coerceValName = mkNameG_v "ghc-prim" "GHC.Prim" "coerce"
+
 composeValName :: Name
 composeValName = mkNameG_v "base" "GHC.Base" "."
 
@@ -1666,11 +1669,6 @@ wHashDataName = mkNameG_d "base" "GHC.Word" "W#"
 #if MIN_VERSION_base(4,6,0) && !(MIN_VERSION_base(4,9,0))
 starKindName :: Name
 starKindName = mkNameG_tc "ghc-prim" "GHC.Prim" "*"
-#endif
-
-#if MIN_VERSION_ghc_prim(0,3,1)
-coerceValName :: Name
-coerceValName = mkNameG_v "ghc-prim" "GHC.Prim" "coerce"
 #endif
 
 #if MIN_VERSION_base(4,7,0)
