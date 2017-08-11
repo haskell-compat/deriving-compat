@@ -267,7 +267,7 @@ makeFunctorFun ff opts name = do
 makeFunctorFunForCons
   :: FunctorFun -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
   -> Q Exp
-makeFunctorFunForCons ff opts parentName vars cons = do
+makeFunctorFunForCons ff opts _parentName vars cons = do
   argNames <- mapM newName $ catMaybes [ Just "f"
                                        , guard (ff == Foldr) >> Just "z"
                                        , Just "value"
@@ -287,14 +287,14 @@ makeFunctorFunForCons ff opts parentName vars cons = do
     makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
     makeFun z value tvMap = do
 #if MIN_VERSION_template_haskell(2,9,0)
-      roles <- reifyRoles parentName
+      roles <- reifyRoles _parentName
 #endif
       case () of
         _
 
 #if MIN_VERSION_template_haskell(2,9,0)
           | Just (_, PhantomR) <- unsnoc roles
-         -> functorFunPhantom ff z value
+         -> functorFunPhantom z value
 #endif
 
           | null cons && emptyCaseBehavior opts && ghc7'8OrLater
@@ -312,6 +312,17 @@ makeFunctorFunForCons ff opts parentName vars cons = do
     ghc7'8OrLater = True
 #else
     ghc7'8OrLater = False
+#endif
+
+#if MIN_VERSION_template_haskell(2,9,0)
+    functorFunPhantom :: Name -> Name -> Q Exp
+    functorFunPhantom z value =
+        functorFunTrivial coerce
+                          (varE pureValName `appE` coerce)
+                          ff z
+      where
+        coerce :: Q Exp
+        coerce = varE coerceValName `appE` varE value
 #endif
 
 -- | Generates a lambda expression for a single constructor.
@@ -604,15 +615,6 @@ traverseCombine conName _ args essQ = do
           (VarE liftA2ValName `AppE` conExp `AppE` e1 `AppE` e2) es
 
     return . go . rights $ ess
-
-functorFunPhantom :: FunctorFun -> Name -> Name -> Q Exp
-functorFunPhantom ff z value =
-    functorFunTrivial coerce
-                      (varE pureValName `appE` coerce)
-                      ff z
-  where
-    coerce :: Q Exp
-    coerce = varE coerceValName `appE` varE value
 
 functorFunEmptyCase :: FunctorFun -> Name -> Name -> Q Exp
 functorFunEmptyCase ff z value =
