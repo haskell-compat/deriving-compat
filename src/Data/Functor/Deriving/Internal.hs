@@ -288,13 +288,14 @@ makeFunctorFunForCons ff opts parentName vars cons = do
     makeFun z value tvMap = do
 #if MIN_VERSION_template_haskell(2,9,0)
       roles <- reifyRoles parentName
-#else
-      let roles = []
 #endif
       case () of
         _
+
+#if MIN_VERSION_template_haskell(2,9,0)
           | Just (_, PhantomR) <- unsnoc roles
          -> functorFunPhantom ff z value
+#endif
 
           | null cons && emptyCaseBehavior opts && ghc7'8OrLater
          -> functorFunEmptyCase ff z value
@@ -305,12 +306,6 @@ makeFunctorFunForCons ff opts parentName vars cons = do
           | otherwise
          -> caseE (varE value)
                   (map (makeFunctorFunForCon ff z tvMap) cons)
-
-    unsnoc :: [a] -> Maybe ([a], a)
-    unsnoc []     = Nothing
-    unsnoc (x:xs) = case unsnoc xs of
-                      Nothing    -> Just ([], x)
-                      Just (a,b) -> Just (x:a, b)
 
     ghc7'8OrLater :: Bool
 #if __GLASGOW_HASKELL__ >= 708

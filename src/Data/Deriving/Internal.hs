@@ -779,6 +779,12 @@ zipWith3AndUnzipM _ _ _ _ = return ([], [])
 thd3 :: (a, b, c) -> c
 thd3 (_, _, c) = c
 
+unsnoc :: [a] -> Maybe ([a], a)
+unsnoc []     = Nothing
+unsnoc (x:xs) = case unsnoc xs of
+                  Nothing    -> Just ([], x)
+                  Just (a,b) -> Just (x:a, b)
+
 isNullaryCon :: ConstructorInfo -> Bool
 isNullaryCon (ConstructorInfo { constructorFields = tys }) = null tys
 
