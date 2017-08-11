@@ -74,6 +74,9 @@ The following changes have been backported:
 
 * In GHC 8.2, deriving 'Show' was changed so that it uses an explicit @showCommaSpace@
   method, instead of repeating the code @showString \", \"@ in several places.
+
+* In GHC 8.4, deriving 'Functor' and 'Traverable' was changed so that it uses 'coerce'
+  for efficiency when the last parameter of the data type is at phantom role.
 -}
 
 {- $derive

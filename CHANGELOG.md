@@ -1,6 +1,9 @@
 ### next [????.??.??]
 * For derived `Functor`, `Foldable`, and `Traversable` instances for empty data
   types, make `fmap`, `foldr`/`foldMap`, and `traverse` strict in its argument.
+* Backport the fix to #13328. That is, when deriving `Functor` or `Traversable`
+  instances for data types where the last type variable is at phantom role, we
+  generate `bimap`/`bitraverse` implementations using `coerce` for efficiency.
 * Add `FFTOptions` (`Functor`/`Foldable`/`Traversable` options) to
   `Data.Functor.Deriving`, along with variants of existing functions that take
   `FFTOptions` as an argument. For now, the only configurable option is whether

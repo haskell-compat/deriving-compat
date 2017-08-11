@@ -224,22 +224,26 @@ deriveFunctorClass fc opts name = do
           <- buildTypeInstance fc parentName ctxt vars variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (functorFunDecs fc opts vars cons)
+                             (functorFunDecs fc opts parentName vars cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (fmap for Functor, foldr and foldMap for Foldable, and
 -- traverse for Traversable).
 --
 -- For why both foldr and foldMap are derived for Foldable, see Trac #7436.
-functorFunDecs :: FunctorClass -> FFTOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
-functorFunDecs fc opts vars cons = map makeFunD $ functorClassToFuns fc where
-  makeFunD :: FunctorFun -> Q Dec
-  makeFunD ff =
-    funD (functorFunName ff)
-         [ clause []
-                  (normalB $ makeFunctorFunForCons ff opts vars cons)
-                  []
-         ]
+functorFunDecs
+  :: FunctorClass -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
+  -> [Q Dec]
+functorFunDecs fc opts parentName vars cons =
+  map makeFunD $ functorClassToFuns fc
+  where
+    makeFunD :: FunctorFun -> Q Dec
+    makeFunD ff =
+      funD (functorFunName ff)
+           [ clause []
+                    (normalB $ makeFunctorFunForCons ff opts parentName vars cons)
+                    []
+           ]
 
 -- | Generates a lambda expression which behaves like the FunctorFun argument.
 makeFunctorFun :: FunctorFun -> FFTOptions -> Name -> Q Exp
@@ -256,13 +260,14 @@ makeFunctorFun ff opts name = do
       -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance (functorFunToClass ff) parentName ctxt vars variant
-        `seq` makeFunctorFunForCons ff opts vars cons
+        `seq` makeFunctorFunForCons ff opts parentName vars cons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
-makeFunctorFunForCons :: FunctorFun -> FFTOptions -> [Type] -> [ConstructorInfo]
-                      -> Q Exp
-makeFunctorFunForCons ff opts vars cons = do
+makeFunctorFunForCons
+  :: FunctorFun -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
+  -> Q Exp
+makeFunctorFunForCons ff opts parentName vars cons = do
   argNames <- mapM newName $ catMaybes [ Just "f"
                                        , guard (ff == Foldr) >> Just "z"
                                        , Just "value"
@@ -280,17 +285,32 @@ makeFunctorFunForCons ff opts vars cons = do
         ] ++ map varE argNames
   where
     makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
-    makeFun z value tvMap
-      | emptyCaseBehavior opts && ghc7'8OrLater
-      = functorFunEmptyCase ff z value
+    makeFun z value tvMap = do
+#if MIN_VERSION_template_haskell(2,9,0)
+      roles <- reifyRoles parentName
+#else
+      let roles = []
+#endif
+      case () of
+        _
+          | Just (_, PhantomR) <- unsnoc roles
+         -> functorFunPhantom ff z value
 
-      | null cons
-      = appE (varE seqValName) (varE value) `appE`
-        appE (varE errorValName)
-             (stringE $ "Void " ++ nameBase (functorFunName ff))
-      | otherwise
-      = caseE (varE value)
-              (map (makeFunctorFunForCon ff z tvMap) cons)
+          | null cons && emptyCaseBehavior opts && ghc7'8OrLater
+         -> functorFunEmptyCase ff z value
+
+          | null cons
+         -> functorFunNoCons ff z value
+
+          | otherwise
+         -> caseE (varE value)
+                  (map (makeFunctorFunForCon ff z tvMap) cons)
+
+    unsnoc :: [a] -> Maybe ([a], a)
+    unsnoc []     = Nothing
+    unsnoc (x:xs) = case unsnoc xs of
+                      Nothing    -> Just ([], x)
+                      Just (a,b) -> Just (x:a, b)
 
     ghc7'8OrLater :: Bool
 #if __GLASGOW_HASKELL__ >= 708
@@ -590,14 +610,40 @@ traverseCombine conName _ args essQ = do
 
     return . go . rights $ ess
 
-functorFunEmptyCase :: FunctorFun -> Name -> Name -> Q Exp
-functorFunEmptyCase ff z value = go ff
+functorFunPhantom :: FunctorFun -> Name -> Name -> Q Exp
+functorFunPhantom ff z value =
+    functorFunTrivial coerce
+                      (varE pureValName `appE` coerce)
+                      ff z
   where
-    go :: FunctorFun -> Q Exp
-    go Fmap     = emptyCase
-    go Foldr    = varE z
-    go FoldMap  = varE memptyValName
-    go Traverse = varE pureValName `appE` emptyCase
+    coerce :: Q Exp
+    coerce = varE coerceValName `appE` varE value
 
+functorFunEmptyCase :: FunctorFun -> Name -> Name -> Q Exp
+functorFunEmptyCase ff z value =
+    functorFunTrivial emptyCase
+                      (varE pureValName `appE` emptyCase)
+                      ff z
+  where
     emptyCase :: Q Exp
     emptyCase = caseE (varE value) []
+
+functorFunNoCons :: FunctorFun -> Name -> Name -> Q Exp
+functorFunNoCons ff z value =
+    functorFunTrivial seqAndError
+                      (varE pureValName `appE` seqAndError)
+                      ff z
+  where
+    seqAndError :: Q Exp
+    seqAndError = appE (varE seqValName) (varE value) `appE`
+                  appE (varE errorValName)
+                       (stringE $ "Void " ++ nameBase (functorFunName ff))
+
+functorFunTrivial :: Q Exp -> Q Exp -> FunctorFun -> Name -> Q Exp
+functorFunTrivial fmapE traverseE ff z = go ff
+  where
+    go :: FunctorFun -> Q Exp
+    go Fmap     = fmapE
+    go Foldr    = varE z
+    go FoldMap  = varE memptyValName
+    go Traverse = traverseE
