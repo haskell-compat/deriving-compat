@@ -153,7 +153,7 @@ makeEqClass eClass name = do
       -- or not the provided datatype can actually have (==)/liftEq/etc.
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance eClass parentName ctxt vars variant
-        `seq` makeEqForCons eClass vars cons
+        >> makeEqForCons eClass vars cons
 
 -- | Generates a lambda expression for (==)/liftEq/etc. for the
 -- given constructors. All constructors must be from the same type.

@@ -1,6 +1,8 @@
 ### next [????.??.??]
-* For derived `Functor`, `Foldable`, and `Traversable` instances for empty data
-  types, make `fmap`, `foldr`/`foldMap`, and `traverse` strict in its argument.
+* For derived `Functor` and `Traversable` instances for empty data
+  types, make `fmap` and `traverse` strict in its argument.
+* For derived `Foldable` instances, do not error on empty data types. Instead,
+  simply return the folded state (for `foldr`) or `mempty` (for `foldMap`).
 * Backport the fix to #13328. That is, when deriving `Functor` or `Traversable`
   instances for data types where the last type variable is at phantom role,
   generated `fmap`/`traverse` implementations now use `coerce` for efficiency.
@@ -11,7 +13,9 @@
   (this is disabled by default).
 
 ### 0.3.6 [2017.04.10]
-* Make `deriveTraversable` use `liftA2` in derived implementations of `traverse` when possible, now that `liftA2` is a class method of `Applicative` (as of GHC 8.2)
+* Make `deriveTraversable` use `liftA2` in derived implementations of
+  `traverse` when possible, now that `liftA2` is a class method of
+  `Applicative` (as of GHC 8.2)
 * Make `deriveShow` use `showCommaSpace`, a change introduced in GHC 8.2
 
 ### 0.3.5 [2016.12.12]

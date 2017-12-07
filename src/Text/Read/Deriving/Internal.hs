@@ -470,7 +470,7 @@ makeReadPrecClass rClass urp name = do
       -- read(s)Prec/liftRead(s)Prec/etc. implemented for it, and produces errors
       -- if it can't.
       buildTypeInstance rClass parentName ctxt vars variant
-        `seq` makeReadForCons rClass urp vars cons
+        >> makeReadForCons rClass urp vars cons
 
 -- | Generates a lambda expression for read(s)Prec/liftRead(s)Prec/etc. for the
 -- given constructors. All constructors must be from the same type.

@@ -260,7 +260,7 @@ makeFunctorFun ff opts name = do
       -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance (functorFunToClass ff) parentName ctxt vars variant
-        `seq` makeFunctorFunForCons ff opts parentName vars cons
+        >> makeFunctorFunForCons ff opts parentName vars cons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.

@@ -298,7 +298,7 @@ makeShowsPrecClass sClass opts name = do
       -- or not the provided datatype can actually have showsPrec/liftShowsPrec/etc.
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance sClass parentName ctxt vars variant
-        `seq` makeShowForCons sClass opts vars cons
+        >> makeShowForCons sClass opts vars cons
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.

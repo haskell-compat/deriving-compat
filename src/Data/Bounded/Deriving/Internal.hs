@@ -81,7 +81,7 @@ makeBoundedFun bf name = do
       -- or not the provided datatype can actually have minBound/maxBound
       -- implemented for it, and produces errors if it can't.
       buildTypeInstance BoundedClass parentName ctxt vars variant
-        `seq` makeBoundedFunForCons bf parentName cons
+        >> makeBoundedFunForCons bf parentName cons
 
 -- | Generates a lambda expression for minBound/maxBound. for the
 -- given constructors. All constructors must be from the same type.

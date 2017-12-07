@@ -230,7 +230,7 @@ makeOrdFun oFun matches name = do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have compare/liftCompare/etc.
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance oClass parentName ctxt vars variant `seq`
+      buildTypeInstance oClass parentName ctxt vars variant >>
         if oFun `elem` compareFuns || oFun `elem` others
            then makeOrdFunForCons oFun vars cons
            else do
