@@ -488,12 +488,10 @@ makeReadForCons rClass urp vars cons = do
         (nullaryCons, nonNullaryCons) = partition isNullaryCon cons
 
         readConsExpr :: Q Exp
-        readConsExpr
-          | null cons = varE pfailValName
-          | otherwise = do
-                readNonNullaryCons <- mapM (makeReadForCon rClass urp rplMap)
-                                           nonNullaryCons
-                foldr1 mkAlt (readNullaryCons ++ map return readNonNullaryCons)
+        readConsExpr = do
+          readNonNullaryCons <- mapM (makeReadForCon rClass urp rplMap)
+                                     nonNullaryCons
+          foldr1 mkAlt (readNullaryCons ++ map return readNonNullaryCons)
 
         readNullaryCons :: [Q Exp]
         readNullaryCons = case nullaryCons of
@@ -522,7 +520,9 @@ makeReadForCons rClass urp vars cons = do
             conStr = dataConStr con
 
         mainRhsExpr :: Q Exp
-        mainRhsExpr = varE parensValName `appE` readConsExpr
+        mainRhsExpr
+          | null cons = varE pfailValName
+          | otherwise = varE parensValName `appE` readConsExpr
 
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)

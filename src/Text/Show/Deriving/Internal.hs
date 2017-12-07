@@ -60,16 +60,25 @@ import           Language.Haskell.TH.Syntax
 
 -- | Options that further configure how the functions in "Text.Show.Deriving"
 -- should behave.
-newtype ShowOptions = ShowOptions
+data ShowOptions = ShowOptions
   { ghc8ShowBehavior :: Bool
     -- ^ If 'True', the derived 'Show', 'Show1', or 'Show2' instance will not
     --   surround the output of showing fields of unlifted types with parentheses,
     --   and the output will be suffixed with hash signs (@#@).
+  , showEmptyCaseBehavior :: Bool
+    -- ^ If 'True', derived instances for empty data types (i.e., ones with
+    --   no data constructors) will use the @EmptyCase@ language extension.
+    --   If 'False', derived instances will simply use 'seq' instead.
+    --   (This has no effect on GHCs before 7.8, since @EmptyCase@ is only
+    --   available in 7.8 or later.)
   } deriving (Eq, Ord, Read, Show)
 
 -- | 'ShowOptions' that match the behavior of the most recent GHC release.
 defaultShowOptions :: ShowOptions
-defaultShowOptions = ShowOptions { ghc8ShowBehavior = True }
+defaultShowOptions =
+  ShowOptions { ghc8ShowBehavior      = True
+              , showEmptyCaseBehavior = False
+              }
 
 -- | 'ShowOptions' that match the behavior of the installed version of GHC.
 legacyShowOptions :: ShowOptions
@@ -80,6 +89,7 @@ legacyShowOptions = ShowOptions
 #else
                        False
 #endif
+  , showEmptyCaseBehavior = False
   }
 
 -- | Generates a 'Show' instance declaration for the given data type or data
@@ -303,7 +313,6 @@ makeShowsPrecClass sClass opts name = do
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeShowForCons :: ShowClass -> ShowOptions -> [Type] -> [ConstructorInfo] -> Q Exp
-makeShowForCons _ _ _ [] = noConstructorsError
 makeShowForCons sClass opts vars cons = do
     p     <- newName "p"
     value <- newName "value"
@@ -313,7 +322,20 @@ makeShowForCons sClass opts vars cons = do
         _spsAndSls = interleave sps sls
         lastTyVars = map varTToName $ drop (length vars - fromEnum sClass) vars
         splMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars spls
-    matches <- mapM (makeShowForCon p sClass opts splMap) cons
+
+        makeFun
+          | null cons && showEmptyCaseBehavior opts && ghc7'8OrLater
+          = caseE (varE value) []
+
+          | null cons
+          = appE (varE seqValName) (varE value) `appE`
+            appE (varE errorValName)
+                 (stringE $ "Void " ++ nameBase (showsPrecName sClass))
+
+          | otherwise
+          = caseE (varE value)
+                  (map (makeShowForCon p sClass opts splMap) cons)
+
     lamE (map varP $
 #if defined(NEW_FUNCTOR_CLASSES)
                      _spsAndSls ++
@@ -321,7 +343,7 @@ makeShowForCons sClass opts vars cons = do
                      [p, value])
         . appsE
         $ [ varE $ showsPrecConstName sClass
-          , caseE (varE value) (map return matches)
+          , makeFun
           ]
 #if defined(NEW_FUNCTOR_CLASSES)
             ++ map varE _spsAndSls

@@ -1099,6 +1099,13 @@ startsVarSymASCII :: Char -> Bool
 startsVarSymASCII c = c `elem` "!#$%&*+./<=>?@\\^|~-"
 #endif
 
+ghc7'8OrLater :: Bool
+#if __GLASGOW_HASKELL__ >= 708
+ghc7'8OrLater = True
+#else
+ghc7'8OrLater = False
+#endif
+
 -------------------------------------------------------------------------------
 -- Manually quoted names
 -------------------------------------------------------------------------------

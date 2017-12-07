@@ -33,6 +33,8 @@ data TyCon# a b = TyCon# {
   , tcB# :: b
 }
 
+data Empty a b
+
 -- Data families
 
 data family TyFamily# y z :: *
@@ -50,6 +52,12 @@ $(deriveRead  ''TyCon#)
 $(deriveRead1 ''TyCon#)
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 ''TyCon#)
+#endif
+
+$(deriveRead  ''Empty)
+$(deriveRead1 ''Empty)
+#if defined(NEW_FUNCTOR_CLASSES)
+$(deriveRead2 ''Empty)
 #endif
 
 #if MIN_VERSION_template_haskell(2,7,0)

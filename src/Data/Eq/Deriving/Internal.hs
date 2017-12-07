@@ -158,7 +158,6 @@ makeEqClass eClass name = do
 -- | Generates a lambda expression for (==)/liftEq/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeEqForCons :: EqClass -> [Type] -> [ConstructorInfo] -> Q Exp
-makeEqForCons _ _ [] = noConstructorsError
 makeEqForCons eClass vars cons = do
     value1 <- newName "value1"
     value2 <- newName "value2"
@@ -195,9 +194,10 @@ makeEqForCons eClass vars cons = do
     fallThroughCase :: [Q Clause]
     fallThroughCase
       | null tagMatchCons = case patMatchCons of
-          []  -> []
-          [_] -> []
-          _   -> [makeFallThroughCase]
+          []  -> [makeFallThroughCaseTrue]  -- No constructors: _ == _ = True
+          [_] -> []                         -- One constructor: no fall-through case
+          _   -> [makeFallThroughCaseFalse] -- Two or more constructors:
+                                            --   _ == _ = False
       | otherwise = [makeTagCase]
 
 makeTagCase :: Q Clause
@@ -210,8 +210,12 @@ makeTagCase = do
            (normalB $ untagExpr [(a, aHash), (b, bHash)] $
                primOpAppExpr (varE aHash) eqIntHashValName (varE bHash)) []
 
-makeFallThroughCase :: Q Clause
-makeFallThroughCase = clause [wildP, wildP] (normalB $ conE falseDataName) []
+makeFallThroughCaseFalse, makeFallThroughCaseTrue :: Q Clause
+makeFallThroughCaseFalse = makeFallThroughCase falseDataName
+makeFallThroughCaseTrue  = makeFallThroughCase trueDataName
+
+makeFallThroughCase :: Name -> Q Clause
+makeFallThroughCase dataName = clause [wildP, wildP] (normalB $ conE dataName) []
 
 makeCaseForCon :: EqClass -> TyVarMap1 -> ConstructorInfo -> Q Clause
 makeCaseForCon eClass tvMap

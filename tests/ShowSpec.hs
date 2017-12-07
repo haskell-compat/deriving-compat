@@ -5,6 +5,9 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+#if __GLASGOW_HASKELL__ >= 708
+{-# LANGUAGE EmptyCase #-}
+#endif
 
 {-|
 Module:      ShowSpec
@@ -60,6 +63,9 @@ data TyCon2 a b c d where
                              => p -> q -> u -> t
                              -> TyCon2 r s t u
 
+data Empty1 a b
+data Empty2 a b
+
 -- Data families
 
 data family TyFamily# y z :: *
@@ -100,14 +106,22 @@ data instance TyFamily2 a b c d where
 
 $(deriveShow  ''TyCon#)
 $(deriveShow  ''TyCon2)
+$(deriveShow  ''Empty1)
 
 $(deriveShow1 ''TyCon#)
 $(deriveShow1 ''TyCon2)
+$(deriveShow1 ''Empty1)
 
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveShow2 ''TyCon#)
 $(deriveShow2 ''TyCon2)
+$(deriveShow2 ''Empty1)
 #endif
+
+-- Use EmptyCase here
+$(deriveShowOptions  defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
+$(deriveShow1Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
+$(deriveShow2Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
 
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families

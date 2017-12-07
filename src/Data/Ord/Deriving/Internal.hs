@@ -254,7 +254,6 @@ makeOrdFun oFun matches name = do
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
 makeOrdFunForCons :: OrdFun -> [Type] -> [ConstructorInfo] -> Q Exp
-makeOrdFunForCons _    _    []   = noConstructorsError
 makeOrdFunForCons oFun vars cons = do
     let oClass = ordFunToClass oFun
     v1     <- newName "v1"
@@ -290,6 +289,8 @@ makeOrdFunForCons oFun vars cons = do
 
         ordFunRhs :: Q Exp
         ordFunRhs
+          | null cons
+          = conE eqDataName
           | length nullaryCons <= 2
           = caseE (varE v1) $ zipWith ordMatches [0..] cons
           | null nonNullaryCons
@@ -618,6 +619,7 @@ trueExpr  = conE trueDataName
 
 -- Besides compare, that is
 otherFuns :: OrdClass -> [ConstructorInfo] -> [OrdFun]
+otherFuns _ [] = [] -- We only need compare for empty data types.
 otherFuns oClass cons = case oClass of
     Ord1 -> []
 #if defined(NEW_FUNCTOR_CLASSES)

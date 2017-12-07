@@ -1,16 +1,30 @@
-### next [????.??.??]
-* For derived `Functor` and `Traversable` instances for empty data
-  types, make `fmap` and `traverse` strict in its argument.
-* For derived `Foldable` instances, do not error on empty data types. Instead,
-  simply return the folded state (for `foldr`) or `mempty` (for `foldMap`).
-* Backport the fix to #13328. That is, when deriving `Functor` or `Traversable`
-  instances for data types where the last type variable is at phantom role,
-  generated `fmap`/`traverse` implementations now use `coerce` for efficiency.
-* Add `FFTOptions` (`Functor`/`Foldable`/`Traversable` options) to
-  `Data.Functor.Deriving`, along with variants of existing functions that take
-  `FFTOptions` as an argument. For now, the only configurable option is whether
-  derived instances for empty data types should use the `EmptyCase` extension
-  (this is disabled by default).
+## next [????.??.??]
+* Incorporate changes from the `EmptyDataDeriving` proposal (which is in GHC
+  as of 8.4):
+  * For derived `Eq` and `Ord` instances for empty data types, simply return
+    `True` and `EQ`, respectively, without inspecting the arguments.
+  * For derived `Read` instances for empty data types, simply return `pfail`
+    (without `parens`).
+  * For derived `Show` instances for empty data types, inspect the argument
+    (instead of `error`ing). In addition, add `showEmptyCaseBehavior` to
+    `ShowOptions`, which configures whether derived instances for empty data
+    types should use the `EmptyCase` extension (this is disabled by default).
+  * For derived `Functor` and `Traversable` instances for empty data
+    types, make `fmap` and `traverse` strict in its argument.
+  * For derived `Foldable` instances, do not error on empty data types.
+    Instead, simply return the folded state (for `foldr`) or `mempty` (for
+    `foldMap`), without inspecting the arguments.
+  * Add `FFTOptions` (`Functor`/`Foldable`/`Traversable` options) to
+    `Data.Functor.Deriving`, along with variants of existing functions that
+    take `FFTOptions` as an argument. For now, the only configurable option is
+    whether derived instances for empty data types should use the `EmptyCase`
+    extension (this is disabled by default).
+* Backport the fix to #13328. That is, when deriving `Functor` or
+  `Traversable` instances for data types where the last type variable is at
+  phantom role, generated `fmap`/`traverse` implementations now use `coerce`
+  for efficiency.
+* Rename `emptyCaseBehavior` from `Data.Functor.Deriving` to
+  `fftEmptyCaseBehavior`.
 
 ### 0.3.6 [2017.04.10]
 * Make `deriveTraversable` use `liftA2` in derived implementations of

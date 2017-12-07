@@ -69,6 +69,8 @@ data TyConWrap f g h a = TyConWrap1 (f a)
                        | TyConWrap2 (f (g a))
                        | TyConWrap3 (f (g (h a)))
 
+data Empty a b
+
 -- Data families
 
 data family TyFamily1 y z :: *
@@ -132,10 +134,12 @@ instance (Eq (f a), Eq (f (g a)), Eq (f (g (h a))))
   => Eq (TyConWrap f g h a) where
     (==) = $(makeEq    ''TyConWrap)
     (/=) = $(makeNotEq ''TyConWrap)
+$(deriveEq  ''Empty)
 
 $(deriveEq1 ''TyCon1)
 $(deriveEq1 ''TyCon#)
 $(deriveEq1 ''TyCon2)
+$(deriveEq1 ''Empty)
 
 $(deriveOrd  ''TyCon1)
 $(deriveOrd  ''TyCon#)
@@ -149,10 +153,12 @@ instance (Ord (f a), Ord (f (g a)), Ord (f (g (h a))))
     (<=)    = $(makeGE      ''TyConWrap)
     max     = $(makeMax     ''TyConWrap)
     min     = $(makeMin     ''TyConWrap)
+$(deriveOrd  ''Empty)
 
 $(deriveOrd1 ''TyCon1)
 $(deriveOrd1 ''TyCon#)
 $(deriveOrd1 ''TyCon2)
+$(deriveOrd1 ''Empty)
 
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveEq1 ''TyConWrap)
@@ -172,10 +178,12 @@ instance (Ord1 f, Functor f, Ord1 g, Functor g, Ord1 h)
 $(deriveEq2 ''TyCon1)
 $(deriveEq2 ''TyCon#)
 $(deriveEq2 ''TyCon2)
+$(deriveEq2 ''Empty)
 
 $(deriveOrd2 ''TyCon1)
 $(deriveOrd2 ''TyCon#)
 $(deriveOrd2 ''TyCon2)
+$(deriveOrd2 ''Empty)
 #endif
 
 #if MIN_VERSION_template_haskell(2,7,0)

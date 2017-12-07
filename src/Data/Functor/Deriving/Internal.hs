@@ -60,7 +60,7 @@ import           Language.Haskell.TH.Syntax
 -- | Options that further configure how the functions in "Data.Functor.Deriving"
 -- should behave. (@FFT@ stands for 'Functor'/'Foldable'/'Traversable'.)
 newtype FFTOptions = FFTOptions
-  { emptyCaseBehavior :: Bool
+  { fftEmptyCaseBehavior :: Bool
     -- ^ If 'True', derived instances for empty data types (i.e., ones with
     --   no data constructors) will use the @EmptyCase@ language extension.
     --   If 'False', derived instances will simply use 'seq' instead.
@@ -71,7 +71,7 @@ newtype FFTOptions = FFTOptions
 -- | Conservative 'FFTOptions' that doesn't attempt to use @EmptyCase@ (to
 -- prevent users from having to enable that extension at use sites.)
 defaultFFTOptions :: FFTOptions
-defaultFFTOptions = FFTOptions { emptyCaseBehavior = False }
+defaultFFTOptions = FFTOptions { fftEmptyCaseBehavior = False }
 
 -- | Generates a 'Foldable' instance declaration for the given data type or data
 -- family instance.
@@ -297,7 +297,7 @@ makeFunctorFunForCons ff opts _parentName vars cons = do
          -> functorFunPhantom z value
 #endif
 
-          | null cons && emptyCaseBehavior opts && ghc7'8OrLater
+          | null cons && fftEmptyCaseBehavior opts && ghc7'8OrLater
          -> functorFunEmptyCase ff z value
 
           | null cons
@@ -306,13 +306,6 @@ makeFunctorFunForCons ff opts _parentName vars cons = do
           | otherwise
          -> caseE (varE value)
                   (map (makeFunctorFunForCon ff z tvMap) cons)
-
-    ghc7'8OrLater :: Bool
-#if __GLASGOW_HASKELL__ >= 708
-    ghc7'8OrLater = True
-#else
-    ghc7'8OrLater = False
-#endif
 
 #if MIN_VERSION_template_haskell(2,9,0)
     functorFunPhantom :: Name -> Name -> Q Exp

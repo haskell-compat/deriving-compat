@@ -77,6 +77,26 @@ The following changes have been backported:
 
 * In GHC 8.4, deriving 'Functor' and 'Traverable' was changed so that it uses 'coerce'
   for efficiency when the last parameter of the data type is at phantom role.
+
+* In GHC 8.4, the `EmptyDataDeriving` proposal brought forth a slew of changes related
+  to how instances for empty data types (i.e., no constructors) were derived. These
+  changes include:
+
+    * For derived `Eq` and `Ord` instances for empty data types, simply return
+      `True` and `EQ`, respectively, without inspecting the arguments.
+
+    * For derived `Read` instances for empty data types, simply return `pfail`
+      (without `parens`).
+
+    * For derived `Show` instances for empty data types, inspect the argument
+      (instead of `error`ing).
+
+    * For derived `Functor` and `Traversable` instances for empty data
+      types, make `fmap` and `traverse` strict in its argument.
+
+    * For derived `Foldable` instances, do not error on empty data types.
+      Instead, simply return the folded state (for `foldr`) or `mempty` (for
+      `foldMap`), without inspecting the arguments.
 -}
 
 {- $derive

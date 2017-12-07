@@ -223,12 +223,9 @@ $(deriveFoldable    ''Empty1)
 $(deriveTraversable ''Empty1)
 
 -- Use EmptyCase here
-ecOptions :: FFTOptions
-ecOptions = defaultFFTOptions{emptyCaseBehavior = True }
-
-$(deriveFunctorOptions     defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
-$(deriveFoldableOptions    defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
-$(deriveTraversableOptions defaultFFTOptions{emptyCaseBehavior = True } ''Empty2)
+$(deriveFunctorOptions     defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Empty2)
+$(deriveFoldableOptions    defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Empty2)
+$(deriveTraversableOptions defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Empty2)
 
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
