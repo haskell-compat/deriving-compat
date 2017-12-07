@@ -1,4 +1,4 @@
-## next [????.??.??]
+## 0.4 [2017.12.07]
 * Incorporate changes from the `EmptyDataDeriving` proposal (which is in GHC
   as of 8.4):
   * For derived `Eq` and `Ord` instances for empty data types, simply return
