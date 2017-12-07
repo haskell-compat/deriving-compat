@@ -121,7 +121,9 @@ $(deriveShow2 ''Empty1)
 -- Use EmptyCase here
 $(deriveShowOptions  defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
 $(deriveShow1Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
+#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveShow2Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
+#endif
 
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
