@@ -1,5 +1,5 @@
 ### next [????.??.??]
-* Add `Data.Derivin.Via`, which allows emulating the behavior of the
+* Add `Data.Deriving.Via`, which allows emulating the behavior of the
   `GeneralizedNewtypeDeriving` and `DerivingVia` extensions.
 
 ## 0.4 [2017.12.07]
