@@ -1,3 +1,7 @@
+### next [????.??.??]
+* Add `Data.Derivin.Via`, which allows emulating the behavior of the
+  `GeneralizedNewtypeDeriving` and `DerivingVia` extensions.
+
 ## 0.4 [2017.12.07]
 * Incorporate changes from the `EmptyDataDeriving` proposal (which is in GHC
   as of 8.4):

@@ -25,6 +25,10 @@ description:         Provides Template Haskell functions that mimic deriving
                      .
                      * @DeriveTraversable@
                      .
+                     * @GeneralizedNewtypeDeriving@ (with GHC 8.2 or later)
+                     .
+                     * @DerivingVia@ (with GHC 8.2 or later)
+                     .
                      See the "Data.Deriving" module for a full list of backported changes.
                      .
                      Note that some recent GHC typeclasses/extensions are not covered by this package:
@@ -91,6 +95,7 @@ library
   exposed-modules:     Data.Deriving
 
                        Data.Bounded.Deriving
+                       Data.Deriving.Via
                        Data.Enum.Deriving
                        Data.Eq.Deriving
                        Data.Foldable.Deriving
@@ -104,6 +109,7 @@ library
   other-modules:       Data.Deriving.Internal
 
                        Data.Bounded.Deriving.Internal
+                       Data.Deriving.Via.Internal
                        Data.Enum.Deriving.Internal
                        Data.Eq.Deriving.Internal
                        Data.Functor.Deriving.Internal
@@ -111,6 +117,7 @@ library
                        Data.Ord.Deriving.Internal
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving.Internal
+
                        Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.6
                      , ghc-prim
@@ -143,6 +150,7 @@ test-suite spec
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
   other-modules:       BoundedEnumIxSpec
+                       DerivingViaSpec
                        EqSpec
                        FunctorSpec
                        OrdSpec
