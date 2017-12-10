@@ -27,6 +27,8 @@ Provides Template Haskell functions that mimic deriving extensions that were int
 * `DeriveFoldable`
 * `DeriveFunctor`
 * `DeriveTraversable`
+* `GeneralizedNewtypeDeriving` (with GHC 8.2 or later)
+* `DerivingVia` (with GHC 8.2 or later)
 
 See the `Data.Deriving` module for a full list of backported changes.
 
