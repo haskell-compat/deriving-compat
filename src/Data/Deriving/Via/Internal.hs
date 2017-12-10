@@ -31,13 +31,14 @@ import           Language.Haskell.TH.Datatype
 -- Code generation
 -------------------------------------------------------------------------------
 
--- | Generates an instance for a type class at a newtype by emulating the
--- behavior of the @GeneralizedNewtypeDeriving@ extension. For example:
---
--- @
--- newtype Foo a = MkFoo a
--- $('deriveGND' [t| forall a. 'Eq' a => 'Eq' (Foo a) |])
--- @
+{- | Generates an instance for a type class at a newtype by emulating the
+behavior of the @GeneralizedNewtypeDeriving@ extension. For example:
+
+@
+newtype Foo a = MkFoo a
+$('deriveGND' [t| forall a. 'Eq' a => 'Eq' (Foo a) |])
+@
+-}
 deriveGND :: Q Type -> Q [Dec]
 deriveGND qty = do
   ty <- qty
@@ -48,19 +49,20 @@ deriveGND qty = do
                          (return instanceTy)
                          (map return decs)
 
--- | Generates an instance for a type class by emulating the behavior of the
--- @DerivingVia@ extension. For example:
---
--- @
--- newtype Foo a = MkFoo a
--- $('deriveVia' [t| forall a. 'Ord' a => 'Ord' (Foo a) \`'Via'\` Down a |])
--- @
---
--- As shown in the example above, the syntax is a tad strange. One must specify
--- the type by which to derive the instance using the 'Via' type. This
--- requirement is in place to ensure that the type variables are scoped
--- correctly across all the types being used (e.g., to make sure that the same
--- @a@ is used in @'Ord' a@, @'Ord' (Foo a)@, and @Down a@).
+{- | Generates an instance for a type class by emulating the behavior of the
+@DerivingVia@ extension. For example:
+
+@
+newtype Foo a = MkFoo a
+$('deriveVia' [t| forall a. 'Ord' a => 'Ord' (Foo a) ``Via`` Down a |])
+@
+
+As shown in the example above, the syntax is a tad strange. One must specify
+the type by which to derive the instance using the 'Via' type. This
+requirement is in place to ensure that the type variables are scoped
+correctly across all the types being used (e.g., to make sure that the same
+@a@ is used in @'Ord' a@, @'Ord' (Foo a)@, and @Down a@).
+-}
 deriveVia :: Q Type -> Q [Dec]
 deriveVia qty = do
   ty <- qty
