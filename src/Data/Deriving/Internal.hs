@@ -92,6 +92,15 @@ substNamesWithKindStar :: [Name] -> Type -> Type
 substNamesWithKindStar ns t = foldr' (flip substNameWithKind starK) t ns
 
 -------------------------------------------------------------------------------
+-- Via
+-------------------------------------------------------------------------------
+
+-- | A type-level modifier intended to be used in conjunction with 'deriveVia'.
+-- Refer to the documentation for 'deriveVia' for more details.
+data a `Via` b
+infix 0 `Via`
+
+-------------------------------------------------------------------------------
 -- Type-specialized const functions
 -------------------------------------------------------------------------------
 
@@ -1124,6 +1133,9 @@ derivingCompatPackageKey = "deriving-compat-" ++ showVersion version
 mkDerivingCompatName_v :: String -> Name
 mkDerivingCompatName_v = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal"
 
+mkDerivingCompatName_tc :: String -> Name
+mkDerivingCompatName_tc = mkNameG_tc derivingCompatPackageKey "Data.Deriving.Internal"
+
 isTrueHashValName :: Name
 isTrueHashValName = mkDerivingCompatName_v "isTrue#"
 
@@ -1198,6 +1210,9 @@ liftShowsPrecConstValName = mkDerivingCompatName_v "liftShowsPrecConst"
 
 liftShowsPrec2ConstValName :: Name
 liftShowsPrec2ConstValName = mkDerivingCompatName_v "liftShowsPrec2Const"
+
+viaTypeName :: Name
+viaTypeName = mkDerivingCompatName_tc "Via"
 
 cHashDataName :: Name
 cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"

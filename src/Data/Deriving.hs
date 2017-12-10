@@ -5,10 +5,11 @@ License:     BSD-style (see the file LICENSE)
 Maintainer:  Ryan Scott
 Portability: Template Haskell
 
-This module reexports all of the functionality of the other modules in this library.
-It also provides a high-level tutorial on @deriving-compat@'s naming conventions and
-best practices. Typeclass-specific information can be found in their respective
-modules.
+This module reexports all of the functionality of the other modules in this library
+(with the exception of "Data.Deriving.Via", which is only available on GHC 8.2 or
+later). This module also provides a high-level tutorial on @deriving-compat@'s
+naming conventions and best practices. Typeclass-specific information can be found
+in their respective modules.
 -}
 module Data.Deriving (
       -- * Backported changes
