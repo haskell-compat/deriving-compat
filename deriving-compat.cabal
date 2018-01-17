@@ -168,6 +168,7 @@ test-suite spec
                      , QuickCheck          >= 2     && < 3
                      , tagged              >= 0.7   && < 1
                      , template-haskell    >= 2.5   && < 2.13
+  build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9 && < 5
