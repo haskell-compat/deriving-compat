@@ -57,5 +57,11 @@ Be aware of the following potential gotchas:
 
 * The functions in "Data.Deriving.Via" are not terribly robust in the presence
   of @PolyKinds@. Alas, Template Haskell does not make this easy to fix.
+
+* The functions in "Data.Deriving.Via" make a best-effort attempt to derive
+  instances for classes with associated type families. This is known not to
+  work in all scenarios, however, especially when the last parameter to a type
+  class appears as a kind variable in an associated type family. (See
+  <https://ghc.haskell.org/trac/ghc/ticket/14728 Trac #14728>.)
 -}
 #endif
