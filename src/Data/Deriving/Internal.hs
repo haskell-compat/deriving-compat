@@ -1220,12 +1220,6 @@ cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"
 dHashDataName :: Name
 dHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "D#"
 
-dualDataName :: Name
-dualDataName = mkNameG_d "base" "Data.Monoid" "Dual"
-
-endoDataName :: Name
-endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
-
 fHashDataName :: Name
 fHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "F#"
 
@@ -1291,9 +1285,6 @@ wordHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word#"
 
 altValName :: Name
 altValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "+++"
-
-appEndoValName :: Name
-appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
 
 appendValName :: Name
 appendValName = mkNameG_v "base" "GHC.Base" "++"
@@ -1372,9 +1363,6 @@ geFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geFloat#"
 
 geIntHashValName :: Name
 geIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">=#"
-
-getDualValName :: Name
-getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
 
 getTagValName :: Name
 getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
@@ -1952,4 +1940,30 @@ showCommaSpace = showString ", "
 
 showCommaSpaceValName :: Name
 showCommaSpaceValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "showCommaSpace"
+#endif
+
+#if MIN_VERSION_base(4,11,0)
+appEndoValName :: Name
+appEndoValName = mkNameG_v "base" "Data.Semigroup.Internal" "appEndo"
+
+dualDataName :: Name
+dualDataName = mkNameG_d "base" "Data.Semigroup.Internal" "Dual"
+
+endoDataName :: Name
+endoDataName = mkNameG_d "base" "Data.Semigroup.Internal" "Endo"
+
+getDualValName :: Name
+getDualValName = mkNameG_v "base" "Data.Semigroup.Internal" "getDual"
+#else
+appEndoValName :: Name
+appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
+
+dualDataName :: Name
+dualDataName = mkNameG_d "base" "Data.Monoid" "Dual"
+
+endoDataName :: Name
+endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
+
+getDualValName :: Name
+getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
 #endif
