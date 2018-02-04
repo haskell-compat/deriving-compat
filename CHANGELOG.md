@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.4.1 [2018.02.04]
 * Add `Data.Deriving.Via`, which allows emulating the behavior of the
   `GeneralizedNewtypeDeriving` and `DerivingVia` extensions.
 * Test suite fixes for GHC 8.4.
