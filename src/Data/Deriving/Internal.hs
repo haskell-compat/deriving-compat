@@ -39,12 +39,12 @@ import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
 
-import           GHC.Read (expectP)
-
 import           Text.ParserCombinators.ReadPrec (ReadPrec)
 import qualified Text.Read.Lex as L
 
-#if !(MIN_VERSION_base(4,7,0))
+#if MIN_VERSION_base(4,7,0)
+import           GHC.Read (expectP)
+#else
 import           GHC.Read (lexP)
 
 import           Text.Read (pfail)
