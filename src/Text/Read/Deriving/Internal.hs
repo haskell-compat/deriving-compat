@@ -633,13 +633,19 @@ makeReadForField :: ReadClass
 makeReadForField rClass urp tvMap conName lblStr ty tyExpName = do
     (rExp, varExp) <- makeReadForType rClass urp tvMap conName tyExpName False ty
     let readStmt = bindS (varP tyExpName) $
-                         varE resetValName `appE` wrapReadS urp (return rExp)
-    return (readLbl ++ [readPunc "=", readStmt], varExp)
+                     read_field `appE`
+                     (varE resetValName `appE` wrapReadS urp (return rExp))
+    return ([readStmt], varExp)
   where
-    readLbl | isSym lblStr
-            = [readPunc "(", symbolPat lblStr, readPunc ")"]
-            | otherwise
-            = identHPat lblStr
+    mk_read_field readFieldName lbl
+      = varE readFieldName `appE` stringE lbl
+    read_field
+      | isSym lblStr
+      = mk_read_field readSymFieldValName lblStr
+      | Just (ss, '#') <- snocView lblStr
+      = mk_read_field readFieldHashValName ss
+      | otherwise
+      = mk_read_field readFieldValName lblStr
 
 makeReadForType :: ReadClass
                 -> Bool

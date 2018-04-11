@@ -98,6 +98,9 @@ The following changes have been backported:
     * For derived `Foldable` instances, do not error on empty data types.
       Instead, simply return the folded state (for `foldr`) or `mempty` (for
       `foldMap`), without inspecting the arguments.
+
+* In GHC 8.6, deriving `Read` was changed so as to factor out certain commonly
+  used subexpressions, which significantly improve compliation times.
 -}
 
 {- $derive

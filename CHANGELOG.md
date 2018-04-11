@@ -1,3 +1,11 @@
+### next [????.??.??]
+* Backport the fixes for GHC Trac
+  [#14364](https://ghc.haskell.org/trac/ghc/ticket/14364)
+  and
+  [#14918](https://ghc.haskell.org/trac/ghc/ticket/14918),
+  which significantly improve the compliation times of derived `Read`
+  instances.
+
 ### 0.4.1 [2018.02.04]
 * Add `Data.Deriving.Via`, which allows emulating the behavior of the
   `GeneralizedNewtypeDeriving` and `DerivingVia` extensions.

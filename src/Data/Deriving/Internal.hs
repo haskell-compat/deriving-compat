@@ -39,7 +39,10 @@ import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
 
+import           GHC.Read (expectP)
+
 import           Text.ParserCombinators.ReadPrec (ReadPrec)
+import qualified Text.Read.Lex as L
 
 #if !(MIN_VERSION_base(4,7,0))
 import           GHC.Read (lexP)
@@ -1490,6 +1493,17 @@ rangeSizeValName = mkNameG_v "base" "GHC.Arr" "rangeSize"
 rangeValName :: Name
 rangeValName = mkNameG_v "base" "GHC.Arr" "range"
 
+readFieldHash :: String -> ReadPrec a -> ReadPrec a
+readFieldHash fieldName readVal = do
+        expectP (L.Ident fieldName)
+        expectP (L.Symbol "#")
+        expectP (L.Punc "=")
+        readVal
+{-# NOINLINE readFieldHash #-}
+
+readFieldHashValName :: Name
+readFieldHashValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readFieldHash"
+
 readListValName :: Name
 readListValName = mkNameG_v "base" "GHC.Read" "readList"
 
@@ -1954,6 +1968,12 @@ endoDataName = mkNameG_d "base" "Data.Semigroup.Internal" "Endo"
 
 getDualValName :: Name
 getDualValName = mkNameG_v "base" "Data.Semigroup.Internal" "getDual"
+
+readFieldValName :: Name
+readFieldValName = mkNameG_v "base" "GHC.Read" "readField"
+
+readSymFieldValName :: Name
+readSymFieldValName = mkNameG_v "base" "GHC.Read" "readSymField"
 #else
 appEndoValName :: Name
 appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
@@ -1966,4 +1986,26 @@ endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
 
 getDualValName :: Name
 getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
+
+readField :: String -> ReadPrec a -> ReadPrec a
+readField fieldName readVal = do
+        expectP (L.Ident fieldName)
+        expectP (L.Punc "=")
+        readVal
+{-# NOINLINE readField #-}
+
+readFieldValName :: Name
+readFieldValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readField"
+
+readSymField :: String -> ReadPrec a -> ReadPrec a
+readSymField fieldName readVal = do
+        expectP (L.Punc "(")
+        expectP (L.Symbol fieldName)
+        expectP (L.Punc ")")
+        expectP (L.Punc "=")
+        readVal
+{-# NOINLINE readSymField #-}
+
+readSymFieldValName :: Name
+readSymFieldValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readSymField"
 #endif
