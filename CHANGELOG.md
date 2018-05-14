@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.4.2 [2018.05.04]
 * Backport the fixes for GHC Trac
   [#14364](https://ghc.haskell.org/trac/ghc/ticket/14364)
   and
