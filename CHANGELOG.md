@@ -1,3 +1,9 @@
+### next [????.??.??]
+* Fix a bug that caused debug-enabled GHC builds to panic when generating
+  code from this library (see
+  [Trac #15270](https://ghc.haskell.org/trac/ghc/ticket/15270)).
+  The fix only affects the library's internals, so no changes are user-facing.
+
 ### 0.4.2 [2018.05.14]
 * Backport the fixes for GHC Trac
   [#14364](https://ghc.haskell.org/trac/ghc/ticket/14364)

@@ -1587,19 +1587,19 @@ boolTypeName :: Name
 boolTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Bool"
 
 falseDataName :: Name
-falseDataName = mkNameG_v "ghc-prim" "GHC.Types" "False"
+falseDataName = mkNameG_d "ghc-prim" "GHC.Types" "False"
 
 trueDataName :: Name
-trueDataName = mkNameG_v "ghc-prim" "GHC.Types" "True"
+trueDataName = mkNameG_d "ghc-prim" "GHC.Types" "True"
 #else
 boolTypeName :: Name
 boolTypeName = mkNameG_tc "ghc-prim" "GHC.Bool" "Bool"
 
 falseDataName :: Name
-falseDataName = mkNameG_v "ghc-prim" "GHC.Bool" "False"
+falseDataName = mkNameG_d "ghc-prim" "GHC.Bool" "False"
 
 trueDataName :: Name
-trueDataName = mkNameG_v "ghc-prim" "GHC.Bool" "True"
+trueDataName = mkNameG_d "ghc-prim" "GHC.Bool" "True"
 #endif
 
 #if MIN_VERSION_base(4,5,0)
