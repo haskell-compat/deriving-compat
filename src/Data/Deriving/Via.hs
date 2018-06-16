@@ -9,7 +9,7 @@ Portability: Template Haskell
 
 On @template-haskell-2.12@ or later (i.e., GHC 8.2 or later), this module
 exports functionality which emulates the @GeneralizedNewtypeDeriving@ and
-@DerivingVia@ GHC extensions.
+@DerivingVia@ GHC extensions (the latter of which was introduced in GHC 8.6).
 
 On older versions of @template-haskell@/GHC, this module does not export
 anything.

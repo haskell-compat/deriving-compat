@@ -99,6 +99,14 @@ The following changes have been backported:
       Instead, simply return the folded state (for `foldr`) or `mempty` (for
       `foldMap`), without inspecting the arguments.
 
+* In GHC 8.6, the @DerivingVia@ language extension was introduced.
+  @deriving-compat@ provides an interface which attempts to mimic this
+  extension (as well as @GeneralizedNewtypeDeriving@, which is a special case
+  of @DerivingVia@) as closely as possible.
+
+  Since the generated code requires the use of @TypeApplications@, this can
+  only be backported back to GHC 8.2.
+
 * In GHC 8.6, deriving `Read` was changed so as to factor out certain commonly
   used subexpressions, which significantly improve compliation times.
 -}
