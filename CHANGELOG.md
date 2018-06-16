@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.4.3 [2018.06.16]
 * Fix a bug that caused debug-enabled GHC builds to panic when generating
   code from this library (see
   [Trac #15270](https://ghc.haskell.org/trac/ghc/ticket/15270)).
