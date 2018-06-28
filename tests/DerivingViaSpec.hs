@@ -9,6 +9,7 @@
 
 #if MIN_VERSION_template_haskell(2,12,0)
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
 #endif
 

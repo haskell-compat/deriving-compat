@@ -122,15 +122,15 @@ deriveViaDecs instanceTy mbViaTy = do
                               Nothing -> etaReductionError instanceTy
                           Nothing -> fail $ "Not a newtype: " ++ nameBase dataName
                       _ -> fail $ "Not a data type: " ++ pprint dataTy
-              catMaybes `fmap` traverse (deriveViaDec clsTvbs clsArgs repTy) clsDecs
+              concat . catMaybes <$> traverse (deriveViaDecs' clsTvbs clsArgs repTy) clsDecs
             (_, _) -> fail $ "Cannot derive instance for nullary class " ++ pprint clsTy
         _ -> fail $ "Not a type class: " ++ pprint clsTy
     _ -> fail $ "Malformed instance: " ++ pprint instanceTy
 
-deriveViaDec :: [TyVarBndr] -> [Type] -> Type -> Dec -> Q (Maybe Dec)
-deriveViaDec clsTvbs clsArgs repTy = go
+deriveViaDecs' :: [TyVarBndr] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
+deriveViaDecs' clsTvbs clsArgs repTy = go
   where
-    go :: Dec -> Q (Maybe Dec)
+    go :: Dec -> Q (Maybe [Dec])
 
     go (OpenTypeFamilyD (TypeFamilyHead tfName tfTvbs _ _)) =
       let lhsSubst = zipTvbSubst clsTvbs clsArgs
@@ -140,18 +140,21 @@ deriveViaDec clsTvbs clsArgs repTy = go
           tfRHSTys = map (applySubstitution rhsSubst) tfTvbTys
           tfRHSTy  = applyTy (ConT tfName) tfRHSTys
           tfInst   = TySynInstD tfName (TySynEqn tfLHSTys tfRHSTy)
-      in return (Just tfInst)
+      in return (Just [tfInst])
 
     go (SigD methName methTy) =
       let (fromTy, toTy) = mkCoerceClassMethEqn clsTvbs clsArgs repTy $
                            stripOuterForallT methTy
-          rhsExpr = VarE coerceValName `AppTypeE` fromTy
-                                       `AppTypeE` toTy
+          fromTau = stripOuterForallT fromTy
+          toTau   = stripOuterForallT toTy
+          rhsExpr = VarE coerceValName `AppTypeE` fromTau
+                                       `AppTypeE` toTau
                                        `AppE`     VarE methName
+          sig  = SigD methName toTy
           meth = ValD (VarP methName)
                       (NormalB rhsExpr)
                       []
-      in return (Just meth)
+      in return (Just [sig, meth])
 
     go _ = return Nothing
 
