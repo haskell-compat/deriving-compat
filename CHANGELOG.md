@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5 [2018.07.01]
 * Backport the changes to `GeneralizedNewtypeDeriving` and `DerivingVia` code
   generation from
   [Trac #15290](https://ghc.haskell.org/trac/ghc/ticket/15290).
