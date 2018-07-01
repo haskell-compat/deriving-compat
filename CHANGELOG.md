@@ -7,6 +7,7 @@
   `InstanceSigs` language extension. On the other hand, the generated code
   no longer requires the `ImpredicativeTypes` extension (unless any class
   methods use higher-rank types).
+* Allow building with `containers-0.6` and `template-haskell-2.14`.
 
 ### 0.4.3 [2018.06.16]
 * Fix a bug that caused debug-enabled GHC builds to panic when generating

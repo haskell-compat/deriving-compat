@@ -120,7 +120,7 @@ library
                        Text.Show.Deriving.Internal
 
                        Paths_deriving_compat
-  build-depends:       containers          >= 0.1   && < 0.6
+  build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
                      , th-abstraction      >= 0.2.2 && < 1
 
@@ -131,7 +131,7 @@ library
     build-depends:     base                >= 4.3   && < 4.9
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.14
+    build-depends:     template-haskell    >= 2.11  && < 2.15
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5   && < 2.11
@@ -167,7 +167,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
                      , tagged              >= 0.7   && < 1
-                     , template-haskell    >= 2.5   && < 2.14
+                     , template-haskell    >= 2.5   && < 2.15
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   if flag(base-4-9)
