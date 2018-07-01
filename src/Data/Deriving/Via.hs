@@ -42,7 +42,9 @@ Be aware of the following potential gotchas:
   require you to enable some language extensions (besides @TemplateHaskell@).
   These may include:
 
-    * @ImpredicativeTypes@
+    * @ImpredicativeTypes@ (if any class methods contain higher-rank types)
+
+    * @InstanceSigs@
 
     * @KindSignatures@
 
