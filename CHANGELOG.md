@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5.1 [2018.07.11]
 * Have `deriveGND`/`deriveVia` throw an error if an incorrect number of
   arguments are supplied to the type class.
 
