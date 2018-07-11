@@ -17,7 +17,7 @@ anything.
 module Data.Deriving.Via.Internal where
 
 #if MIN_VERSION_template_haskell(2,12,0)
-import           Control.Monad ((<=<))
+import           Control.Monad ((<=<), unless)
 
 import           Data.Deriving.Internal
 import qualified Data.Map as M
@@ -122,13 +122,20 @@ deriveViaDecs instanceTy mbViaTy = do
                               Nothing -> etaReductionError instanceTy
                           Nothing -> fail $ "Not a newtype: " ++ nameBase dataName
                       _ -> fail $ "Not a data type: " ++ pprint dataTy
-              concat . catMaybes <$> traverse (deriveViaDecs' clsTvbs clsArgs repTy) clsDecs
+              concat . catMaybes <$> traverse (deriveViaDecs' clsName clsTvbs clsArgs repTy) clsDecs
             (_, _) -> fail $ "Cannot derive instance for nullary class " ++ pprint clsTy
         _ -> fail $ "Not a type class: " ++ pprint clsTy
     _ -> fail $ "Malformed instance: " ++ pprint instanceTy
 
-deriveViaDecs' :: [TyVarBndr] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
-deriveViaDecs' clsTvbs clsArgs repTy = go
+deriveViaDecs' :: Name -> [TyVarBndr] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
+deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
+    let numExpectedArgs = length clsTvbs
+        numActualArgs   = length clsArgs
+    unless (numExpectedArgs == numActualArgs) $
+      fail $ "Mismatched number of class arguments"
+          ++ "\n\tThe class " ++ nameBase clsName ++ " expects " ++ show numExpectedArgs ++ " argument(s),"
+          ++ "\n\tbut was provided " ++ show numActualArgs ++ " argument(s)."
+    go dec
   where
     go :: Dec -> Q (Maybe [Dec])
 

@@ -1,3 +1,7 @@
+### next [????.??.??]
+* Have `deriveGND`/`deriveVia` throw an error if an incorrect number of
+  arguments are supplied to the type class.
+
 ### 0.5 [2018.07.01]
 * Backport the changes to `GeneralizedNewtypeDeriving` and `DerivingVia` code
   generation from
