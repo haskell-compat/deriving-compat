@@ -20,6 +20,7 @@ module Data.Deriving.Via.Internal where
 import           Control.Monad ((<=<), unless)
 
 import           Data.Deriving.Internal
+import           Data.Foldable (foldl')
 import qualified Data.Map as M
 import           Data.Map (Map)
 import           Data.Maybe (catMaybes)
@@ -141,7 +142,7 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
 
     go (OpenTypeFamilyD (TypeFamilyHead tfName tfTvbs _ _)) =
       let lhsSubst = zipTvbSubst clsTvbs clsArgs
-          rhsSubst = zipTvbSubst clsTvbs $ changeLast clsArgs repTy
+          rhsSubst = zipTvbSubst clsTvbs underlyingClsArgs
           tfTvbTys = map tvbToType tfTvbs
           tfLHSTys = map (applySubstitution lhsSubst) tfTvbTys
           tfRHSTys = map (applySubstitution rhsSubst) tfTvbTys
@@ -150,13 +151,13 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
       in return (Just [tfInst])
 
     go (SigD methName methTy) =
-      let (fromTy, toTy) = mkCoerceClassMethEqn clsTvbs clsArgs repTy $
-                           stripOuterForallT methTy
+      let (fromTy, toTy) = mkCoerceClassMethEqn $ stripOuterForallT methTy
           fromTau = stripOuterForallT fromTy
           toTau   = stripOuterForallT toTy
+          methApp = foldl' AppTypeE (VarE methName) underlyingClsArgs
           rhsExpr = VarE coerceValName `AppTypeE` fromTau
                                        `AppTypeE` toTau
-                                       `AppE`     VarE methName
+                                       `AppE`     methApp
           sig  = SigD methName toTy
           meth = ValD (VarP methName)
                       (NormalB rhsExpr)
@@ -165,14 +166,19 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
 
     go _ = return Nothing
 
-mkCoerceClassMethEqn :: [TyVarBndr] -> [Type] -> Type -> Type -> (Type, Type)
-mkCoerceClassMethEqn clsTvbs clsArgs repTy methTy
-  = ( applySubstitution rhsSubst methTy
-    , applySubstitution lhsSubst methTy
-    )
-  where
-    lhsSubst = zipTvbSubst clsTvbs clsArgs
-    rhsSubst = zipTvbSubst clsTvbs $ changeLast clsArgs repTy
+    mkCoerceClassMethEqn :: Type -> (Type, Type)
+    mkCoerceClassMethEqn methTy
+      = ( applySubstitution rhsSubst methTy
+        , applySubstitution lhsSubst methTy
+        )
+      where
+        lhsSubst = zipTvbSubst clsTvbs clsArgs
+        rhsSubst = zipTvbSubst clsTvbs underlyingClsArgs
+
+    -- Same as clsArgs, but with the last argument type replaced by the
+    -- representation type.
+    underlyingClsArgs :: [Type]
+    underlyingClsArgs = changeLast clsArgs repTy
 
 zipTvbSubst :: [TyVarBndr] -> [Type] -> Map Name Type
 zipTvbSubst tvbs = M.fromList . zipWith (\tvb ty -> (tvName tvb, ty)) tvbs

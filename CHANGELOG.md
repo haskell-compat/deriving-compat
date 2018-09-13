@@ -1,3 +1,9 @@
+### next [????.??.??]
+* Backport the changes to `GeneralizedNewtypeDeriving` and `DerivingVia` code
+  generation from
+  [Trac #15637](https://ghc.haskell.org/trac/ghc/ticket/15637), which support
+  deriving more instances of type classes with ambiguous type variables.
+
 ### 0.5.1 [2018.07.11]
 * Have `deriveGND`/`deriveVia` throw an error if an incorrect number of
   arguments are supplied to the type class.
