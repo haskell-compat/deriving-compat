@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 #if MIN_VERSION_template_haskell(2,12,0)
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
@@ -69,6 +70,13 @@ class MFunctor (t :: (* -> *) -> * -> *) where
 
 newtype TaggedTrans tag trans (m :: * -> *) a = MkTaggedTrans (trans m a) deriving Show
 $(deriveGND [t| forall tag trans. MFunctor trans => MFunctor (TaggedTrans tag trans) |])
+
+class T15637 a where
+  f :: String
+instance T15637 () where
+  f = "foo"
+newtype T = T ()
+$(deriveGND [t| T15637 T |])
 #endif
 
 main :: IO ()
