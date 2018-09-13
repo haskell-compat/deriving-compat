@@ -184,7 +184,12 @@ changeLast [_]    x  = [x]
 changeLast (x:xs) x' = x : changeLast xs x'
 
 stripOuterForallT :: Type -> Type
+#if __GLASGOW_HASKELL__ < 807
+-- Before GHC 8.7, TH-reified classes would put a redundant forall/class
+-- context in front of each method's type signature, so we have to strip them
+-- off here.
 stripOuterForallT (ForallT _ _ ty) = ty
+#endif
 stripOuterForallT ty               = ty
 
 decomposeType :: Type -> (Cxt, Type)
