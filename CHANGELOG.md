@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5.2 [2018.09.13]
 * Fix a bug (on GHC 8.7 and above) in which `deriveGND`/`deriveVia` would
   generate ill-scoped code.
 
