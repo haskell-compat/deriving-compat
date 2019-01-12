@@ -1,3 +1,7 @@
+### next [????.??.??]
+* Fix a bug in which `deriveEnum`/`deriveIx` would generate ill-scoped code
+  for certain poly-kinded data types.
+
 ### 0.5.2 [2018.09.13]
 * Fix a bug (on GHC 8.7 and above) in which `deriveGND`/`deriveVia` would
   generate ill-scoped code.

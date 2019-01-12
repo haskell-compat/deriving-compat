@@ -123,7 +123,7 @@ library
                        Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
-                     , th-abstraction      >= 0.2.2 && < 0.3
+                     , th-abstraction      >= 0.2.9 && < 0.3
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9   && < 5
@@ -159,6 +159,7 @@ test-suite spec
                        ReadSpec
                        ShowSpec
                        GH6Spec
+                       GH24Spec
 
                        Types.EqOrd
                        Types.ReadShow

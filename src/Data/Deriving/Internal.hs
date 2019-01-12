@@ -38,6 +38,7 @@ import           Data.Map (Map)
 import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Set (Set)
+import qualified Data.Traversable as T
 
 import           Text.ParserCombinators.ReadPrec (ReadPrec)
 import qualified Text.Read.Lex as L
@@ -1022,9 +1023,10 @@ tag2ConExpr :: Type -> Q Exp
 tag2ConExpr ty = do
     iHash  <- newName "i#"
     ty' <- freshenType ty
+    let tvbs = avoidTypeInType $ freeVariablesWellScoped [ty']
     lam1E (conP iHashDataName [varP iHash]) $
         varE tagToEnumHashValName `appE` varE iHash
-            `sigE` return (ForallT (requiredTyVarsOfType ty') [] ty')
+            `sigE` return (ForallT tvbs [] ty')
             -- tagToEnum# is a hack, and won't typecheck unless it's in the
             -- immediate presence of a type ascription like so:
             --
@@ -1033,16 +1035,43 @@ tag2ConExpr ty = do
             -- We have to be careful when dealing with datatypes with type
             -- variables, since Template Haskell might reject the type variables
             -- we use for being out-of-scope. To avoid this, we explicitly
-            -- collect the type variable binders with requiredTyVarsOfType
-            -- and shove them into a ForallT. Also make sure to freshen the
-            -- bound type variables to avoid shadowed variable warnings when
-            -- -Wall is enabled.
-            --
-            -- Note that we do NOT collect the kind variable binders, since
-            -- a type signature like `forall k a. Foo (a :: k)` won't typecheck
-            -- unless TypeInType is enabled (i.e., if GHC 8.0 or later is being
-            -- used). Luckily, GHC seems to just accept kind variables, even if
-            -- they aren't actually bound in a ForallT.
+            -- collect the type variable binders and shove them into a ForallT
+            -- (using th-abstraction's quantifyType function). Also make sure
+            -- to freshen the bound type variables to avoid shadowed variable
+            -- warnings on old versions of GHC when -Wall is enabled.
+  where
+    -- Somewhat annoyingly, it's possible to generate code that requires
+    -- TypeInType (on old versions of GHC) for data types which didn't require
+    -- TypeInType to define. To avoid users having to turn on more language
+    -- extensions than is necessary, we filter out all kind variable binders.
+    -- Fortunately, old versions of GHC are quite alright with implicitly
+    -- quantifying kind variables, even in the type of a SigE.
+    --
+    -- This is rather tiresome, and while writing this function, I debated
+    -- whether to just forget about this nonsense and require users to
+    -- enable TypeInType to use the generated code. Alas, that would entail
+    -- a breaking change, so I decided against it at the time. If we ever make
+    -- some breaking change in the future, however, this would be at the top
+    -- of the list of things that I'd rip out.
+    avoidTypeInType :: [TyVarBndr] -> [TyVarBndr]
+#if __GLASGOW_HASKELL__ >= 806
+    avoidTypeInType = id
+#else
+    avoidTypeInType = go . map attachFreeKindVars
+      where
+        attachFreeKindVars :: TyVarBndr -> (TyVarBndr, [Name])
+        attachFreeKindVars tvb = (tvb, freeVariables (tvKind tvb))
+
+        go :: [(TyVarBndr, [Name])] -> [TyVarBndr]
+        go [] = []
+        go ((tvb, _):tvbsAndFVs)
+          | any (\(_, kindVars) -> tvName tvb `elem` kindVars) tvbsAndFVs
+          = tvbs'
+          | otherwise
+          = tvb:tvbs'
+          where
+            tvbs' = go tvbsAndFVs
+#endif
 
 removeClassApp :: Type -> Type
 removeClassApp (AppT _ t2) = t2
@@ -1058,13 +1087,10 @@ freshen :: Name -> Q Name
 freshen n = newName (nameBase n ++ "_'")
 
 freshenType :: Type -> Q Type
-freshenType (AppT t1 t2) = do t1' <- freshenType t1
-                              t2' <- freshenType t2
-                              return $ AppT t1' t2'
-freshenType (SigT t k)   = do t' <- freshenType t
-                              return $ SigT t' k
-freshenType (VarT n)     = fmap VarT $ freshen n
-freshenType t            = return t
+freshenType t =
+  do let xs = [(n, VarT `fmap` freshen n) | n <- freeVariables t]
+     subst <- T.sequence (Map.fromList xs)
+     return (applySubstitution subst t)
 
 -- | Gets all of the required type variable binders mentioned in a Type.
 requiredTyVarsOfType :: Type -> [TyVarBndr]
