@@ -1,3 +1,6 @@
+### next [????.??.??]
+* Support `th-abstraction-0.3` or later.
+
 ### 0.5.4 [2019.01.21]
 * Expose `Internal` modules.
 

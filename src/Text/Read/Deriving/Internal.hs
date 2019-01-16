@@ -422,26 +422,30 @@ deriveReadClass :: ReadClass -> ReadOptions -> Name -> Q [Dec]
 deriveReadClass rClass opts name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance rClass parentName ctxt vars variant
+          <- buildTypeInstance rClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (readPrecDecs rClass opts vars cons)
+                             (readPrecDecs rClass opts instTypes cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (read(s)Prec for Read, liftRead(s)Prec for Read1, and
 -- liftRead(s)Prec2 for Read2).
 readPrecDecs :: ReadClass -> ReadOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
-readPrecDecs rClass opts vars cons =
+readPrecDecs rClass opts instTypes cons =
     [ funD ((if defineReadPrec then readPrecName else readsPrecName) rClass)
            [ clause []
-                    (normalB $ makeReadForCons rClass defineReadPrec vars cons)
+                    (normalB $ makeReadForCons rClass defineReadPrec instTypes cons)
                     []
            ]
     ] ++ if defineReadPrec
@@ -462,29 +466,33 @@ makeReadPrecClass :: ReadClass -> Bool -> Name -> Q Exp
 makeReadPrecClass rClass urp name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have
       -- read(s)Prec/liftRead(s)Prec/etc. implemented for it, and produces errors
       -- if it can't.
-      buildTypeInstance rClass parentName ctxt vars variant
-        >> makeReadForCons rClass urp vars cons
+      buildTypeInstance rClass parentName ctxt instTypes variant
+        >> makeReadForCons rClass urp instTypes cons
 
 -- | Generates a lambda expression for read(s)Prec/liftRead(s)Prec/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeReadForCons :: ReadClass -> Bool -> [Type] -> [ConstructorInfo] -> Q Exp
-makeReadForCons rClass urp vars cons = do
+makeReadForCons rClass urp instTypes cons = do
     p   <- newName "p"
     rps <- newNameList "rp" $ arity rClass
     rls <- newNameList "rl" $ arity rClass
     let rpls       = zip rps rls
         _rpsAndRls = interleave rps rls
-        lastTyVars = map varTToName $ drop (length vars - fromEnum rClass) vars
+        lastTyVars = map varTToName $ drop (length instTypes - fromEnum rClass) instTypes
         rplMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars rpls
 
     let nullaryCons, nonNullaryCons :: [ConstructorInfo]

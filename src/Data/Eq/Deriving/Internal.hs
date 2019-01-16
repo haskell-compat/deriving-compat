@@ -116,26 +116,30 @@ deriveEqClass :: EqClass -> Name -> Q [Dec]
 deriveEqClass eClass name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance eClass parentName ctxt vars variant
+          <- buildTypeInstance eClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (eqDecs eClass vars cons)
+                             (eqDecs eClass instTypes cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class ((==) for Eq, liftEq for Eq1, and
 -- liftEq2 for Eq2).
 eqDecs :: EqClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
-eqDecs eClass vars cons =
+eqDecs eClass instTypes cons =
     [ funD (eqName eClass)
            [ clause []
-                    (normalB $ makeEqForCons eClass vars cons)
+                    (normalB $ makeEqForCons eClass instTypes cons)
                     []
            ]
     ]
@@ -146,28 +150,32 @@ makeEqClass :: EqClass -> Name -> Q Exp
 makeEqClass eClass name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have (==)/liftEq/etc.
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance eClass parentName ctxt vars variant
-        >> makeEqForCons eClass vars cons
+      buildTypeInstance eClass parentName ctxt instTypes variant
+        >> makeEqForCons eClass instTypes cons
 
 -- | Generates a lambda expression for (==)/liftEq/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeEqForCons :: EqClass -> [Type] -> [ConstructorInfo] -> Q Exp
-makeEqForCons eClass vars cons = do
+makeEqForCons eClass instTypes cons = do
     value1 <- newName "value1"
     value2 <- newName "value2"
     eqDefn <- newName "eqDefn"
     eqs    <- newNameList "eq" $ arity eClass
 
-    let lastTyVars = map varTToName $ drop (length vars - fromEnum eClass) vars
+    let lastTyVars = map varTToName $ drop (length instTypes - fromEnum eClass) instTypes
         tvMap      = Map.fromList $ zipWith (\x y -> (x, OneName y)) lastTyVars eqs
 
     lamE (map varP $

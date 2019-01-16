@@ -109,9 +109,14 @@ deriveViaDecs instanceTy mbViaTy = do
                   Nothing ->
                     case dataTy of
                       ConT dataName -> do
-                        DatatypeInfo { datatypeVars    = dataVars
-                                     , datatypeVariant = dv
-                                     , datatypeCons    = cons
+                        DatatypeInfo {
+#if MIN_VERSION_th_abstraction(0,3,0)
+                                       datatypeInstTypes = dataInstTypes
+#else
+                                       datatypeVars      = dataInstTypes
+#endif
+                                     , datatypeVariant   = dv
+                                     , datatypeCons      = cons
                                      } <- reifyDatatype dataName
                         case newtypeRepType dv cons of
                           Just newtypeRepTy ->
@@ -120,7 +125,7 @@ deriveViaDecs instanceTy mbViaTy = do
                                 let repTySubst =
                                       M.fromList $
                                       zipWith (\var arg -> (varTToName var, arg))
-                                              dataVars dataArgs
+                                              dataInstTypes dataArgs
                                 in return $ applySubstitution repTySubst etaRepTy
                               Nothing -> etaReductionError instanceTy
                           Nothing -> fail $ "Not a newtype: " ++ nameBase dataName
@@ -149,7 +154,11 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
           tfLHSTys = map (applySubstitution lhsSubst) tfTvbTys
           tfRHSTys = map (applySubstitution rhsSubst) tfTvbTys
           tfRHSTy  = applyTy (ConT tfName) tfRHSTys
-      tfInst <- tySynInstDCompat tfName (map pure tfLHSTys) (pure tfRHSTy)
+      tfInst <- tySynInstDCompat tfName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                                 Nothing
+#endif
+                                 (map pure tfLHSTys) (pure tfRHSTy)
       pure (Just [tfInst])
 
     go (SigD methName methTy) =

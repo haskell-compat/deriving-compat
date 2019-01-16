@@ -35,14 +35,18 @@ deriveBounded :: Name -> Q [Dec]
 deriveBounded name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance BoundedClass parentName ctxt vars variant
+          <- buildTypeInstance BoundedClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                    (return instanceType)
                    (boundedFunDecs parentName cons)
@@ -74,16 +78,20 @@ makeBoundedFun :: BoundedFun -> Name -> Q Exp
 makeBoundedFun bf name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have minBound/maxBound
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance BoundedClass parentName ctxt vars variant
+      buildTypeInstance BoundedClass parentName ctxt instTypes variant
         >> makeBoundedFunForCons bf parentName cons
 
 -- | Generates a lambda expression for minBound/maxBound. for the

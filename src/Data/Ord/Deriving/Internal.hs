@@ -163,23 +163,27 @@ deriveOrdClass :: OrdClass -> Name -> Q [Dec]
 deriveOrdClass oClass name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance oClass parentName ctxt vars variant
+          <- buildTypeInstance oClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (ordFunDecs oClass vars cons)
+                             (ordFunDecs oClass instTypes cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (compare for Ord, liftCompare for Ord1, and
 -- liftCompare2 for Ord2).
 ordFunDecs :: OrdClass -> [Type] -> [ConstructorInfo] -> [Q Dec]
-ordFunDecs oClass vars cons =
+ordFunDecs oClass instTypes cons =
     map makeFunD $ ordClassToCompare oClass : otherFuns oClass cons
   where
     makeFunD :: OrdFun -> Q Dec
@@ -209,7 +213,7 @@ ordFunDecs oClass vars cons =
                                    , Ord1Compare1
 #endif
                                    ]
-                      = makeOrdFunForCons oFun vars cons
+                      = makeOrdFunForCons oFun instTypes cons
     dispatchFun OrdLE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` y `appE` x
     dispatchFun OrdGT = dispatchLT $ \lt x y ->              lt `appE` y `appE` x
     dispatchFun OrdGE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` x `appE` y
@@ -222,25 +226,29 @@ makeOrdFun :: OrdFun -> [Q Match] -> Name -> Q Exp
 makeOrdFun oFun matches name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       let oClass = ordFunToClass oFun
           others = otherFuns oClass cons
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have compare/liftCompare/etc.
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance oClass parentName ctxt vars variant >>
+      buildTypeInstance oClass parentName ctxt instTypes variant >>
         if oFun `elem` compareFuns || oFun `elem` others
-           then makeOrdFunForCons oFun vars cons
+           then makeOrdFunForCons oFun instTypes cons
            else do
              x <- newName "x"
              y <- newName "y"
              lamE [varP x, varP y] $
-                  caseE (makeOrdFunForCons (ordClassToCompare oClass) vars cons
+                  caseE (makeOrdFunForCons (ordClassToCompare oClass) instTypes cons
                              `appE` varE x `appE` varE y)
                         matches
   where
@@ -257,7 +265,7 @@ makeOrdFun oFun matches name = do
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
 makeOrdFunForCons :: OrdFun -> [Type] -> [ConstructorInfo] -> Q Exp
-makeOrdFunForCons oFun vars cons = do
+makeOrdFunForCons oFun instTypes cons = do
     let oClass = ordFunToClass oFun
     v1     <- newName "v1"
     v2     <- newName "v2"
@@ -266,7 +274,7 @@ makeOrdFunForCons oFun vars cons = do
     ords   <- newNameList "ord" $ arity oClass
 
     let lastTyVars :: [Name]
-        lastTyVars = map varTToName $ drop (length vars - fromEnum oClass) vars
+        lastTyVars = map varTToName $ drop (length instTypes - fromEnum oClass) instTypes
 
         tvMap :: TyVarMap1
         tvMap = Map.fromList $ zipWith (\x y -> (x, OneName y)) lastTyVars ords

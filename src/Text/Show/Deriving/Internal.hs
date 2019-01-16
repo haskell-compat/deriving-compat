@@ -271,26 +271,30 @@ deriveShowClass :: ShowClass -> ShowOptions -> Name -> Q [Dec]
 deriveShowClass sClass opts name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance sClass parentName ctxt vars variant
+          <- buildTypeInstance sClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (showsPrecDecs sClass opts vars cons)
+                             (showsPrecDecs sClass opts instTypes cons)
 
 -- | Generates a declaration defining the primary function corresponding to a
 -- particular class (showsPrec for Show, liftShowsPrec for Show1, and
 -- liftShowsPrec2 for Show2).
 showsPrecDecs :: ShowClass -> ShowOptions -> [Type] -> [ConstructorInfo] -> [Q Dec]
-showsPrecDecs sClass opts vars cons =
+showsPrecDecs sClass opts instTypes cons =
     [ funD (showsPrecName sClass)
            [ clause []
-                    (normalB $ makeShowForCons sClass opts vars cons)
+                    (normalB $ makeShowForCons sClass opts instTypes cons)
                     []
            ]
     ]
@@ -301,29 +305,33 @@ makeShowsPrecClass :: ShowClass -> ShowOptions -> Name -> Q Exp
 makeShowsPrecClass sClass opts name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have showsPrec/liftShowsPrec/etc.
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance sClass parentName ctxt vars variant
-        >> makeShowForCons sClass opts vars cons
+      buildTypeInstance sClass parentName ctxt instTypes variant
+        >> makeShowForCons sClass opts instTypes cons
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for the
 -- given constructors. All constructors must be from the same type.
 makeShowForCons :: ShowClass -> ShowOptions -> [Type] -> [ConstructorInfo] -> Q Exp
-makeShowForCons sClass opts vars cons = do
+makeShowForCons sClass opts instTypes cons = do
     p     <- newName "p"
     value <- newName "value"
     sps   <- newNameList "sp" $ arity sClass
     sls   <- newNameList "sl" $ arity sClass
     let spls       = zip sps sls
         _spsAndSls = interleave sps sls
-        lastTyVars = map varTToName $ drop (length vars - fromEnum sClass) vars
+        lastTyVars = map varTToName $ drop (length instTypes - fromEnum sClass) instTypes
         splMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars spls
 
         makeFun

@@ -120,7 +120,7 @@ library
   other-modules:       Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
-                     , th-abstraction      >= 0.2.9 && < 0.3
+                     , th-abstraction      >= 0.2.9 && < 0.4
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9   && < 5

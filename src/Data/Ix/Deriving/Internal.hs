@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 {-|
 Module:      Data.Ix.Deriving.Internal
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -34,14 +36,18 @@ deriveIx :: Name -> Q [Dec]
 deriveIx name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance IxClass parentName ctxt vars variant
+          <- buildTypeInstance IxClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
                              (ixFunDecs parentName instanceType cons)
@@ -82,13 +88,17 @@ makeIxFun :: IxFun -> Name -> Q Exp
 makeIxFun ixf name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
-      (_, instanceType) <- buildTypeInstance IxClass parentName ctxt vars variant
+      (_, instanceType) <- buildTypeInstance IxClass parentName ctxt instTypes variant
       makeIxFunForCons ixf parentName instanceType cons
 
 -- | Generates a lambda expression for an 'Ix' method for the

@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 {-|
 Module:      Data.Enum.Deriving.Internal
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -37,14 +39,18 @@ deriveEnum :: Name -> Q [Dec]
 deriveEnum name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance EnumClass parentName ctxt vars variant
+          <- buildTypeInstance EnumClass parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
                              (enumFunDecs parentName instanceType cons)
@@ -103,13 +109,17 @@ makeEnumFun :: EnumFun -> Name -> Q Exp
 makeEnumFun ef name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
-      (_, instanceType) <- buildTypeInstance EnumClass parentName ctxt vars variant
+      (_, instanceType) <- buildTypeInstance EnumClass parentName ctxt instTypes variant
       makeEnumFunForCons ef parentName instanceType cons
 
 -- | Generates a lambda expression for fromEnum/toEnum/etc. for the

@@ -217,17 +217,21 @@ deriveFunctorClass :: FunctorClass -> FFTOptions -> Name -> Q [Dec]
 deriveFunctorClass fc opts name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       (instanceCxt, instanceType)
-          <- buildTypeInstance fc parentName ctxt vars variant
+          <- buildTypeInstance fc parentName ctxt instTypes variant
       (:[]) `fmap` instanceD (return instanceCxt)
                              (return instanceType)
-                             (functorFunDecs fc opts parentName vars cons)
+                             (functorFunDecs fc opts parentName instTypes cons)
 
 -- | Generates a declaration defining the primary function(s) corresponding to a
 -- particular class (fmap for Functor, foldr and foldMap for Foldable, and
@@ -237,14 +241,14 @@ deriveFunctorClass fc opts name = do
 functorFunDecs
   :: FunctorClass -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
   -> [Q Dec]
-functorFunDecs fc opts parentName vars cons =
+functorFunDecs fc opts parentName instTypes cons =
   map makeFunD $ functorClassToFuns fc
   where
     makeFunD :: FunctorFun -> Q Dec
     makeFunD ff =
       funD (functorFunName ff)
            [ clause []
-                    (normalB $ makeFunctorFunForCons ff opts parentName vars cons)
+                    (normalB $ makeFunctorFunForCons ff opts parentName instTypes cons)
                     []
            ]
 
@@ -253,24 +257,28 @@ makeFunctorFun :: FunctorFun -> FFTOptions -> Name -> Q Exp
 makeFunctorFun ff opts name = do
   info <- reifyDatatype name
   case info of
-    DatatypeInfo { datatypeContext = ctxt
-                 , datatypeName    = parentName
-                 , datatypeVars    = vars
-                 , datatypeVariant = variant
-                 , datatypeCons    = cons
+    DatatypeInfo { datatypeContext   = ctxt
+                 , datatypeName      = parentName
+#if MIN_VERSION_th_abstraction(0,3,0)
+                 , datatypeInstTypes = instTypes
+#else
+                 , datatypeVars      = instTypes
+#endif
+                 , datatypeVariant   = variant
+                 , datatypeCons      = cons
                  } -> do
       -- We force buildTypeInstance here since it performs some checks for whether
       -- or not the provided datatype can actually have fmap/foldr/traverse/etc.
       -- implemented for it, and produces errors if it can't.
-      buildTypeInstance (functorFunToClass ff) parentName ctxt vars variant
-        >> makeFunctorFunForCons ff opts parentName vars cons
+      buildTypeInstance (functorFunToClass ff) parentName ctxt instTypes variant
+        >> makeFunctorFunForCons ff opts parentName instTypes cons
 
 -- | Generates a lambda expression for the given constructors.
 -- All constructors must be from the same type.
 makeFunctorFunForCons
   :: FunctorFun -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
   -> Q Exp
-makeFunctorFunForCons ff opts _parentName vars cons = do
+makeFunctorFunForCons ff opts _parentName instTypes cons = do
   argNames <- mapM newName $ catMaybes [ Just "f"
                                        , guard (ff == Foldr) >> Just "z"
                                        , Just "value"
@@ -279,7 +287,7 @@ makeFunctorFunForCons ff opts _parentName vars cons = do
       z         = head others -- If we're deriving foldr, this will be well defined
                               -- and useful. Otherwise, it'll be ignored.
       value     = last others
-      lastTyVar = varTToName $ last vars
+      lastTyVar = varTToName $ last instTypes
       tvMap     = Map.singleton lastTyVar $ OneName mapFun
   lamE (map varP argNames)
       . appsE
