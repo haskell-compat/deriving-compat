@@ -95,6 +95,7 @@ flag new-functor-classes
 
 library
   exposed-modules:     Data.Deriving
+                       Data.Deriving.Internal
 
                        Data.Bounded.Deriving
                        Data.Deriving.Via
@@ -108,9 +109,7 @@ library
                        Text.Read.Deriving
                        Text.Show.Deriving
 
-  other-modules:       Data.Deriving.Internal
-
-                       Data.Bounded.Deriving.Internal
+  other-modules:       Data.Bounded.Deriving.Internal
                        Data.Deriving.Via.Internal
                        Data.Enum.Deriving.Internal
                        Data.Eq.Deriving.Internal
