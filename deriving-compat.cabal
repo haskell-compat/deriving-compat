@@ -98,28 +98,26 @@ library
                        Data.Deriving.Internal
 
                        Data.Bounded.Deriving
+                       Data.Bounded.Deriving.Internal
                        Data.Deriving.Via
+                       Data.Deriving.Via.Internal
                        Data.Enum.Deriving
+                       Data.Enum.Deriving.Internal
                        Data.Eq.Deriving
+                       Data.Eq.Deriving.Internal
                        Data.Foldable.Deriving
+                       Data.Functor.Deriving.Internal
                        Data.Functor.Deriving
                        Data.Ix.Deriving
+                       Data.Ix.Deriving.Internal
                        Data.Ord.Deriving
+                       Data.Ord.Deriving.Internal
                        Data.Traversable.Deriving
                        Text.Read.Deriving
-                       Text.Show.Deriving
-
-  other-modules:       Data.Bounded.Deriving.Internal
-                       Data.Deriving.Via.Internal
-                       Data.Enum.Deriving.Internal
-                       Data.Eq.Deriving.Internal
-                       Data.Functor.Deriving.Internal
-                       Data.Ix.Deriving.Internal
-                       Data.Ord.Deriving.Internal
                        Text.Read.Deriving.Internal
+                       Text.Show.Deriving
                        Text.Show.Deriving.Internal
-
-                       Paths_deriving_compat
+  other-modules:       Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
                      , th-abstraction      >= 0.2.9 && < 0.3
