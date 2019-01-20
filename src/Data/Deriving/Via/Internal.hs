@@ -139,15 +139,15 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
   where
     go :: Dec -> Q (Maybe [Dec])
 
-    go (OpenTypeFamilyD (TypeFamilyHead tfName tfTvbs _ _)) =
+    go (OpenTypeFamilyD (TypeFamilyHead tfName tfTvbs _ _)) = do
       let lhsSubst = zipTvbSubst clsTvbs clsArgs
           rhsSubst = zipTvbSubst clsTvbs $ changeLast clsArgs repTy
           tfTvbTys = map tvbToType tfTvbs
           tfLHSTys = map (applySubstitution lhsSubst) tfTvbTys
           tfRHSTys = map (applySubstitution rhsSubst) tfTvbTys
           tfRHSTy  = applyTy (ConT tfName) tfRHSTys
-          tfInst   = TySynInstD tfName (TySynEqn tfLHSTys tfRHSTy)
-      in return (Just [tfInst])
+      tfInst <- tySynInstDCompat tfName (map pure tfLHSTys) (pure tfRHSTy)
+      pure (Just [tfInst])
 
     go (SigD methName methTy) =
       let (fromTy, toTy) = mkCoerceClassMethEqn clsTvbs clsArgs repTy $
