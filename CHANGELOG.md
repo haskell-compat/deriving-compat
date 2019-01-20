@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5.3 [2018.01.20]
 * Fix a bug in which `deriveEnum`/`deriveIx` would generate ill-scoped code
   for certain poly-kinded data types.
 
