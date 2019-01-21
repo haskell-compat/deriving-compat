@@ -19,6 +19,9 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Template Haskell-related utilities.
+
+Note: this is an internal module, and as such, the API presented here is not
+guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Deriving.Internal where
 

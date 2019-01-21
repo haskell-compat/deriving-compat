@@ -6,6 +6,9 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Ix' instances.
+
+Note: this is an internal module, and as such, the API presented here is not
+guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Ix.Deriving.Internal (
       -- * 'Ix'

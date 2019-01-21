@@ -9,6 +9,9 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Eq', 'Eq1', and 'Eq2' instances.
+
+Note: this is an internal module, and as such, the API presented here is not
+guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Eq.Deriving.Internal (
       -- * 'Eq'

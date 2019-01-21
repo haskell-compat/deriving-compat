@@ -13,6 +13,9 @@ exports functionality which emulates the @GeneralizedNewtypeDeriving@ and
 
 On older versions of @template-haskell@/GHC, this module does not export
 anything.
+
+Note: this is an internal module, and as such, the API presented here is not
+guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Deriving.Via.Internal where
 

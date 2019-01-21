@@ -11,6 +11,9 @@ The machinery needed to derive 'Foldable', 'Functor', and 'Traversable' instance
 
 For more info on how deriving @Functor@ works, see
 <https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/DeriveFunctor this GHC wiki page>.
+
+Note: this is an internal module, and as such, the API presented here is not
+guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Functor.Deriving.Internal (
       -- * 'Foldable'
