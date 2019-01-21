@@ -1,8 +1,9 @@
-### 0.5.3 [2018.01.20]
+### 0.5.4 [2019.01.21]
+* Expose `Internal` modules.
+
+### 0.5.3 [2019.01.20]
 * Fix a bug in which `deriveEnum`/`deriveIx` would generate ill-scoped code
   for certain poly-kinded data types.
-  
-* Expose `Internal` modules
 
 ### 0.5.2 [2018.09.13]
 * Fix a bug (on GHC 8.7 and above) in which `deriveGND`/`deriveVia` would
