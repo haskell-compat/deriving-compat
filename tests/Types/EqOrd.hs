@@ -22,7 +22,11 @@ import Data.Functor.Classes (Eq1(..), Ord1(..))
 #endif
 import Data.Deriving
 
-import GHC.Exts (Addr#, Char#, Double#, Float#, Int#, Word#)
+import GHC.Exts ( Addr#, Char#, Double#, Float#, Int#, Word#
+#if MIN_VERSION_base(4,13,0)
+                , Int8#, Int16#, Word8#, Word16#
+#endif
+                )
 
 -- Plain data types
 
@@ -50,6 +54,12 @@ data TyCon# a b = TyCon# {
   , tcDouble# :: Double#
   , tcChar#   :: Char#
   , tcWord#   :: Word#
+#if MIN_VERSION_base(4,13,0)
+  , tcInt8#   :: Int8#
+  , tcInt16#  :: Int16#
+  , tcWord8#  :: Word8#
+  , tcWord16# :: Word16#
+#endif
 }
 
 data TyCon2 a b c d where
@@ -100,6 +110,12 @@ data instance TyFamily# a b = TyFamily# {
   , tfDouble# :: Double#
   , tfChar#   :: Char#
   , tfWord#   :: Word#
+#if MIN_VERSION_base(4,13,0)
+  , tfInt8#   :: Int8#
+  , tfInt16#  :: Int16#
+  , tfWord8#  :: Word8#
+  , tfWord16# :: Word16#
+#endif
 }
 
 data family TyFamily2 w x y z :: *

@@ -1076,6 +1076,72 @@ tag2ConExpr ty = do
             tvbs' = go tvbsAndFVs
 #endif
 
+primOrdFunTbl :: Map Name (Name, Name, Name, Name, Name)
+primOrdFunTbl = Map.fromList
+    [ (addrHashTypeName,   ( ltAddrHashValName
+                           , leAddrHashValName
+                           , eqAddrHashValName
+                           , geAddrHashValName
+                           , gtAddrHashValName
+                           ))
+    , (charHashTypeName,   ( ltCharHashValName
+                           , leCharHashValName
+                           , eqCharHashValName
+                           , geCharHashValName
+                           , gtCharHashValName
+                           ))
+    , (doubleHashTypeName, ( ltDoubleHashValName
+                           , leDoubleHashValName
+                           , eqDoubleHashValName
+                           , geDoubleHashValName
+                           , gtDoubleHashValName
+                           ))
+    , (floatHashTypeName,  ( ltFloatHashValName
+                           , leFloatHashValName
+                           , eqFloatHashValName
+                           , geFloatHashValName
+                           , gtFloatHashValName
+                           ))
+    , (intHashTypeName,    ( ltIntHashValName
+                           , leIntHashValName
+                           , eqIntHashValName
+                           , geIntHashValName
+                           , gtIntHashValName
+                           ))
+    , (wordHashTypeName,   ( ltWordHashValName
+                           , leWordHashValName
+                           , eqWordHashValName
+                           , geWordHashValName
+                           , gtWordHashValName
+                           ))
+#if MIN_VERSION_base(4,13,0)
+    , (int8HashTypeName,   ( ltInt8HashValName
+                           , leInt8HashValName
+                           , eqInt8HashValName
+                           , geInt8HashValName
+                           , gtInt8HashValName
+                           ))
+    , (int16HashTypeName,  ( ltInt16HashValName
+                           , leInt16HashValName
+                           , eqInt16HashValName
+                           , geInt16HashValName
+                           , gtInt16HashValName
+                           ))
+    , (word8HashTypeName,  ( ltWord8HashValName
+                           , leWord8HashValName
+                           , eqWord8HashValName
+                           , geWord8HashValName
+                           , gtWord8HashValName
+                           ))
+    , (word16HashTypeName, ( ltWord16HashValName
+                           , leWord16HashValName
+                           , eqWord16HashValName
+                           , geWord16HashValName
+                           , gtWord16HashValName
+                           ))
+#endif
+    ]
+
 removeClassApp :: Type -> Type
 removeClassApp (AppT _ t2) = t2
 removeClassApp t           = t
@@ -2037,4 +2103,90 @@ readSymField fieldName readVal = do
 
 readSymFieldValName :: Name
 readSymFieldValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readSymField"
+#endif
+
+#if MIN_VERSION_base(4,13,0)
+eqInt8HashValName :: Name
+eqInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt8#"
+
+eqInt16HashValName :: Name
+eqInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt16#"
+
+eqWord8HashValName :: Name
+eqWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord8#"
+
+eqWord16HashValName :: Name
+eqWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord16#"
+
+extendInt8HashValName :: Name
+extendInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendInt8#"
+
+extendInt16HashValName :: Name
+extendInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendInt16#"
+
+extendWord8HashValName :: Name
+extendWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendWord8#"
+
+extendWord16HashValName :: Name
+extendWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendWord16#"
+
+geInt8HashValName :: Name
+geInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt8#"
+
+geInt16HashValName :: Name
+geInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt16#"
+
+geWord8HashValName :: Name
+geWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord8#"
+
+geWord16HashValName :: Name
+geWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord16#"
+
+gtInt8HashValName :: Name
+gtInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt8#"
+
+gtInt16HashValName :: Name
+gtInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt16#"
+
+gtWord8HashValName :: Name
+gtWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord8#"
+
+gtWord16HashValName :: Name
+gtWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord16#"
+
+int8HashTypeName :: Name
+int8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int8#"
+
+int16HashTypeName :: Name
+int16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int16#"
+
+leInt8HashValName :: Name
+leInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt8#"
+
+leInt16HashValName :: Name
+leInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt16#"
+
+leWord8HashValName :: Name
+leWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord8#"
+
+leWord16HashValName :: Name
+leWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord16#"
+
+ltInt8HashValName :: Name
+ltInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt8#"
+
+ltInt16HashValName :: Name
+ltInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt16#"
+
+ltWord8HashValName :: Name
+ltWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord8#"
+
+ltWord16HashValName :: Name
+ltWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord16#"
+
+word8HashTypeName :: Name
+word8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word8#"
+
+word16HashTypeName :: Name
+word16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word16#"
 #endif

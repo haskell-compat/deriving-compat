@@ -1,5 +1,5 @@
 name:                deriving-compat
-version:             0.5.5
+version:             0.5.6
 synopsis:            Backports of GHC deriving extensions
 description:         Provides Template Haskell functions that mimic deriving
                      extensions that were introduced or modified in recent versions
@@ -130,7 +130,7 @@ library
     build-depends:     base                >= 4.3   && < 4.9
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.15
+    build-depends:     template-haskell    >= 2.11  && < 2.16
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5   && < 2.11
@@ -167,7 +167,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2     && < 3
                      , tagged              >= 0.7   && < 1
-                     , template-haskell    >= 2.5   && < 2.15
+                     , template-haskell    >= 2.5   && < 2.16
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   if flag(base-4-9)

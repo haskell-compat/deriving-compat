@@ -268,14 +268,10 @@ makeCaseForArg _ _ _ (ConT tyName) a b = primEqExpr
     makePrimEqExpr n = primOpAppExpr aExpr n bExpr
 
     primEqExpr :: Q Exp
-    primEqExpr
-      | tyName == addrHashTypeName   = makePrimEqExpr eqAddrHashValName
-      | tyName == charHashTypeName   = makePrimEqExpr eqCharHashValName
-      | tyName == doubleHashTypeName = makePrimEqExpr eqDoubleHashValName
-      | tyName == floatHashTypeName  = makePrimEqExpr eqFloatHashValName
-      | tyName == intHashTypeName    = makePrimEqExpr eqIntHashValName
-      | tyName == wordHashTypeName   = makePrimEqExpr eqWordHashValName
-      | otherwise = infixApp aExpr (varE eqValName) bExpr
+    primEqExpr =
+      case Map.lookup tyName primOrdFunTbl of
+        Just (_, _, eq, _, _) -> makePrimEqExpr eq
+        Nothing               -> infixApp aExpr (varE eqValName) bExpr
 makeCaseForArg eClass tvMap conName ty a b =
     makeCaseForType eClass tvMap conName ty `appE` varE a `appE` varE b
 

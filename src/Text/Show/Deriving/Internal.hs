@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-|
 Module:      Text.Show.Deriving.Internal
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -53,6 +54,7 @@ module Text.Show.Deriving.Internal (
 import           Data.Deriving.Internal
 import           Data.List
 import qualified Data.Map as Map
+import           Data.Map (Map)
 import           Data.Maybe (fromMaybe)
 
 import           GHC.Show (appPrec, appPrec1)
@@ -501,27 +503,24 @@ makeShowForArg p _ opts _ _ (ConT tyName) tyExpName =
     tyVarE = varE tyExpName
 
     showE :: Q Exp
-    showE | tyName == charHashTypeName   = showPrimE cHashDataName oneHashE
-          | tyName == doubleHashTypeName = showPrimE dHashDataName twoHashE
-          | tyName == floatHashTypeName  = showPrimE fHashDataName oneHashE
-          | tyName == intHashTypeName    = showPrimE iHashDataName oneHashE
-          | tyName == wordHashTypeName   = showPrimE wHashDataName twoHashE
-          | otherwise = varE showsPrecValName `appE` integerE p `appE` tyVarE
+    showE =
+      case Map.lookup tyName primShowTbl of
+        Just ps -> showPrimE ps
+        Nothing -> varE showsPrecValName `appE` integerE p `appE` tyVarE
 
-    -- Starting with GHC 7.10, data types containing unlifted types with derived Show
-    -- instances show hashed literals with actual hash signs, and negative hashed
-    -- literals are not surrounded with parentheses.
-    showPrimE :: Name -> Q Exp -> Q Exp
-    showPrimE con hashE
+    showPrimE :: PrimShow -> Q Exp
+    showPrimE PrimShow{primShowBoxer, primShowPostfixMod, primShowConv}
+        -- Starting with GHC 8.0, data types containing unlifted types with
+        -- derived Show instances show hashed literals with actual hash signs,
+        -- and negative hashed literals are not surrounded with parentheses.
       | ghc8ShowBehavior opts
-      = infixApp (varE showsPrecValName `appE` integerE 0 `appE` (conE con `appE` tyVarE))
-                 (varE composeValName)
-                 hashE
-      | otherwise = varE showsPrecValName `appE` integerE p `appE` (conE con `appE` tyVarE)
-
-    oneHashE, twoHashE :: Q Exp
-    oneHashE = varE showCharValName `appE` charE '#'
-    twoHashE = varE showStringValName `appE` stringE "##"
+      = primShowConv $ infixApp (primE 0) (varE composeValName) primShowPostfixMod
+      | otherwise
+      = primE p
+      where
+        primE :: Int -> Q Exp
+        primE prec = varE showsPrecValName `appE` integerE prec
+                                           `appE` primShowBoxer tyVarE
 makeShowForArg p sClass _ conName tvMap ty tyExpName =
     makeShowForType sClass conName tvMap False ty `appE` integerE p `appE` varE tyExpName
 
@@ -665,3 +664,74 @@ parenInfixConName conName =
 
 charE :: Char -> Q Exp
 charE = litE . charL
+
+data PrimShow = PrimShow
+  { primShowBoxer      :: Q Exp -> Q Exp
+  , primShowPostfixMod :: Q Exp
+  , primShowConv       :: Q Exp -> Q Exp
+  }
+
+primShowTbl :: Map Name PrimShow
+primShowTbl = Map.fromList
+    [ (charHashTypeName,   PrimShow
+                             { primShowBoxer      = appE (conE cHashDataName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = id
+                             })
+    , (doubleHashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE dHashDataName)
+                             , primShowPostfixMod = twoHashE
+                             , primShowConv       = id
+                             })
+    , (floatHashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE fHashDataName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = id
+                             })
+    , (intHashTypeName,    PrimShow
+                             { primShowBoxer      = appE (conE iHashDataName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = id
+                             })
+    , (wordHashTypeName,   PrimShow
+                             { primShowBoxer      = appE (conE wHashDataName)
+                             , primShowPostfixMod = twoHashE
+                             , primShowConv       = id
+                             })
+#if MIN_VERSION_base(4,13,0)
+    , (int8HashTypeName,   PrimShow
+                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE extendInt8HashValName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = mkNarrowE "narrowInt8#"
+                             })
+    , (int16HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE extendInt16HashValName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = mkNarrowE "narrowInt16#"
+                             })
+    , (word8HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE extendWord8HashValName)
+                             , primShowPostfixMod = twoHashE
+                             , primShowConv       = mkNarrowE "narrowWord8#"
+                             })
+    , (word16HashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE extendWord16HashValName)
+                             , primShowPostfixMod = twoHashE
+                             , primShowConv       = mkNarrowE "narrowWord16#"
+                             })
+#endif
+    ]
+
+#if MIN_VERSION_base(4,13,0)
+mkNarrowE :: String -> Q Exp -> Q Exp
+mkNarrowE narrowStr e =
+  foldr (`infixApp` varE composeValName)
+        (varE showCharValName `appE` charE ')')
+        [ varE showStringValName `appE` stringE ('(':narrowStr ++ " ")
+        , e
+        ]
+#endif
+
+oneHashE, twoHashE :: Q Exp
+oneHashE = varE showCharValName `appE` charE '#'
+twoHashE = varE showStringValName `appE` stringE "##"

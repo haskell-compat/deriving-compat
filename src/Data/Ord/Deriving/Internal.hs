@@ -40,7 +40,6 @@ module Data.Ord.Deriving.Internal (
 import           Data.Deriving.Internal
 import           Data.List (partition)
 import qualified Data.Map as Map
-import           Data.Maybe (isJust)
 
 import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
@@ -688,52 +687,13 @@ unliftedCompare ltFun eqFun aExpr bExpr lt eq gt =
     ascribeBool e = sigE e $ conT boolTypeName
 
 primOrdFuns :: Name -> (Name, Name, Name, Name, Name)
-primOrdFuns tyName = case lookup tyName primOrdFunTbl of
+primOrdFuns tyName =
+  case Map.lookup tyName primOrdFunTbl of
     Just names -> names
     Nothing    -> error $ nameBase tyName ++ " is not supported."
 
-primOrdFunTbl :: [(Name, (Name, Name, Name, Name, Name))]
-primOrdFunTbl =
-    [ (addrHashTypeName,   ( ltAddrHashValName
-                           , leAddrHashValName
-                           , eqAddrHashValName
-                           , geAddrHashValName
-                           , gtAddrHashValName
-                           ))
-    , (charHashTypeName,   ( ltCharHashValName
-                           , leCharHashValName
-                           , eqCharHashValName
-                           , geCharHashValName
-                           , gtCharHashValName
-                           ))
-    , (doubleHashTypeName, ( ltDoubleHashValName
-                           , leDoubleHashValName
-                           , eqDoubleHashValName
-                           , geDoubleHashValName
-                           , gtDoubleHashValName
-                           ))
-    , (floatHashTypeName,  ( ltFloatHashValName
-                           , leFloatHashValName
-                           , eqFloatHashValName
-                           , geFloatHashValName
-                           , gtFloatHashValName
-                           ))
-    , (intHashTypeName,    ( ltIntHashValName
-                           , leIntHashValName
-                           , eqIntHashValName
-                           , geIntHashValName
-                           , gtIntHashValName
-                           ))
-    , (wordHashTypeName,   ( ltWordHashValName
-                           , leWordHashValName
-                           , eqWordHashValName
-                           , geWordHashValName
-                           , gtWordHashValName
-                           ))
-    ]
-
 isSupportedUnliftedType :: Type -> Bool
-isSupportedUnliftedType (ConT tyName) = isJust $ lookup tyName primOrdFunTbl
+isSupportedUnliftedType (ConT tyName) = Map.member tyName primOrdFunTbl
 isSupportedUnliftedType _             = False
 
 isSingleton :: [a] -> Bool
