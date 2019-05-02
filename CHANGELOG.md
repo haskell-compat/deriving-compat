@@ -1,4 +1,4 @@
-### 0.5.6 [????.??.??]
+### 0.5.6 [2019.05.02]
 * Support deriving `Eq`, `Ord`, and `Show` instances for data types with fields
   of type `Int8#`, `Int16#`, `Word8#`, or `Word16#` on GHC 8.8 or later.
 
