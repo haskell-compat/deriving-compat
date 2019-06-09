@@ -37,11 +37,7 @@ deriveBounded name = do
   case info of
     DatatypeInfo { datatypeContext   = ctxt
                  , datatypeName      = parentName
-#if MIN_VERSION_th_abstraction(0,3,0)
                  , datatypeInstTypes = instTypes
-#else
-                 , datatypeVars      = instTypes
-#endif
                  , datatypeVariant   = variant
                  , datatypeCons      = cons
                  } -> do
@@ -80,11 +76,7 @@ makeBoundedFun bf name = do
   case info of
     DatatypeInfo { datatypeContext   = ctxt
                  , datatypeName      = parentName
-#if MIN_VERSION_th_abstraction(0,3,0)
                  , datatypeInstTypes = instTypes
-#else
-                 , datatypeVars      = instTypes
-#endif
                  , datatypeVariant   = variant
                  , datatypeCons      = cons
                  } -> do

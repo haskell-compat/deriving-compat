@@ -110,11 +110,7 @@ deriveViaDecs instanceTy mbViaTy = do
                     case dataTy of
                       ConT dataName -> do
                         DatatypeInfo {
-#if MIN_VERSION_th_abstraction(0,3,0)
                                        datatypeInstTypes = dataInstTypes
-#else
-                                       datatypeVars      = dataInstTypes
-#endif
                                      , datatypeVariant   = dv
                                      , datatypeCons      = cons
                                      } <- reifyDatatype dataName
@@ -154,10 +150,7 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
           tfLHSTys = map (applySubstitution lhsSubst) tfTvbTys
           tfRHSTys = map (applySubstitution rhsSubst) tfTvbTys
           tfRHSTy  = applyTy (ConT tfName) tfRHSTys
-      tfInst <- tySynInstDCompat tfName
-#if MIN_VERSION_th_abstraction(0,3,0)
-                                 Nothing
-#endif
+      tfInst <- tySynInstDCompat tfName Nothing
                                  (map pure tfLHSTys) (pure tfRHSTy)
       pure (Just [tfInst])
 
