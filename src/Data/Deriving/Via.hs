@@ -54,6 +54,8 @@ Be aware of the following potential gotchas:
 
     * @TypeApplications@
 
+    * @TypeOperators@
+
     * @UndecidableInstances@ (if deriving an instance of a type class with
       associated type families)
 
