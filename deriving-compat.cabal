@@ -158,6 +158,7 @@ test-suite spec
                        ShowSpec
                        GH6Spec
                        GH24Spec
+                       GH27Spec
 
                        Types.EqOrd
                        Types.ReadShow
