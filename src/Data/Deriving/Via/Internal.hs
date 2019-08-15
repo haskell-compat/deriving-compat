@@ -45,11 +45,12 @@ $('deriveGND' [t| forall a. 'Eq' a => 'Eq' (Foo a) |])
 deriveGND :: Q Type -> Q [Dec]
 deriveGND qty = do
   ty <- qty
-  let (instanceCxt, instanceTy) = decomposeType ty
+  let (instanceTvbs, instanceCxt, instanceTy) = decomposeType ty
   instanceTy' <- (resolveTypeSynonyms <=< resolveInfixT) instanceTy
   decs <- deriveViaDecs instanceTy' Nothing
-  (:[]) `fmap` instanceD (return instanceCxt)
-                         (return instanceTy)
+  let instanceHeader = ForallT instanceTvbs instanceCxt instanceTy
+  (:[]) `fmap` instanceD (return [])
+                         (return instanceHeader)
                          (map return decs)
 
 {- | Generates an instance for a type class by emulating the behavior of the
@@ -69,7 +70,7 @@ correctly across all the types being used (e.g., to make sure that the same
 deriveVia :: Q Type -> Q [Dec]
 deriveVia qty = do
   ty <- qty
-  let (instanceCxt, viaApp) = decomposeType ty
+  let (instanceTvbs, instanceCxt, viaApp) = decomposeType ty
   viaApp' <- (resolveTypeSynonyms <=< resolveInfixT) viaApp
   (instanceTy, viaTy)
     <- case unapplyTy viaApp' of
@@ -82,8 +83,9 @@ deriveVia qty = do
                 , "\t[t| forall a. C (T a) `Via` V a |]"
                 ]
   decs <- deriveViaDecs instanceTy (Just viaTy)
-  (:[]) `fmap` instanceD (return instanceCxt)
-                         (return instanceTy)
+  let instanceHeader = ForallT instanceTvbs instanceCxt instanceTy
+  (:[]) `fmap` instanceD (return [])
+                         (return instanceHeader)
                          (map return decs)
 
 deriveViaDecs :: Type       -- ^ The instance head (e.g., @Eq (Foo a)@)
@@ -197,9 +199,9 @@ stripOuterForallT (ForallT _ _ ty) = ty
 #endif
 stripOuterForallT ty               = ty
 
-decomposeType :: Type -> (Cxt, Type)
-decomposeType (ForallT _ ctxt ty) = (ctxt, ty)
-decomposeType ty                  = ([],   ty)
+decomposeType :: Type -> ([TyVarBndr], Cxt, Type)
+decomposeType (ForallT tvbs ctxt ty) = (tvbs, ctxt, ty)
+decomposeType ty                     = ([],   [],   ty)
 
 newtypeRepType :: DatatypeVariant -> [ConstructorInfo] -> Maybe Type
 newtypeRepType dv cons = do
