@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5.7 [2019.08.27]
 * Permit `deriveVia` to use "floating" `via` type variables, such as the `a`
   in:
 
