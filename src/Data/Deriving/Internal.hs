@@ -1228,6 +1228,14 @@ derivingCompatPackageKey = CURRENT_PACKAGE_KEY
 derivingCompatPackageKey = "deriving-compat-" ++ showVersion version
 #endif
 
+gHC_IX :: String
+-- TODO: Use MIN_VERSION_base(4,14,0) when it's available
+#if __GLASGOW_HASKELL__ >= 809
+gHC_IX = "GHC.Ix"
+#else
+gHC_IX = "GHC.Arr"
+#endif
+
 mkDerivingCompatName_v :: String -> Name
 mkDerivingCompatName_v = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal"
 
@@ -1367,7 +1375,7 @@ intHashTypeName :: Name
 intHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int#"
 
 ixTypeName :: Name
-ixTypeName = mkNameG_tc "base" "GHC.Arr" "Ix"
+ixTypeName = mkNameG_tc "base" gHC_IX "Ix"
 
 readTypeName :: Name
 readTypeName = mkNameG_tc "base" "GHC.Read" "Read"
@@ -1490,10 +1498,10 @@ idValName :: Name
 idValName = mkNameG_v "base" "GHC.Base" "id"
 
 indexValName :: Name
-indexValName = mkNameG_v "base" "GHC.Arr" "index"
+indexValName = mkNameG_v "base" gHC_IX "index"
 
 inRangeValName :: Name
-inRangeValName = mkNameG_v "base" "GHC.Arr" "inRange"
+inRangeValName = mkNameG_v "base" gHC_IX "inRange"
 
 leAddrHashValName :: Name
 leAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leAddr#"
@@ -1583,10 +1591,10 @@ predValName :: Name
 predValName = mkNameG_v "base" "GHC.Enum" "pred"
 
 rangeSizeValName :: Name
-rangeSizeValName = mkNameG_v "base" "GHC.Arr" "rangeSize"
+rangeSizeValName = mkNameG_v "base" gHC_IX "rangeSize"
 
 rangeValName :: Name
-rangeValName = mkNameG_v "base" "GHC.Arr" "range"
+rangeValName = mkNameG_v "base" gHC_IX "range"
 
 readFieldHash :: String -> ReadPrec a -> ReadPrec a
 readFieldHash fieldName readVal = do
@@ -1669,10 +1677,10 @@ traverseValName :: Name
 traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
 
 unsafeIndexValName :: Name
-unsafeIndexValName = mkNameG_v "base" "GHC.Arr" "unsafeIndex"
+unsafeIndexValName = mkNameG_v "base" gHC_IX "unsafeIndex"
 
 unsafeRangeSizeValName :: Name
-unsafeRangeSizeValName = mkNameG_v "base" "GHC.Arr" "unsafeRangeSize"
+unsafeRangeSizeValName = mkNameG_v "base" gHC_IX "unsafeRangeSize"
 
 unwrapMonadValName :: Name
 unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"
