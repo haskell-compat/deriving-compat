@@ -1229,8 +1229,7 @@ derivingCompatPackageKey = "deriving-compat-" ++ showVersion version
 #endif
 
 gHC_IX :: String
--- TODO: Use MIN_VERSION_base(4,14,0) when it's available
-#if __GLASGOW_HASKELL__ >= 809
+#if MIN_VERSION_base(4,14,0)
 gHC_IX = "GHC.Ix"
 #else
 gHC_IX = "GHC.Arr"
