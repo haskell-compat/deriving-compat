@@ -271,14 +271,13 @@ makeFunctorFunForCons
   :: FunctorFun -> FFTOptions -> Name -> [Type] -> [ConstructorInfo]
   -> Q Exp
 makeFunctorFunForCons ff opts _parentName instTypes cons = do
-  argNames <- mapM newName $ catMaybes [ Just "f"
-                                       , guard (ff == Foldr) >> Just "z"
-                                       , Just "value"
-                                       ]
-  let mapFun:others = argNames
-      z         = head others -- If we're deriving foldr, this will be well defined
-                              -- and useful. Otherwise, it'll be ignored.
-      value     = last others
+  mapFun <- newName "f"
+  z      <- newName "z" -- Only used for deriving foldr
+  value  <- newName "value"
+  let argNames  = catMaybes [ Just mapFun
+                            , guard (ff == Foldr) >> Just z
+                            , Just value
+                            ]
       lastTyVar = varTToName $ last instTypes
       tvMap     = Map.singleton lastTyVar $ OneName mapFun
   lamE (map varP argNames)
@@ -384,7 +383,7 @@ makeFunctorFunForType ff tvMap conName covariant (ForallT _ _ ty) =
 makeFunctorFunForType ff tvMap conName covariant ty =
   let tyCon  :: Type
       tyArgs :: [Type]
-      tyCon:tyArgs = unapplyTy ty
+      (tyCon, tyArgs) = unapplyTy ty
 
       numLastArgs :: Int
       numLastArgs = min 1 $ length tyArgs

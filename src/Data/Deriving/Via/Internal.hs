@@ -74,7 +74,7 @@ deriveVia qty = do
   viaApp' <- (resolveTypeSynonyms <=< resolveInfixT) viaApp
   (instanceTy, viaTy)
     <- case unapplyTy viaApp' of
-         [via,instanceTy,viaTy]
+         (via, [instanceTy,viaTy])
            | via == ConT viaTypeName
           -> return (instanceTy, viaTy)
          _ -> fail $ unlines
@@ -93,7 +93,7 @@ deriveViaDecs :: Type       -- ^ The instance head (e.g., @Eq (Foo a)@)
                             --   If using 'deriveVia', this is 'Just' the @via@ type.
               -> Q [Dec]
 deriveViaDecs instanceTy mbViaTy = do
-  let (clsTy:clsArgs) = unapplyTy instanceTy
+  let (clsTy, clsArgs) = unapplyTy instanceTy
   case clsTy of
     ConT clsName -> do
       clsInfo <- reify clsName
@@ -101,7 +101,7 @@ deriveViaDecs instanceTy mbViaTy = do
         ClassI (ClassD _ _ clsTvbs _ clsDecs) _ ->
           case (unsnoc clsArgs, unsnoc clsTvbs) of
             (Just (_, dataApp), Just (_, clsLastTvb)) -> do
-              let (dataTy:dataArgs)  = unapplyTy dataApp
+              let (dataTy, dataArgs) = unapplyTy dataApp
                   clsLastTvbKind     = tvbKind clsLastTvb
                   (_, kindList)      = uncurryTy clsLastTvbKind
                   numArgsToEtaReduce = length kindList - 1
@@ -221,7 +221,7 @@ newtypeRepType dv cons = do
 
 etaReduce :: Int -> Type -> Maybe Type
 etaReduce num ty =
-  let (tyHead:tyArgs) = unapplyTy ty
+  let (tyHead, tyArgs) = unapplyTy ty
       (tyArgsRemaining, tyArgsDropped) = splitAt (length tyArgs - num) tyArgs
   in if canEtaReduce tyArgsRemaining tyArgsDropped
         then Just $ applyTy tyHead tyArgsRemaining

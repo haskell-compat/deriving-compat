@@ -544,7 +544,7 @@ makeShowForType sClass conName tvMap sl (ForallT _ _ ty) = makeShowForType sClas
 makeShowForType sClass conName tvMap sl ty = do
     let tyCon :: Type
         tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy ty
+        (tyCon, tyArgs) = unapplyTy ty
 
         numLastArgs :: Int
         numLastArgs = min (arity sClass) (length tyArgs)

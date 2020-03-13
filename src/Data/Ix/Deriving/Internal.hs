@@ -145,7 +145,7 @@ makeIxFunForCons ixf tyName ty cons
 
     | otherwise -- It's a product type
     = do let con :: ConstructorInfo
-             [con] = cons
+             con = head cons
 
              conName :: Name
              conName = constructorName con

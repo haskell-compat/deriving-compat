@@ -676,7 +676,7 @@ makeReadForType rClass urp tvMap conName tyExpName rl (ForallT _ _ ty) =
 makeReadForType rClass urp tvMap conName tyExpName rl ty = do
     let tyCon :: Type
         tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy ty
+        (tyCon, tyArgs) = unapplyTy ty
 
         numLastArgs :: Int
         numLastArgs = min (arity rClass) (length tyArgs)

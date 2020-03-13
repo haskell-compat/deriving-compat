@@ -441,7 +441,7 @@ makeOrdFunForType oFun tvMap conName ty = do
 
         tyCon :: Type
         tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy ty
+        (tyCon, tyArgs) = unapplyTy ty
 
         numLastArgs :: Int
         numLastArgs = min (arity oClass) (length tyArgs)

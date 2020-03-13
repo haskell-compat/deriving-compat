@@ -286,7 +286,7 @@ makeCaseForType eClass tvMap conName (ForallT _ _ ty) = makeCaseForType eClass t
 makeCaseForType eClass tvMap conName ty = do
     let tyCon :: Type
         tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy ty
+        (tyCon, tyArgs) = unapplyTy ty
 
         numLastArgs :: Int
         numLastArgs = min (arity eClass) (length tyArgs)
