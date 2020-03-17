@@ -297,7 +297,7 @@ makeCaseForType eClass tvMap conName ty = do
         tyVarNames :: [Name]
         tyVarNames = Map.keys tvMap
 
-    itf <- isTyFamily tyCon
+    itf <- isInTypeFamilyApp tyVarNames tyCon tyArgs
     if any (`mentionsName` tyVarNames) lhsArgs
           || itf && any (`mentionsName` tyVarNames) tyArgs
        then outOfPlaceTyVarError eClass conName

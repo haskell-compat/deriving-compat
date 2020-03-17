@@ -670,21 +670,6 @@ isTrue# x = x
 #endif
 {-# INLINE isTrue# #-}
 
--- isRight and fromEither taken from the extra package (BSD3-licensed)
-
--- | Test if an 'Either' value is the 'Right' constructor.
---   Provided as standard with GHC 7.8 and above.
-isRight :: Either l r -> Bool
-isRight Right{} = True; isRight _ = False
-
--- | Pull the value out of an 'Either' where both alternatives
---   have the same type.
---
--- > \x -> fromEither (Left x ) == x
--- > \x -> fromEither (Right x) == x
-fromEither :: Either a a -> a
-fromEither = either id id
-
 -- filterByList, filterByLists, and partitionByList taken from GHC (BSD3-licensed)
 
 -- | 'filterByList' takes a list of Bools and a list of some elements and
@@ -725,15 +710,6 @@ partitionByList = go [] []
     go trues falses (True  : bs) (x : xs) = go (x:trues) falses bs xs
     go trues falses (False : bs) (x : xs) = go trues (x:falses) bs xs
     go trues falses _ _ = (reverse trues, reverse falses)
-
--- | Apply an @Either Exp Exp@ expression to an 'Exp' expression,
--- preserving the 'Either'-ness.
-appEitherE :: Q (Either Exp Exp) -> Q Exp -> Q (Either Exp Exp)
-appEitherE e1Q e2Q = do
-    e2 <- e2Q
-    let e2' :: Exp -> Exp
-        e2' = (`AppE` e2)
-    either (Left . e2') (Right . e2') `fmap` e1Q
 
 integerE :: Int -> Q Exp
 integerE = litE . integerL . fromIntegral
@@ -903,23 +879,52 @@ isTyVar (VarT _)   = True
 isTyVar (SigT t _) = isTyVar t
 isTyVar _          = False
 
--- | Is the given type a type family constructor (and not a data family constructor)?
-isTyFamily :: Type -> Q Bool
-isTyFamily (ConT n) = do
-    info <- reify n
-    return $ case info of
+-- | Detect if a Name in a list of provided Names occurs as an argument to some
+-- type family. This makes an effort to exclude /oversaturated/ arguments to
+-- type families. For instance, if one declared the following type family:
+--
+-- @
+-- type family F a :: Type -> Type
+-- @
+--
+-- Then in the type @F a b@, we would consider @a@ to be an argument to @F@,
+-- but not @b@.
+isInTypeFamilyApp :: [Name] -> Type -> [Type] -> Q Bool
+isInTypeFamilyApp names tyFun tyArgs =
+  case tyFun of
+    ConT tcName -> go tcName
+    _           -> return False
+  where
+    go :: Name -> Q Bool
+    go tcName = do
+      info <- reify tcName
+      case info of
 #if MIN_VERSION_template_haskell(2,11,0)
-         FamilyI OpenTypeFamilyD{} _       -> True
+        FamilyI (OpenTypeFamilyD (TypeFamilyHead _ bndrs _ _)) _
+          -> withinFirstArgs bndrs
 #elif MIN_VERSION_template_haskell(2,7,0)
-         FamilyI (FamilyD TypeFam _ _ _) _ -> True
+        FamilyI (FamilyD TypeFam _ bndrs _) _
+          -> withinFirstArgs bndrs
 #else
-         TyConI  (FamilyD TypeFam _ _ _)   -> True
+        TyConI (FamilyD TypeFam _ bndrs _)
+          -> withinFirstArgs bndrs
 #endif
-#if MIN_VERSION_template_haskell(2,9,0)
-         FamilyI ClosedTypeFamilyD{} _     -> True
+
+#if MIN_VERSION_template_haskell(2,11,0)
+        FamilyI (ClosedTypeFamilyD (TypeFamilyHead _ bndrs _ _) _) _
+          -> withinFirstArgs bndrs
+#elif MIN_VERSION_template_haskell(2,9,0)
+        FamilyI (ClosedTypeFamilyD _ bndrs _ _) _
+          -> withinFirstArgs bndrs
 #endif
-         _ -> False
-isTyFamily _ = return False
+
+        _ -> return False
+      where
+        withinFirstArgs :: [a] -> Q Bool
+        withinFirstArgs bndrs =
+          let firstArgs = take (length bndrs) tyArgs
+              argFVs    = freeVariables firstArgs
+          in return $ any (`elem` argFVs) names
 
 -- | Are all of the items in a list (which have an ordering) distinct?
 --
@@ -1795,11 +1800,6 @@ wHashDataName :: Name
 wHashDataName = mkNameG_d "base" "GHC.Word" "W#"
 #endif
 
-#if MIN_VERSION_base(4,6,0) && !(MIN_VERSION_base(4,9,0))
-starKindName :: Name
-starKindName = mkNameG_tc "ghc-prim" "GHC.Prim" "*"
-#endif
-
 #if MIN_VERSION_base(4,7,0)
 expectPValName :: Name
 expectPValName = mkNameG_v "base" "GHC.Read" "expectP"
@@ -2036,9 +2036,8 @@ makeFmapApply pos cRep conName t name = do
                                     (if pos then varE unApplyValName
                                             else makeFmapApply pos cRep conName beta name)
 
-    itf <- isTyFamily tyCon
-    if any (`mentionsName` [name]) lhsArgs
-          || itf && any (`mentionsName` [name]) tyArgs
+    itf <- isInTypeFamilyApp [name] tyCon tyArgs
+    if any (`mentionsName` [name]) lhsArgs || itf
        then outOfPlaceTyVarError cRep conName
        else inspectTy (head rhsArgs)
 

@@ -112,6 +112,15 @@ data Empty2 a
 type role Empty2 nominal
 #endif
 
+data TyCon29 a
+    = TyCon29a (forall b. b -> (forall c. a -> c) -> a)
+    | TyCon29b (Int -> forall c. c -> a)
+
+type family F :: * -> *
+type instance F = Maybe
+
+data TyCon30 a = TyCon30 (F a)
+
 -- Data families
 
 data family   StrangeFam x  y z
@@ -174,6 +183,14 @@ data family   IntHashFunFam x y
 data instance IntHashFunFam a b
     = IntHashFunFam ((((a -> Int#) -> b) -> Int#) -> a)
 
+data family   TyFamily29 x
+data instance TyFamily29 a
+    = TyFamily29a (forall b. b -> (forall c. a -> c) -> a)
+    | TyFamily29b (Int -> forall c. c -> a)
+
+data family   TyFamily30 x
+data instance TyFamily30 a = TyFamily30 (F a)
+
 -------------------------------------------------------------------------------
 
 -- Plain data types
@@ -227,6 +244,12 @@ $(deriveFunctorOptions     defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Em
 $(deriveFoldableOptions    defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Empty2)
 $(deriveTraversableOptions defaultFFTOptions{ fftEmptyCaseBehavior = True } ''Empty2)
 
+$(deriveFunctor     ''TyCon29)
+
+$(deriveFunctor     ''TyCon30)
+$(deriveFoldable    ''TyCon30)
+$(deriveTraversable ''TyCon30)
+
 #if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
@@ -269,6 +292,12 @@ $(deriveFoldable    'IntHashTupleFam)
 $(deriveTraversable 'IntHashFam)
 
 $(deriveFunctor     'IntHashFunFam)
+
+$(deriveFunctor     'TyFamily29a)
+
+$(deriveFunctor     'TyFamily30)
+$(deriveFoldable    'TyFamily30)
+$(deriveTraversable 'TyFamily30)
 #endif
 
 -------------------------------------------------------------------------------

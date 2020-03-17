@@ -1,3 +1,10 @@
+### next [????.??.??]
+* Fix a bug in which `deriveFunctor` would fail on sufficiently complex uses
+  of rank-n types in constructor fields.
+* Fix a bug in which `deriveFunctor` and related functions would needlessly
+  reject data types whose last type parameters appear as oversaturated
+  arguments to a type family.
+
 ### 0.5.8 [2019.11.26]
 * Allow building with GHC 8.10.
 
