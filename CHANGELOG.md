@@ -1,4 +1,6 @@
 ### next [????.??.??]
+* Have `deriveFunctor` and `deriveFoldable` derive implementations of `(<$)`
+  and `null`, which GHC starting doing in 8.2 and 8.4, respectively.
 * Fix a bug in which `deriveFunctor` would fail on sufficiently complex uses
   of rank-n types in constructor fields.
 * Fix a bug in which `deriveFunctor` and related functions would needlessly

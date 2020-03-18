@@ -39,6 +39,8 @@ module Data.Foldable.Deriving (
     , makeFoldOptions
     , makeFoldl
     , makeFoldlOptions
+    , makeNull
+    , makeNullOptions
       -- * 'FFTOptions'
     , FFTOptions(..)
     , defaultFFTOptions

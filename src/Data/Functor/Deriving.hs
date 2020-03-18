@@ -16,6 +16,8 @@ module Data.Functor.Deriving (
     , deriveFunctorOptions
     , makeFmap
     , makeFmapOptions
+    , makeReplace
+    , makeReplaceOptions
       -- * 'FFTOptions'
     , FFTOptions(..)
     , defaultFFTOptions

@@ -212,11 +212,15 @@ $(deriveTraversable ''OneTwoCompose)
 
 instance Functor (f Int Int) => Functor (ComplexConstraint f g a) where
     fmap      = $(makeFmap      ''ComplexConstraint)
+    (<$)      = $(makeReplace   ''ComplexConstraint)
 instance Foldable (f Int Int) => Foldable (ComplexConstraint f g a) where
     foldr     = $(makeFoldr     ''ComplexConstraint)
     foldMap   = $(makeFoldMap   ''ComplexConstraint)
     fold      = $(makeFold      ''ComplexConstraint)
     foldl     = $(makeFoldl     ''ComplexConstraint)
+#if MIN_VERSION_base(4,8,0)
+    null      = $(makeNull      ''ComplexConstraint)
+#endif
 instance Traversable (f Int Int) => Traversable (ComplexConstraint f g a) where
     traverse  = $(makeTraverse  ''ComplexConstraint)
     sequenceA = $(makeSequenceA ''ComplexConstraint)
@@ -270,11 +274,15 @@ $(deriveTraversable 'OneTwoComposeFam)
 
 instance Functor (f Int Int) => Functor (ComplexConstraintFam f g a) where
     fmap      = $(makeFmap      'ComplexConstraintFam)
+    (<$)      = $(makeReplace   'ComplexConstraintFam)
 instance Foldable (f Int Int) => Foldable (ComplexConstraintFam f g a) where
     foldr     = $(makeFoldr     'ComplexConstraintFam)
     foldMap   = $(makeFoldMap   'ComplexConstraintFam)
     fold      = $(makeFold      'ComplexConstraintFam)
     foldl     = $(makeFoldl     'ComplexConstraintFam)
+# if MIN_VERSION_base(4,8,0)
+    null      = $(makeNull      'ComplexConstraintFam)
+# endif
 instance Traversable (f Int Int) => Traversable (ComplexConstraintFam f g a) where
     traverse  = $(makeTraverse  'ComplexConstraintFam)
     sequenceA = $(makeSequenceA 'ComplexConstraintFam)

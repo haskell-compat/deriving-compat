@@ -76,6 +76,12 @@ The following changes have been backported:
 * In GHC 8.2, deriving 'Show' was changed so that it uses an explicit @showCommaSpace@
   method, instead of repeating the code @showString \", \"@ in several places.
 
+* In GHC 8.2, @DeriveFunctor@ was changed so that it derives implementations of
+  ('<$').
+
+* In GHC 8.4, @DeriveFoldable@ was changed so that it derives implementations of
+  'null'.
+
 * In GHC 8.4, deriving 'Functor' and 'Traverable' was changed so that it uses 'coerce'
   for efficiency when the last parameter of the data type is at phantom role.
 
@@ -112,6 +118,9 @@ The following changes have been backported:
 
 * In GHC 8.10, @DerivingVia@ permits \"floating\" type variables in @via@ types,
   such as the @a@ in @'deriveVia' [t| forall a. Show MyInt ``Via`` Const Int a |]@.
+
+* In GHC 8.12, @DeriveFunctor@ was changed so that it works on more
+  constructors with rank-n field types.
 -}
 
 {- $derive

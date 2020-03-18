@@ -115,6 +115,10 @@ fmapConst :: f b -> (a -> b) -> f a -> f b
 fmapConst x _ _ = x
 {-# INLINE fmapConst #-}
 
+replaceConst :: f a -> a -> f b -> f a
+replaceConst x _ _ = x
+{-# INLINE replaceConst #-}
+
 foldrConst :: b -> (a -> b -> b) -> b -> t a -> b
 foldrConst x _ _ _ = x
 {-# INLINE foldrConst #-}
@@ -122,6 +126,10 @@ foldrConst x _ _ _ = x
 foldMapConst :: m -> (a -> m) -> t a -> m
 foldMapConst x _ _ = x
 {-# INLINE foldMapConst #-}
+
+nullConst :: Bool -> t a -> Bool
+nullConst x _ = x
+{-# INLINE nullConst #-}
 
 traverseConst :: f (t b) -> (a -> f b) -> t a -> f (t b)
 traverseConst x _ _ = x
@@ -1255,11 +1263,17 @@ isTrueHashValName = mkDerivingCompatName_v "isTrue#"
 fmapConstValName :: Name
 fmapConstValName = mkDerivingCompatName_v "fmapConst"
 
+replaceConstValName :: Name
+replaceConstValName = mkDerivingCompatName_v "replaceConst"
+
 foldrConstValName :: Name
 foldrConstValName = mkDerivingCompatName_v "foldrConst"
 
 foldMapConstValName :: Name
 foldMapConstValName = mkDerivingCompatName_v "foldMapConst"
+
+nullConstValName :: Name
+nullConstValName = mkDerivingCompatName_v "nullConst"
 
 traverseConstValName :: Name
 traverseConstValName = mkDerivingCompatName_v "traverseConst"
@@ -1635,6 +1649,9 @@ readS_to_PrecValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readS
 readsPrecValName :: Name
 readsPrecValName = mkNameG_v "base" "GHC.Read" "readsPrec"
 
+replaceValName :: Name
+replaceValName = mkNameG_v "base" "GHC.Base" "<$"
+
 resetValName :: Name
 resetValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "reset"
 
@@ -1814,11 +1831,14 @@ expectPValName = mkDerivingCompatName_v "expectP"
 #endif
 
 #if MIN_VERSION_base(4,8,0)
-pureValName :: Name
-pureValName = mkNameG_v "base" "GHC.Base" "pure"
+allValName :: Name
+allValName = mkNameG_v "base" "Data.Foldable" "all"
 
 apValName :: Name
 apValName = mkNameG_v "base" "GHC.Base" "<*>"
+
+pureValName :: Name
+pureValName = mkNameG_v "base" "GHC.Base" "pure"
 
 liftA2ValName :: Name
 liftA2ValName = mkNameG_v "base" "GHC.Base" "liftA2"
@@ -1828,12 +1848,18 @@ mappendValName = mkNameG_v "base" "GHC.Base" "mappend"
 
 memptyValName :: Name
 memptyValName = mkNameG_v "base" "GHC.Base" "mempty"
+
+nullValName :: Name
+nullValName = mkNameG_v "base" "Data.Foldable" "null"
 #else
-pureValName :: Name
-pureValName = mkNameG_v "base" "Control.Applicative" "pure"
+allValName :: Name
+allValName = mkNameG_v "base" "GHC.List" "all"
 
 apValName :: Name
 apValName = mkNameG_v "base" "Control.Applicative" "<*>"
+
+pureValName :: Name
+pureValName = mkNameG_v "base" "Control.Applicative" "pure"
 
 liftA2ValName :: Name
 liftA2ValName = mkNameG_v "base" "Control.Applicative" "liftA2"
@@ -1843,6 +1869,9 @@ mappendValName = mkNameG_v "base" "Data.Monoid" "mappend"
 
 memptyValName :: Name
 memptyValName = mkNameG_v "base" "Data.Monoid" "mempty"
+
+nullValName :: Name
+nullValName = mkNameG_v "base" "GHC.List" "null"
 #endif
 
 #if MIN_VERSION_base(4,9,0)

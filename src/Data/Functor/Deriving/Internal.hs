@@ -28,11 +28,15 @@ module Data.Functor.Deriving.Internal (
     , makeFoldOptions
     , makeFoldl
     , makeFoldlOptions
+    , makeNull
+    , makeNullOptions
       -- * 'Functor'
     , deriveFunctor
     , deriveFunctorOptions
     , makeFmap
     , makeFmapOptions
+    , makeReplace
+    , makeReplaceOptions
       -- * 'Traversable'
     , deriveTraversable
     , deriveTraversableOptions
@@ -93,6 +97,15 @@ makeFoldMap = makeFoldMapOptions defaultFFTOptions
 -- | Like 'makeFoldMap', but takes an 'FFTOptions' argument.
 makeFoldMapOptions :: FFTOptions -> Name -> Q Exp
 makeFoldMapOptions = makeFunctorFun FoldMap
+
+-- | Generates a lambda expression which behaves like 'null' (without requiring a
+-- 'Foldable' instance).
+makeNull :: Name -> Q Exp
+makeNull = makeNullOptions defaultFFTOptions
+
+-- | Like 'makeNull', but takes an 'FFTOptions' argument.
+makeNullOptions :: FFTOptions -> Name -> Q Exp
+makeNullOptions = makeFunctorFun Null
 
 -- | Generates a lambda expression which behaves like 'foldr' (without requiring a
 -- 'Foldable' instance).
@@ -156,6 +169,15 @@ makeFmap = makeFmapOptions defaultFFTOptions
 -- | Like 'makeFmap', but takes an 'FFTOptions' argument.
 makeFmapOptions :: FFTOptions -> Name -> Q Exp
 makeFmapOptions = makeFunctorFun Fmap
+
+-- | Generates a lambda expression which behaves like ('<$') (without requiring a
+-- 'Functor' instance).
+makeReplace :: Name -> Q Exp
+makeReplace = makeReplaceOptions defaultFFTOptions
+
+-- | Like 'makeReplace', but takes an 'FFTOptions' argument.
+makeReplaceOptions :: FFTOptions -> Name -> Q Exp
+makeReplaceOptions = makeFunctorFun Replace
 
 -- | Generates a 'Traversable' instance declaration for the given data type or data
 -- family instance.
@@ -274,7 +296,7 @@ makeFunctorFunForCons ff opts _parentName instTypes cons = do
   mapFun <- newName "f"
   z      <- newName "z" -- Only used for deriving foldr
   value  <- newName "value"
-  let argNames  = catMaybes [ Just mapFun
+  let argNames  = catMaybes [ guard (ff /= Null)  >> Just mapFun
                             , guard (ff == Foldr) >> Just z
                             , Just value
                             ]
@@ -328,15 +350,17 @@ makeFunctorFunForCon ff z tvMap
     checkExistentialContext (functorFunToClass ff) tvMap ctxt conName $
       case ff of
         Fmap     -> makeFmapMatch tvMap con
+        Replace  -> makeReplaceMatch tvMap con
         Foldr    -> makeFoldrMatch z tvMap con
         FoldMap  -> makeFoldMapMatch tvMap con
+        Null     -> makeNullMatch tvMap con
         Traverse -> makeTraverseMatch tvMap con
 
 -- | Generates a match whose right-hand side implements @fmap@.
 makeFmapMatch :: TyVarMap1 -> ConstructorInfo -> Q Match
 makeFmapMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
   parts <- foldDataConArgs tvMap ft_fmap con
-  match_for_con conName parts
+  match_for_con_functor conName parts
   where
     ft_fmap :: FFoldType (Exp -> Q Exp)
     ft_fmap = FT { ft_triv = return
@@ -345,31 +369,56 @@ makeFmapMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
                  , ft_fun  = \g h x -> mkSimpleLam $ \b -> do
                      gg <- g b
                      h $ x `AppE` gg
-                 , ft_tup  = mkSimpleTupleCase match_for_con
-                 , ft_ty_app = \_ argGs x -> do
-                     let inspect :: (Type, Exp -> Q Exp) -> Q Exp
-                         inspect (argTy, g)
-                           -- If the argument type is a bare occurrence of the
-                           -- data type's last type variable, then we
-                           -- can generate more efficient code.
-                           -- This was inspired by GHC#17880.
-                           | Just argVar <- varTToName_maybe argTy
-                           , Just (OneName f) <- Map.lookup argVar tvMap
-                           = return $ VarE f
-                           | otherwise
-                           = mkSimpleLam g
-                     appsE $ varE fmapValName
-                           : map inspect argGs
-                          ++ [return x]
+                 , ft_tup  = mkSimpleTupleCase match_for_con_functor
+                 , ft_ty_app = \argTy g x -> do
+                     case varTToName_maybe argTy of
+                       -- If the argument type is a bare occurrence of the
+                       -- data type's last type variable, then we can
+                       -- generate more efficient code.
+                       -- This was inspired by GHC#17880.
+                       Just argVar
+                         |  Just (OneName f) <- Map.lookup argVar tvMap
+                         -> return $ VarE fmapValName `AppE` VarE f `AppE` x
+                       _ -> do gg <- mkSimpleLam g
+                               return $ VarE fmapValName `AppE` gg `AppE` x
                  , ft_forall  = \_ g x -> g x
                  , ft_bad_app = \_ -> outOfPlaceTyVarError Functor conName
                  , ft_co_var  = \_ _ -> contravarianceError conName
                  }
 
-    -- Con a1 a2 ... -> Con (f1 a1) (f2 a2) ...
-    match_for_con :: Name -> [Exp -> Q Exp] -> Q Match
-    match_for_con = mkSimpleConMatch $ \conName' xs ->
-       appsE (conE conName':xs) -- Con x1 x2 ..
+-- | Generates a match whose right-hand side implements @(<$)@.
+makeReplaceMatch :: TyVarMap1 -> ConstructorInfo -> Q Match
+makeReplaceMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
+  parts <- foldDataConArgs tvMap ft_replace con
+  match_for_con_functor conName parts
+  where
+    ft_replace :: FFoldType (Exp -> Q Exp)
+    ft_replace = FT { ft_triv = return
+                    , ft_var  = \v _ -> case tvMap Map.! v of
+                                          OneName z -> return $ VarE z
+                    , ft_fun  = \g h x -> mkSimpleLam $ \b -> do
+                        gg <- g b
+                        h $ x `AppE` gg
+                    , ft_tup  = mkSimpleTupleCase match_for_con_functor
+                    , ft_ty_app = \argTy g x -> do
+                        case varTToName_maybe argTy of
+                          -- If the argument type is a bare occurrence of the
+                          -- data type's last type variable, then we can
+                          -- generate more efficient code.
+                          -- This was inspired by GHC#17880.
+                          Just argVar
+                            |  Just (OneName z) <- Map.lookup argVar tvMap
+                            -> return $ VarE replaceValName `AppE` VarE z `AppE` x
+                          _ -> do gg <- mkSimpleLam g
+                                  return $ VarE fmapValName `AppE` gg `AppE` x
+                    , ft_forall  = \_ g x -> g x
+                    , ft_bad_app = \_ -> outOfPlaceTyVarError Functor conName
+                    , ft_co_var  = \_ _ -> contravarianceError conName
+                    }
+
+match_for_con_functor :: Name -> [Exp -> Q Exp] -> Q Match
+match_for_con_functor = mkSimpleConMatch $ \conName' xs ->
+  appsE (conE conName':xs) -- Con x1 x2 ..
 
 -- | Generates a match whose right-hand side implements @foldr@.
 makeFoldrMatch :: Name -> TyVarMap1 -> ConstructorInfo -> Q Match
@@ -391,12 +440,11 @@ makeFoldrMatch z tvMap con@(ConstructorInfo{constructorName = conName}) = do
                       lam <- mkSimpleLam2 $ \x z' ->
                         mkSimpleTupleCase (match_for_con z') t gg x
                       return (True, lam)
-                  , ft_ty_app = \_ gs -> do
-                      lam <- mkSimpleLam2 $ \x z' ->
-                               appsE $ varE foldrValName
-                                     : map (\(_, hs) -> fmap snd hs) gs
-                                    ++ map return [z', x]
-                      return (True, lam)
+                  , ft_ty_app = \_ g -> do
+                      (b, gg) <- g
+                      e <- mkSimpleLam2 $ \x z' -> return $
+                           VarE foldrValName `AppE` gg `AppE` z' `AppE` x
+                      return (b, e)
                   , ft_forall  = \_ g -> g
                   , ft_co_var  = \_ -> contravarianceError conName
                   , ft_fun     = \_ _ -> noFunctionsError conName
@@ -429,10 +477,8 @@ makeFoldMapMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
                         gg  <- sequence gs
                         lam <- mkSimpleLam $ mkSimpleTupleCase match_for_con t gg
                         return (True, lam)
-                    , ft_ty_app = \_ gs -> do
-                        e <- appsE $ varE foldMapValName
-                                   : map (\(_, hs) -> fmap snd hs) gs
-                        return (True, e)
+                    , ft_ty_app = \_ g -> do
+                        fmap (\(b, e) -> (b, VarE foldMapValName `AppE` e)) g
                     , ft_forall  = \_ g -> g
                     , ft_co_var  = \_ -> contravarianceError conName
                     , ft_fun     = \_ _ -> noFunctionsError conName
@@ -446,6 +492,66 @@ makeFoldMapMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
         mkFoldMap :: [Exp] -> Exp
         mkFoldMap [] = VarE memptyValName
         mkFoldMap es = foldr1 (AppE . AppE (VarE mappendValName)) es
+
+-- | Generates a match whose right-hand side implements @null@.
+makeNullMatch :: TyVarMap1 -> ConstructorInfo -> Q Match
+makeNullMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
+  parts  <- foldDataConArgs tvMap ft_null con
+  parts' <- sequence parts
+  case convert parts' of
+    Nothing -> return $ Match (conWildPat con) (NormalB $ ConE falseDataName) []
+    Just cp -> match_for_con conName cp
+  where
+    ft_null :: FFoldType (Q (NullM Exp))
+    ft_null = FT { ft_triv = return $ IsNull $ ConE trueDataName
+                 , ft_var  = \_ -> return NotNull
+                 , ft_tup = \t g -> do
+                     gg <- sequence g
+                     case convert gg of
+                       Nothing  -> return NotNull
+                       Just ggg ->
+                         fmap NullM $ mkSimpleLam
+                                    $ mkSimpleTupleCase match_for_con t ggg
+                 , ft_ty_app = \_ g -> flip fmap g $ \nestedResult ->
+                     case nestedResult of
+                       -- If e definitely contains the parameter, then we can
+                       -- test if (G e) contains it by simply checking if (G e)
+                       -- is null
+                       NotNull -> NullM $ VarE nullValName
+                       -- This case is unreachable--it will actually be caught
+                       -- by ft_triv
+                       r@IsNull{} -> r
+                       -- The general case uses (all null), (all (all null)),
+                       -- etc.
+                       NullM nestedTest -> NullM $
+                                           VarE allValName `AppE` nestedTest
+                 , ft_forall = \_ g -> g
+                 , ft_co_var  = \_ -> contravarianceError conName
+                 , ft_fun     = \_ _ -> noFunctionsError conName
+                 , ft_bad_app = outOfPlaceTyVarError Foldable conName
+                 }
+
+    match_for_con :: Name -> [(Bool, Exp)] -> Q Match
+    match_for_con = mkSimpleConMatch2 $ \_ xs -> return $ mkNull xs
+      where
+        -- v1 && v2 && ..
+        mkNull :: [Exp] -> Exp
+        mkNull [] = ConE trueDataName
+        mkNull xs = foldr1 (\x y -> VarE andValName `AppE` x `AppE` y) xs
+
+-- Given a list of NullM results, produce Nothing if any of them is NotNull,
+-- and otherwise produce a list of (Bool, a) with True entries representing
+-- unknowns and False entries representing things that are definitely null.
+convert :: [NullM a] -> Maybe [(Bool, a)]
+convert = mapM go where
+  go (IsNull a) = Just (False, a)
+  go NotNull    = Nothing
+  go (NullM a)  = Just (True, a)
+
+data NullM a =
+    IsNull a -- Definitely null
+  | NotNull  -- Definitely not null
+  | NullM a  -- Unknown
 
 -- | Generates a match whose right-hand side implements @traverse@.
 makeTraverseMatch :: TyVarMap1 -> ConstructorInfo -> Q Match
@@ -466,10 +572,8 @@ makeTraverseMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
                      gg  <- sequence gs
                      lam <- mkSimpleLam $ mkSimpleTupleCase match_for_con t gg
                      return (True, lam)
-                 , ft_ty_app = \_ gs -> do
-                     e <- appsE $ varE traverseValName
-                                : map (\(_, hs) -> fmap snd hs) gs
-                     return (True, e)
+                 , ft_ty_app = \_ g ->
+                     fmap (\(b, e) -> (b, VarE traverseValName `AppE` e)) g
                  , ft_forall  = \_ g -> g
                  , ft_co_var  = \_ -> contravarianceError conName
                  , ft_fun     = \_ _ -> noFunctionsError conName
@@ -510,36 +614,54 @@ instance ClassRep FunctorClass where
     classConstraint  _      _ = Nothing
 
 -- | A representation of which function is being generated.
-data FunctorFun = Fmap | Foldr | FoldMap | Traverse
+data FunctorFun
+  = Fmap
+  | Replace -- (<$)
+  | Foldr
+  | FoldMap
+  | Null
+  | Traverse
   deriving Eq
 
 instance Show FunctorFun where
     showsPrec _ Fmap     = showString "fmap"
+    showsPrec _ Replace  = showString "(<$)"
     showsPrec _ Foldr    = showString "foldr"
     showsPrec _ FoldMap  = showString "foldMap"
+    showsPrec _ Null     = showString "null"
     showsPrec _ Traverse = showString "traverse"
 
 functorFunConstName :: FunctorFun -> Name
 functorFunConstName Fmap     = fmapConstValName
+functorFunConstName Replace  = replaceConstValName
 functorFunConstName Foldr    = foldrConstValName
 functorFunConstName FoldMap  = foldMapConstValName
+functorFunConstName Null     = nullConstValName
 functorFunConstName Traverse = traverseConstValName
 
 functorFunName :: FunctorFun -> Name
 functorFunName Fmap     = fmapValName
+functorFunName Replace  = replaceValName
 functorFunName Foldr    = foldrValName
 functorFunName FoldMap  = foldMapValName
+functorFunName Null     = nullValName
 functorFunName Traverse = traverseValName
 
 functorClassToFuns :: FunctorClass -> [FunctorFun]
-functorClassToFuns Functor     = [Fmap]
-functorClassToFuns Foldable    = [Foldr, FoldMap]
-functorClassToFuns Traversable = [Traverse]
+functorClassToFuns Functor     = [ Fmap, Replace ]
+functorClassToFuns Foldable    = [ Foldr, FoldMap
+#if MIN_VERSION_base(4,8,0)
+                                 , Null
+#endif
+                                 ]
+functorClassToFuns Traversable = [ Traverse ]
 
 functorFunToClass :: FunctorFun -> FunctorClass
 functorFunToClass Fmap     = Functor
+functorFunToClass Replace  = Functor
 functorFunToClass Foldr    = Foldable
 functorFunToClass FoldMap  = Foldable
+functorFunToClass Null     = Foldable
 functorFunToClass Traverse = Traversable
 
 -------------------------------------------------------------------------------
@@ -571,9 +693,16 @@ functorFunTrivial fmapE traverseE ff z = go ff
   where
     go :: FunctorFun -> Q Exp
     go Fmap     = fmapE
+    go Replace  = fmapE
     go Foldr    = varE z
     go FoldMap  = varE memptyValName
+    go Null     = conE trueDataName
     go Traverse = traverseE
+
+conWildPat :: ConstructorInfo -> Pat
+conWildPat (ConstructorInfo { constructorName = conName
+                            , constructorFields = ts }) =
+  ConP conName $ replicate (length ts) WildP
 
 -------------------------------------------------------------------------------
 -- Generic traversal for functor-like deriving
@@ -583,23 +712,21 @@ functorFunTrivial fmapE traverseE ff z = go ff
 
 data FFoldType a      -- Describes how to fold over a Type in a functor like way
    = FT { ft_triv    :: a
-          -- ^ Does not contain variables
+          -- ^ Does not contain variable
         , ft_var     :: Name -> a
-          -- ^ A bare variable
+          -- ^ The variable itself
         , ft_co_var  :: Name -> a
-          -- ^ A bare variable, contravariantly
+          -- ^ The variable itself, contravariantly
         , ft_fun     :: a -> a -> a
           -- ^ Function type
         , ft_tup     :: TupleSort -> [a] -> a
-          -- ^ Tuple type. The [a] is the result of folding over the
+          -- ^ Tuple type. The @[a]@ is the result of folding over the
           --   arguments of the tuple.
-        , ft_ty_app  :: Type -> [(Type, a)] -> a
-          -- ^ Type app, variables only in last argument. The Type is the
-          --   function type, and the [(Type, a)] are the last argument types.
-          --   That is, they form the function and argument parts of
-          --   @fun_ty arg_ty_1 ... arg_ty_n@, respectively.
+        , ft_ty_app  :: Type -> a -> a
+          -- ^ Type app, variable only in last argument. The 'Type' is the
+          --   @arg_ty@ in @fun_ty arg_ty@.
         , ft_bad_app :: a
-          -- ^ Type app, variable other than in last arguments
+          -- ^ Type app, variable other than in last argument
         , ft_forall  :: [TyVarBndr] -> a -> a
           -- ^ Forall type
      }
@@ -611,7 +738,7 @@ data FFoldType a      -- Describes how to fold over a Type in a functor like way
 --
 -- Which require reification in Template Haskell, but are pure in Core.
 functorLikeTraverse :: forall a.
-                       TyVarMap1   -- ^ Variables to look for
+                       TyVarMap1   -- ^ Variable to look for
                     -> FFoldType a -- ^ How to fold
                     -> Type        -- ^ Type to process
                     -> Q a
@@ -638,11 +765,7 @@ functorLikeTraverse tvMap (FT { ft_triv = caseTrivial,     ft_var = caseVar
       let (f, args) = unapplyTy t
       (_,   fc)  <- go co f
       (xrs, xcs) <- fmap unzip $ mapM (go co) args
-      let numLastArgs, numFirstArgs :: Int
-          numLastArgs  = min 1 $ length args
-          numFirstArgs = length args - numLastArgs
-
-          tuple :: TupleSort -> Q (a, Bool)
+      let tuple :: TupleSort -> Q (a, Bool)
           tuple tupSort = return (caseTuple tupSort xrs, True)
 
           wrongArg :: Q (a, Bool)
@@ -659,15 +782,14 @@ functorLikeTraverse tvMap (FT { ft_triv = caseTrivial,     ft_var = caseVar
           |  UnboxedTupleT len <- f
           -> tuple $ Unboxed len
 #endif
-          |  fc || or (take numFirstArgs xcs)
-          -> wrongArg                    -- T (..var..)    ty_1 ... ty_n
-          |  otherwise                   -- T (..no var..) ty_1 ... ty_n
+          |  fc || or (init xcs)
+          -> wrongArg                    -- T (..var..)    ty
+          |  otherwise                   -- T (..no var..) ty
           -> do itf <- isInTypeFamilyApp tyVarNames f args
                 if itf -- We can't decompose type families, so
                        -- error if we encounter one here.
                    then wrongArg
-                   else return ( caseTyApp f $ drop numFirstArgs $ zip args xrs
-                               , True )
+                   else return (caseTyApp (last args) (last xrs), True)
     go co (SigT t k) = do
       (_, kc) <- go_kind co k
       if kc
