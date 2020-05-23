@@ -1177,16 +1177,6 @@ freshenType t =
      subst <- T.sequence (Map.fromList xs)
      return (applySubstitution subst t)
 
--- | Gets all of the required type variable binders mentioned in a Type.
-requiredTyVarsOfType :: Type -> [TyVarBndr]
-requiredTyVarsOfType = go
-  where
-    go :: Type -> [TyVarBndr]
-    go (AppT t1 t2) = go t1 ++ go t2
-    go (SigT t _)   = go t
-    go (VarT n)     = [PlainTV n]
-    go _            = []
-
 enumFromToExpr :: Q Exp -> Q Exp -> Q Exp
 enumFromToExpr f t = varE enumFromToValName `appE` f `appE` t
 
