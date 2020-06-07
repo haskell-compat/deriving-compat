@@ -40,6 +40,7 @@ module Data.Ord.Deriving.Internal (
 import           Data.Deriving.Internal
 import           Data.List (partition)
 import qualified Data.Map as Map
+import           Data.Map (Map)
 
 import           Language.Haskell.TH.Datatype
 import           Language.Haskell.TH.Lib
@@ -280,25 +281,30 @@ makeOrdFunForCons oFun instTypes cons = do
         firstConName = constructorName $ head cons
         lastConName  = constructorName $ last cons
 
-        -- I think these should always be the case...
+        -- Alternatively, we could look these up from dataConTagMap, but this
+        -- is slightly faster due to the lack of Map lookups.
         firstTag, lastTag :: Int
         firstTag = 0
         lastTag  = length cons - 1
 
-        ordMatches :: Int -> ConstructorInfo -> Q Match
+        dataConTagMap :: Map Name Int
+        dataConTagMap = Map.fromList $ zip (map constructorName cons) [0..]
+
+        ordMatches :: ConstructorInfo -> Q Match
         ordMatches = makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
                                       firstTag firstConName lastTag lastConName
+                                      dataConTagMap
 
         ordFunRhs :: Q Exp
         ordFunRhs
           | null cons
           = conE eqDataName
           | length nullaryCons <= 2
-          = caseE (varE v1) $ zipWith ordMatches [0..] cons
+          = caseE (varE v1) $ map ordMatches cons
           | null nonNullaryCons
           = mkTagCmp
           | otherwise
-          = caseE (varE v1) $ zipWith ordMatches [0..] nonNullaryCons
+          = caseE (varE v1) $ map ordMatches nonNullaryCons
                 ++ [match wildP (normalB mkTagCmp) []]
 
         mkTagCmp :: Q Exp
@@ -326,10 +332,10 @@ makeOrdFunForCon :: OrdFun
                  -> Bool
                  -> Int -> Name
                  -> Int -> Name
-                 -> Int -> ConstructorInfo
-                 -> Q Match
+                 -> Map Name Int
+                 -> ConstructorInfo -> Q Match
 makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
-                 firstTag firstConName lastTag lastConName tag
+                 firstTag firstConName lastTag lastConName dataConTagMap
   (ConstructorInfo { constructorName = conName, constructorFields = ts }) = do
     ts' <- mapM resolveTypeSynonyms ts
     let tsLen = length ts'
@@ -382,6 +388,8 @@ makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
     match (conP conName $ map varP as)
           (normalB innerRhs)
           []
+  where
+    tag = dataConTagMap Map.! conName
 
 makeOrdFunForFields :: OrdFun
                     -> TyVarMap1

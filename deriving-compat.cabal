@@ -160,16 +160,18 @@ test-suite spec
                        GH6Spec
                        GH24Spec
                        GH27Spec
+                       GH31Spec
 
                        Types.EqOrd
                        Types.ReadShow
-  build-depends:       base-compat         >= 0.8.1 && < 1
-                     , base-orphans        >= 0.5   && < 1
+  build-depends:       base-compat         >= 0.8.1  && < 1
+                     , base-orphans        >= 0.5    && < 1
                      , deriving-compat
                      , hspec               >= 1.8
-                     , QuickCheck          >= 2     && < 3
-                     , tagged              >= 0.7   && < 1
-                     , template-haskell    >= 2.5   && < 2.17
+                     , QuickCheck          >= 2      && < 3
+                     , tagged              >= 0.7    && < 1
+                     , template-haskell    >= 2.5    && < 2.17
+                     , void                >= 0.5.10 && < 1
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   if flag(base-4-9)
