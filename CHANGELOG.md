@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.5.9 [2019.06.08]
 * Have `deriveFunctor` and `deriveFoldable` derive implementations of `(<$)`
   and `null`, which GHC starting doing in 8.2 and 8.4, respectively.
 * Fix a bug in which `deriveOrd{,1,2}` could generate incorrect code for data
