@@ -61,6 +61,7 @@ import qualified Data.Map as Map ((!), keys, lookup, member, singleton)
 import           Data.Maybe
 
 import           Language.Haskell.TH.Datatype
+import           Language.Haskell.TH.Datatype.TyVarBndr
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Syntax
 
