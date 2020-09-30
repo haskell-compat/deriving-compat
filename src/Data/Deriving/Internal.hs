@@ -66,6 +66,7 @@ import           Data.Char (isSymbol, ord)
 #endif
 
 import           Language.Haskell.TH.Datatype
+import           Language.Haskell.TH.Datatype.TyVarBndr
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Ppr (pprint)
 import           Language.Haskell.TH.Syntax
@@ -813,14 +814,12 @@ newNameList :: String -> Int -> Q [Name]
 newNameList prefix n = mapM (newName . (prefix ++) . show) [1..n]
 
 -- | Extracts the kind from a TyVarBndr.
-tvbKind :: TyVarBndr -> Kind
-tvbKind (PlainTV  _)   = starK
-tvbKind (KindedTV _ k) = k
+tvbKind :: TyVarBndr_ flag -> Kind
+tvbKind = elimTV (\_ -> starK) (\_ k -> k)
 
 -- | Convert a TyVarBndr to a Type.
-tvbToType :: TyVarBndr -> Type
-tvbToType (PlainTV n)    = VarT n
-tvbToType (KindedTV n k) = SigT (VarT n) k
+tvbToType :: TyVarBndr_ flag -> Type
+tvbToType = elimTV VarT (\n k -> SigT (VarT n) k)
 
 -- | Applies a typeclass constraint to a type.
 applyClass :: Name -> Name -> Pred
@@ -1045,7 +1044,7 @@ tag2ConExpr ty = do
     let tvbs = avoidTypeInType $ freeVariablesWellScoped [ty']
     lam1E (conP iHashDataName [varP iHash]) $
         varE tagToEnumHashValName `appE` varE iHash
-            `sigE` return (ForallT tvbs [] ty')
+            `sigE` return (ForallT (changeTVFlags SpecifiedSpec tvbs) [] ty')
             -- tagToEnum# is a hack, and won't typecheck unless it's in the
             -- immediate presence of a type ascription like so:
             --
@@ -1072,16 +1071,16 @@ tag2ConExpr ty = do
     -- a breaking change, so I decided against it at the time. If we ever make
     -- some breaking change in the future, however, this would be at the top
     -- of the list of things that I'd rip out.
-    avoidTypeInType :: [TyVarBndr] -> [TyVarBndr]
+    avoidTypeInType :: [TyVarBndrUnit] -> [TyVarBndrUnit]
 #if __GLASGOW_HASKELL__ >= 806
     avoidTypeInType = id
 #else
     avoidTypeInType = go . map attachFreeKindVars
       where
-        attachFreeKindVars :: TyVarBndr -> (TyVarBndr, [Name])
+        attachFreeKindVars :: TyVarBndrUnit -> (TyVarBndrUnit, [Name])
         attachFreeKindVars tvb = (tvb, freeVariables (tvKind tvb))
 
-        go :: [(TyVarBndr, [Name])] -> [TyVarBndr]
+        go :: [(TyVarBndrUnit, [Name])] -> [TyVarBndrUnit]
         go [] = []
         go ((tvb, _):tvbsAndFVs)
           | any (\(_, kindVars) -> tvName tvb `elem` kindVars) tvbsAndFVs

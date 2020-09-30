@@ -29,6 +29,7 @@ import           Data.Maybe (catMaybes)
 
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Datatype
+import           Language.Haskell.TH.Datatype.TyVarBndr
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -133,7 +134,7 @@ deriveViaDecs instanceTy mbViaTy = do
         _ -> fail $ "Not a type class: " ++ pprint clsTy
     _ -> fail $ "Malformed instance: " ++ pprint instanceTy
 
-deriveViaDecs' :: Name -> [TyVarBndr] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
+deriveViaDecs' :: Name -> [TyVarBndrUnit] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
 deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
     let numExpectedArgs = length clsTvbs
         numActualArgs   = length clsArgs
@@ -172,7 +173,7 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
 
     go _ = return Nothing
 
-mkCoerceClassMethEqn :: [TyVarBndr] -> [Type] -> Type -> Type -> (Type, Type)
+mkCoerceClassMethEqn :: [TyVarBndrUnit] -> [Type] -> Type -> Type -> (Type, Type)
 mkCoerceClassMethEqn clsTvbs clsArgs repTy methTy
   = ( applySubstitution rhsSubst methTy
     , applySubstitution lhsSubst methTy
@@ -181,7 +182,7 @@ mkCoerceClassMethEqn clsTvbs clsArgs repTy methTy
     lhsSubst = zipTvbSubst clsTvbs clsArgs
     rhsSubst = zipTvbSubst clsTvbs $ changeLast clsArgs repTy
 
-zipTvbSubst :: [TyVarBndr] -> [Type] -> Map Name Type
+zipTvbSubst :: [TyVarBndr_ flag] -> [Type] -> Map Name Type
 zipTvbSubst tvbs = M.fromList . zipWith (\tvb ty -> (tvName tvb, ty)) tvbs
 
 -- | Replace the last element of a list with another element.
@@ -199,7 +200,7 @@ stripOuterForallT (ForallT _ _ ty) = ty
 #endif
 stripOuterForallT ty               = ty
 
-decomposeType :: Type -> ([TyVarBndr], Cxt, Type)
+decomposeType :: Type -> ([TyVarBndrSpec], Cxt, Type)
 decomposeType (ForallT tvbs ctxt ty) = (tvbs, ctxt, ty)
 decomposeType ty                     = ([],   [],   ty)
 

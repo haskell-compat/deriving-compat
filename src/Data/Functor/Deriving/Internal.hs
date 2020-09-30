@@ -727,7 +727,7 @@ data FFoldType a      -- Describes how to fold over a Type in a functor like way
           --   @arg_ty@ in @fun_ty arg_ty@.
         , ft_bad_app :: a
           -- ^ Type app, variable other than in last argument
-        , ft_forall  :: [TyVarBndr] -> a -> a
+        , ft_forall  :: [TyVarBndrSpec] -> a -> a
           -- ^ Forall type
      }
 

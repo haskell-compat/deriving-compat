@@ -1,3 +1,6 @@
+### next [????.??.??]
+* Allow building with `template-haskell-2.17.0.0` (GHC 9.0).
+
 ### 0.5.9 [2019.06.08]
 * Have `deriveFunctor` and `deriveFoldable` derive implementations of `(<$)`
   and `null`, which GHC starting doing in 8.2 and 8.4, respectively.
