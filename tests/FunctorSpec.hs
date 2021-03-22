@@ -34,7 +34,7 @@ module FunctorSpec where
 import Data.Char (chr)
 import Data.Foldable (fold)
 import Data.Deriving
-import Data.Functor.Classes (Eq1)
+import Data.Functor.Classes (Eq1, Show1)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity (Identity(..))
 import Data.Monoid
@@ -310,41 +310,44 @@ $(deriveTraversable 'TyFamily30)
 
 -------------------------------------------------------------------------------
 
-prop_FunctorLaws :: (Functor f, Eq (f a), Eq (f c))
-                 => (b -> c) -> (a -> b) -> f a -> Bool
-prop_FunctorLaws f g x =
-       fmap id      x == x
-    && fmap (f . g) x == (fmap f . fmap g) x
+prop_FunctorLaws :: (Functor f, Eq (f a), Eq (f c), Show (f a), Show (f c))
+                 => (b -> c) -> (a -> b) -> f a -> Expectation
+prop_FunctorLaws f g x = do
+    fmap id      x `shouldBe` x
+    fmap (f . g) x `shouldBe` (fmap f . fmap g) x
 
-prop_FunctorEx :: (Functor f, Eq (f [Int])) => f [Int] -> Bool
+prop_FunctorEx :: (Functor f, Eq (f [Int]), Show (f [Int])) => f [Int] -> Expectation
 prop_FunctorEx = prop_FunctorLaws reverse (++ [42])
 
-prop_FoldableLaws :: (Eq a, Eq b, Eq z, Monoid a, Monoid b, Foldable f)
-                  => (a -> b) -> (a -> z -> z) -> z -> f a -> Bool
-prop_FoldableLaws f h z x =
-       fold      x == foldMap id x
-    && foldMap f x == foldr (mappend . f) mempty x
-    && foldr h z x == appEndo (foldMap (Endo . h) x) z
+prop_FoldableLaws :: (Eq a, Eq b, Eq z, Show a, Show b, Show z,
+                      Monoid a, Monoid b, Foldable f)
+                  => (a -> b) -> (a -> z -> z) -> z -> f a -> Expectation
+prop_FoldableLaws f h z x = do
+    fold      x `shouldBe` foldMap id x
+    foldMap f x `shouldBe` foldr (mappend . f) mempty x
+    foldr h z x `shouldBe` appEndo (foldMap (Endo . h) x) z
 
-prop_FoldableEx :: Foldable f => f [Int] -> Bool
+prop_FoldableEx :: Foldable f => f [Int] -> Expectation
 prop_FoldableEx = prop_FoldableLaws reverse ((+) . length) 0
 
 prop_TraversableLaws :: forall t f g a b c.
                         (Applicative f, Applicative g, Traversable t,
-                         Eq (t (f a)),  Eq (g (t a)),  Eq (g (t b)),
-                         Eq (t a),      Eq (t c),      Eq1 f, Eq1 g)
+                         Eq (t (f a)),   Eq (g (t a)),   Eq (g (t b)),
+                         Eq (t a),       Eq (t c),       Eq1 f, Eq1 g,
+                         Show (t (f a)), Show (g (t a)), Show (g (t b)),
+                         Show (t a),     Show (t c),     Show1 f, Show1 g)
                        => (a -> f b) -> (b -> f c)
-                       -> (forall x. f x -> g x) -> t a -> Bool
-prop_TraversableLaws f g t x =
-       (t . traverse f)  x == traverse (t . f)   x
-    && traverse Identity x == Identity           x
-    && traverse (Compose . fmap g . f) x
-         == (Compose . fmap (traverse g) . traverse f) x
+                       -> (forall x. f x -> g x) -> t a -> Expectation
+prop_TraversableLaws f g t x = do
+    (t . traverse f)  x `shouldBe` traverse (t . f)   x
+    traverse Identity x `shouldBe` Identity           x
+    traverse (Compose . fmap g . f) x
+      `shouldBe` (Compose . fmap (traverse g) . traverse f) x
 
-    && (t . sequenceA)             y == (sequenceA . fmap t) y
-    && (sequenceA . fmap Identity) y == Identity             y
-    && (sequenceA . fmap Compose)  z
-         == (Compose . fmap sequenceA . sequenceA) z
+    (t . sequenceA)             y `shouldBe` (sequenceA . fmap t) y
+    (sequenceA . fmap Identity) y `shouldBe` Identity             y
+    (sequenceA . fmap Compose)  z
+      `shouldBe` (Compose . fmap sequenceA . sequenceA) z
   where
     y :: t (f a)
     y = fmap pure x
@@ -352,9 +355,10 @@ prop_TraversableLaws f g t x =
     z :: t (f (g a))
     z = fmap (fmap pure) y
 
-prop_TraversableEx :: (Traversable t, Eq (t [[Int]]),
-                       Eq (t [Int]), Eq (t String), Eq (t Char))
-                   => t [Int] -> Bool
+prop_TraversableEx :: (Traversable t,
+                       Eq   (t [[Int]]), Eq   (t [Int]), Eq   (t String), Eq   (t Char),
+                       Show (t [[Int]]), Show (t [Int]), Show (t String), Show (t Char))
+                   => t [Int] -> Expectation
 prop_TraversableEx = prop_TraversableLaws
     (replicate 2 . map (chr . abs))
     (++ "Hello")
@@ -369,17 +373,17 @@ spec :: Spec
 spec = parallel $ do
     describe "OneTwoCompose Maybe ((,) Bool) [Int] [Int]" $ do
         prop "satisfies the Functor laws"
-            (prop_FunctorEx     :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_FunctorEx     :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Foldable laws"
-            (prop_FoldableEx    :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_FoldableEx    :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Traversable laws"
-            (prop_TraversableEx :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_TraversableEx :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Expectation)
 #if MIN_VERSION_template_haskell(2,7,0)
     describe "OneTwoComposeFam Maybe ((,) Bool) [Int] [Int]" $ do
         prop "satisfies the Functor laws"
-            (prop_FunctorEx     :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_FunctorEx     :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Foldable laws"
-            (prop_FoldableEx    :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_FoldableEx    :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Traversable laws"
-            (prop_TraversableEx :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Bool)
+            (prop_TraversableEx :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
 #endif

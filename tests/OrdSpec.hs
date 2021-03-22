@@ -24,13 +24,13 @@ import Types.EqOrd ()
 
 -------------------------------------------------------------------------------
 
-prop_Ord :: (Ord a, Ord (f a), Ord1 f) => f a -> f a -> Bool
-prop_Ord x y = compare x y == compare1 x y
+prop_Ord :: (Ord a, Ord (f a), Ord1 f) => f a -> f a -> Expectation
+prop_Ord x y = compare x y `shouldBe` compare1 x y
 
 ordSpec :: forall proxy f a. (Arbitrary (f a), Show (f a),
                               Ord a, Ord (f a), Ord1 f)
         => proxy (f a) -> Spec
-ordSpec _ = prop "has a valid Ord1 instance" (prop_Ord :: f a -> f a -> Bool)
+ordSpec _ = prop "has a valid Ord1 instance" (prop_Ord :: f a -> f a -> Expectation)
 
 -------------------------------------------------------------------------------
 

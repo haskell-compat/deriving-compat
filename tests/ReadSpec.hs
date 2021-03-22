@@ -87,8 +87,8 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (TyFamily# a b) where
 
 prop_Read :: forall f a. (Read a, Read (f a), Read1 f,
                           Eq (f a), Show (f a))
-          => f a -> Bool
-prop_Read x = readArb readsPrec == readArb readsPrec1
+          => f a -> Expectation
+prop_Read x = readArb readsPrec `shouldBe` readArb readsPrec1
   where
     readArb :: (Int -> ReadS (f a)) -> f a
     readArb = read' (show x)
@@ -96,7 +96,7 @@ prop_Read x = readArb readsPrec == readArb readsPrec1
 readSpec :: forall f a. (Arbitrary (f a), Eq (f a), Show (f a),
                          Read a, Read (f a), Read1 f)
          => Proxy (f a) -> Spec
-readSpec _ = prop "has a valid Read1 instance" (prop_Read :: f a -> Bool)
+readSpec _ = prop "has a valid Read1 instance" (prop_Read :: f a -> Expectation)
 
 -- Adapted from the definition of readEither
 readEither' :: String -> (Int -> ReadS a) -> Either String a
