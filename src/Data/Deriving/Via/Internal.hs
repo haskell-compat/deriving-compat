@@ -26,6 +26,7 @@ import           Data.Deriving.Internal
 import qualified Data.Map as M
 import           Data.Map (Map)
 import           Data.Maybe (catMaybes)
+import qualified Data.Set as S
 
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Datatype
@@ -46,12 +47,11 @@ $('deriveGND' [t| forall a. 'Eq' a => 'Eq' (Foo a) |])
 deriveGND :: Q Type -> Q [Dec]
 deriveGND qty = do
   ty <- qty
-  let (instanceTvbs, instanceCxt, instanceTy) = decomposeType ty
+  let (_instanceTvbs, instanceCxt, instanceTy) = decomposeType ty
   instanceTy' <- (resolveTypeSynonyms <=< resolveInfixT) instanceTy
   decs <- deriveViaDecs instanceTy' Nothing
-  let instanceHeader = ForallT instanceTvbs instanceCxt instanceTy
-  (:[]) `fmap` instanceD (return [])
-                         (return instanceHeader)
+  (:[]) `fmap` instanceD (return instanceCxt)
+                         (return instanceTy)
                          (map return decs)
 
 {- | Generates an instance for a type class by emulating the behavior of the
@@ -67,11 +67,22 @@ the type by which to derive the instance using the 'Via' type. This
 requirement is in place to ensure that the type variables are scoped
 correctly across all the types being used (e.g., to make sure that the same
 @a@ is used in @'Ord' a@, @'Ord' (Foo a)@, and @Down a@).
+
+'deriveVia' imposes the requirement that the type variables mentioned in the
+second argument of 'Via' must be a subset of the type variables mentioned in
+the instance context and the first argument of 'Via'. In the example above, the
+second argument of 'Via' is @Down a@, which mentions the type variable @a@. The
+instance context is @'Ord' a@ and the instance head is @'Ord' (Foo a)@, which
+also mention @a@, so this requirement is satisfied. This is a stronger
+requirement than what GHC's implemention of @DerivingVia@ imposes, but this
+requirement is necessary due to Template Haskell restrictions. For more
+information on this point, see
+<https://github.com/haskell-compat/deriving-compat/issues/34 this issue>.
 -}
 deriveVia :: Q Type -> Q [Dec]
 deriveVia qty = do
   ty <- qty
-  let (instanceTvbs, instanceCxt, viaApp) = decomposeType ty
+  let (_instanceTvbs, instanceCxt, viaApp) = decomposeType ty
   viaApp' <- (resolveTypeSynonyms <=< resolveInfixT) viaApp
   (instanceTy, viaTy)
     <- case unapplyTy viaApp' of
@@ -79,15 +90,29 @@ deriveVia qty = do
            | via == ConT viaTypeName
           -> return (instanceTy, viaTy)
          _ -> fail $ unlines
-                [ "Failure to meet ‘deriveVia‘ specification"
+                [ deriveViaSpecFailure
                 , "\tThe ‘Via‘ type must be used, e.g."
                 , "\t[t| forall a. C (T a) `Via` V a |]"
                 ]
+  -- This is a stronger requirement than what GHC's implementation of
+  -- DerivingVia imposes, but due to Template Haskell restrictions, we
+  -- currently can't do better. See #27.
+  let viaTyFVs = freeVariables viaTy
+      otherFVs = concat [freeVariables instanceCxt, freeVariables instanceTy]
+  unless (S.fromList viaTyFVs `S.isSubsetOf` S.fromList otherFVs) $
+    fail $ unlines
+      [ deriveViaSpecFailure
+      , "\tThe type variables mentioned in the second argument of ‘Via‘"
+      , "\tmust be a subset of the type variables mentioned in the"
+      , "\tinstance context and the first argument of ‘Via‘"
+      ]
   decs <- deriveViaDecs instanceTy (Just viaTy)
-  let instanceHeader = ForallT instanceTvbs instanceCxt instanceTy
-  (:[]) `fmap` instanceD (return [])
-                         (return instanceHeader)
+  (:[]) `fmap` instanceD (return instanceCxt)
+                         (return instanceTy)
                          (map return decs)
+  where
+    deriveViaSpecFailure :: String
+    deriveViaSpecFailure = "Failure to meet ‘deriveVia‘ specification"
 
 deriveViaDecs :: Type       -- ^ The instance head (e.g., @Eq (Foo a)@)
               -> Maybe Type -- ^ If using 'deriveGND', this is 'Nothing.

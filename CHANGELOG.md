@@ -1,3 +1,15 @@
+## 0.6 [????.??.??]
+* `deriveVia` now imposes the requirement that the type variables mentioned in
+  the second argument to `Via` must be a subset of the type variables mentioned
+  in the instance context and the first argument to `Via`. In effect, this
+  removes the ability to mention "floating" `via` type variables (e.g., the `a`
+  in `deriveVia [t| forall a. Show MyInt `Via` Const Int a |]`) as introduced
+  in `deriving-compat-0.5.7`. This requirement was added due to GHC 9.2
+  becoming stricter about checking for nested `forall`s in instance heads, as
+  well as limitations in Template Haskell's inability to work around the issue.
+  For more information on this point, see
+  [this issue](https://github.com/haskell-compat/deriving-compat/issues/34).
+
 ### 0.5.10 [2020.09.30]
 * Allow building with `template-haskell-2.17.0.0` (GHC 9.0).
 
@@ -45,7 +57,7 @@
 * Have `deriveGND`/`deriveVia` throw an error if an incorrect number of
   arguments are supplied to the type class.
 
-### 0.5 [2018.07.01]
+## 0.5 [2018.07.01]
 * Backport the changes to `GeneralizedNewtypeDeriving` and `DerivingVia` code
   generation from
   [Trac #15290](https://ghc.haskell.org/trac/ghc/ticket/15290).
