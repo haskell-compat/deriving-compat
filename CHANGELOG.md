@@ -9,6 +9,10 @@
   well as limitations in Template Haskell's inability to work around the issue.
   For more information on this point, see
   [this issue](https://github.com/haskell-compat/deriving-compat/issues/34).
+* Using `deriveEnum` and `deriveIx` on poly-kinded data family instances may
+  now require the use of the `TypeInType` extension if using GHC 8.0, 8.2, or
+  8.4. (On later versions of GHC, `TypeInType`'s functionality has been folded
+  into `PolyKinds`.)
 
 ### 0.5.10 [2020.09.30]
 * Allow building with `template-haskell-2.17.0.0` (GHC 9.0).

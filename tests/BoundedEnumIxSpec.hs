@@ -10,6 +10,10 @@
 {-# LANGUAGE PolyKinds #-}
 #endif
 
+#if __GLASGOW_HASKELL__ >= 800 && __GLASGOW_HASKELL__ < 806
+{-# LANGUAGE TypeInType #-}
+#endif
+
 {-|
 Module:      BoundedEnumSpec
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -22,6 +26,9 @@ Portability: Template Haskell
 module BoundedEnumIxSpec where
 
 import Data.Deriving
+#if __GLASGOW_HASKELL__ >= 800 && __GLASGOW_HASKELL__ < 806
+import Data.Kind
+#endif
 
 import GHC.Arr (Ix(..))
 

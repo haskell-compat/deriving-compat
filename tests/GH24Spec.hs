@@ -2,7 +2,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-#if __GLASGOW_HASKELL__ >= 800
+#if __GLASGOW_HASKELL__ >= 706
+{-# LANGUAGE PolyKinds #-}
+#endif
+
+#if __GLASGOW_HASKELL__ >= 800 && __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
 #endif
 

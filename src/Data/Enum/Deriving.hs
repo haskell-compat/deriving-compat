@@ -28,4 +28,7 @@ Be aware of the following potential gotchas:
 
 * Type variables of kind @*@ are assumed to have 'Enum' constraints.
   If this is not desirable, use 'makeToEnum' or one of its cousins.
+
+* Generated 'Enum' instances for poly-kinded data family instances are likely
+  to require the use of the @TypeInType@ extension on GHC 8.0, 8.2, or 8.4.
 -}

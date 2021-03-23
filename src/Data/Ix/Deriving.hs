@@ -25,4 +25,7 @@ Be aware of the following potential gotchas:
 
 * Type variables of kind @*@ are assumed to have 'Ix' constraints.
   If this is not desirable, use 'makeRange' or one of its cousins.
+
+* Generated 'Ix' instances for poly-kinded data family instances are likely
+  to require the use of the @TypeInType@ extension on GHC 8.0, 8.2, or 8.4.
 -}
