@@ -1041,10 +1041,9 @@ tag2ConExpr :: Type -> Q Exp
 tag2ConExpr ty = do
     iHash  <- newName "i#"
     ty' <- freshenType ty
-    let tvbs = avoidTypeInType $ freeVariablesWellScoped [ty']
     lam1E (conP iHashDataName [varP iHash]) $
         varE tagToEnumHashValName `appE` varE iHash
-            `sigE` return (ForallT (changeTVFlags SpecifiedSpec tvbs) [] ty')
+            `sigE` return (quantifyType ty')
             -- tagToEnum# is a hack, and won't typecheck unless it's in the
             -- immediate presence of a type ascription like so:
             --
@@ -1057,39 +1056,6 @@ tag2ConExpr ty = do
             -- (using th-abstraction's quantifyType function). Also make sure
             -- to freshen the bound type variables to avoid shadowed variable
             -- warnings on old versions of GHC when -Wall is enabled.
-  where
-    -- Somewhat annoyingly, it's possible to generate code that requires
-    -- TypeInType (on old versions of GHC) for data types which didn't require
-    -- TypeInType to define. To avoid users having to turn on more language
-    -- extensions than is necessary, we filter out all kind variable binders.
-    -- Fortunately, old versions of GHC are quite alright with implicitly
-    -- quantifying kind variables, even in the type of a SigE.
-    --
-    -- This is rather tiresome, and while writing this function, I debated
-    -- whether to just forget about this nonsense and require users to
-    -- enable TypeInType to use the generated code. Alas, that would entail
-    -- a breaking change, so I decided against it at the time. If we ever make
-    -- some breaking change in the future, however, this would be at the top
-    -- of the list of things that I'd rip out.
-    avoidTypeInType :: [TyVarBndrUnit] -> [TyVarBndrUnit]
-#if __GLASGOW_HASKELL__ >= 806
-    avoidTypeInType = id
-#else
-    avoidTypeInType = go . map attachFreeKindVars
-      where
-        attachFreeKindVars :: TyVarBndrUnit -> (TyVarBndrUnit, [Name])
-        attachFreeKindVars tvb = (tvb, freeVariables (tvKind tvb))
-
-        go :: [(TyVarBndrUnit, [Name])] -> [TyVarBndrUnit]
-        go [] = []
-        go ((tvb, _):tvbsAndFVs)
-          | any (\(_, kindVars) -> tvName tvb `elem` kindVars) tvbsAndFVs
-          = tvbs'
-          | otherwise
-          = tvb:tvbs'
-          where
-            tvbs' = go tvbsAndFVs
-#endif
 
 primOrdFunTbl :: Map Name (Name, Name, Name, Name, Name)
 primOrdFunTbl = Map.fromList
