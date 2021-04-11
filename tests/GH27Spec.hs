@@ -6,7 +6,6 @@
 #if MIN_VERSION_template_haskell(2,12,0)
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-unused-foralls #-} -- Due to GHC #13512. Sigh.
 #endif
 
 {-|
@@ -18,15 +17,6 @@ Portability: Template Haskell
 
 A regression test for
 https://github.com/haskell-compat/deriving-compat/issues/27.
-We isolate this test case from the rest of "DerivingViaSpec" because
-we have to disable @-Wunused-foralls@ due to
-https://gitlab.haskell.org/ghc/ghc/issues/13512, and we would prefer not to
-contaminate the rest of "DerivingViaSpec" with this hack.
-
-Unfortunately, this test case cannot be made to work yet due to
-https://github.com/haskell-compat/deriving-compat/issues/34, so we leave it
-here commented out. If that issue were to be fixed, we should be able to bring
-this test case back.
 -}
 module GH27Spec where
 
@@ -35,7 +25,6 @@ import Prelude.Compat
 
 import Test.Hspec
 
-{-
 #if MIN_VERSION_template_haskell(2,12,0)
 import Data.Deriving.Via
 import Data.Functor.Const
@@ -43,7 +32,6 @@ import Data.Functor.Const
 newtype Age = MkAge Int
 $(deriveVia [t| forall a. Show Age `Via` Const Int a |])
 #endif
--}
 
 main :: IO ()
 main = hspec spec

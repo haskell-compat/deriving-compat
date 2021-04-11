@@ -67,17 +67,5 @@ Be aware of the following potential gotchas:
   work in all scenarios, however, especially when the last parameter to a type
   class appears as a kind variable in an associated type family. (See
   <https://ghc.haskell.org/trac/ghc/ticket/14728 Trac #14728>.)
-
-* The 'deriveVia' function does not support \"floating\" type variables, such
-  as the @a@ in @newtype MyInt = MkMyInt Int deriving Show via Const Int a@.
-  In order to support this, the following instance declaration would need to be
-  generated with Template Haskell:
-
-  @
-  instance forall a. Show MyInt where ...
-  @
-
-  Unfortunately, Template Haskell does not support instance declarations with
-  explicit @forall@s at the top, so this is currently not possible.
 -}
 #endif

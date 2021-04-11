@@ -116,6 +116,11 @@ The following changes have been backported:
 * In GHC 8.6, deriving 'Read' was changed so as to factor out certain commonly
   used subexpressions, which significantly improve compliation times.
 
+* In GHC 8.10, @DerivingVia@ permits \"floating\" type variables in @via@ types,
+  such as the @a@ in @'deriveVia' [t| forall a. Show MyInt ``Via`` Const Int a |]@.
+  @deriving-compat@ does so by instantiating the @a@ to @GHC.Exts.Any@ in the
+  generated instance.
+
 * In GHC 9.0, @DeriveFunctor@ was changed so that it works on more
   constructors with rank-n field types.
 -}
