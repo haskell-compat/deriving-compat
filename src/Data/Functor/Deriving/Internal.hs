@@ -56,7 +56,7 @@ module Data.Functor.Deriving.Internal (
 import           Control.Monad (guard)
 
 import           Data.Deriving.Internal
-import           Data.List
+import qualified Data.List as List
 import qualified Data.Map as Map ((!), keys, lookup, member, singleton)
 import           Data.Maybe
 
@@ -590,7 +590,7 @@ makeTraverseMatch tvMap con@(ConstructorInfo{constructorName = conName}) = do
         mkApCon :: Exp -> [Exp] -> Exp
         mkApCon conExp []  = VarE pureValName `AppE` conExp
         mkApCon conExp [e] = VarE fmapValName `AppE` conExp `AppE` e
-        mkApCon conExp (e1:e2:es) = foldl' appAp
+        mkApCon conExp (e1:e2:es) = List.foldl' appAp
           (VarE liftA2ValName `AppE` conExp `AppE` e1 `AppE` e2) es
           where appAp se1 se2 = InfixE (Just se1) (VarE apValName) (Just se2)
 

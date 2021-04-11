@@ -52,7 +52,7 @@ module Text.Show.Deriving.Internal (
     ) where
 
 import           Data.Deriving.Internal
-import           Data.List
+import qualified Data.List as List
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Maybe (fromMaybe)
@@ -398,7 +398,7 @@ makeShowForCon p sClass opts tvMap
        then do
          let showArgs       = zipWith (makeShowForArg 0 sClass opts conName tvMap) argTys' args
              parenCommaArgs = (varE showCharValName `appE` charE '(')
-                              : intersperse (varE showCharValName `appE` charE ',') showArgs
+                              : List.intersperse (varE showCharValName `appE` charE ',') showArgs
              mappendArgs    = foldr (`infixApp` varE composeValName)
                                     (varE showCharValName `appE` charE ')')
                                     parenCommaArgs

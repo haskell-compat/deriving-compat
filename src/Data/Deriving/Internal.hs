@@ -35,7 +35,7 @@ import           Data.Functor.Classes (Eq1(..), Ord1(..), Read1(..), Show1(..))
 import           Data.Functor.Classes (Eq2(..), Ord2(..), Read2(..), Show2(..))
 # endif
 #endif
-import           Data.List
+import qualified Data.List as List
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Maybe
@@ -376,7 +376,7 @@ buildTypeInstance cRep tyConName dataCxt varTysOrig variant = do
         --   instance C (Fam [Char])
         remainingTysOrigSubst :: [Type]
         remainingTysOrigSubst =
-          map (substNamesWithKindStar (union droppedKindVarNames kvNames'))
+          map (substNamesWithKindStar (List.union droppedKindVarNames kvNames'))
             $ take remainingLength varTysOrig
 
         isDataFamily :: Bool
@@ -969,7 +969,7 @@ predMentionsName (EqualP t1 t2) names = mentionsName t1 names || mentionsName t2
 
 -- | Construct a type via curried application.
 applyTy :: Type -> [Type] -> Type
-applyTy = foldl' AppT
+applyTy = List.foldl' AppT
 
 -- | Fully applies a type constructor to its type variables.
 applyTyCon :: Name -> [Type] -> Type
