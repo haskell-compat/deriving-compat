@@ -2111,18 +2111,6 @@ eqWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord8#"
 eqWord16HashValName :: Name
 eqWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord16#"
 
-extendInt8HashValName :: Name
-extendInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendInt8#"
-
-extendInt16HashValName :: Name
-extendInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendInt16#"
-
-extendWord8HashValName :: Name
-extendWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendWord8#"
-
-extendWord16HashValName :: Name
-extendWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "extendWord16#"
-
 geInt8HashValName :: Name
 geInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt8#"
 
@@ -2150,8 +2138,40 @@ gtWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord16#"
 int8HashTypeName :: Name
 int8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int8#"
 
+int8ToIntHashValName :: Name
+int8ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "int8ToInt#"
+# else
+  "extendInt8#"
+# endif
+
 int16HashTypeName :: Name
 int16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int16#"
+
+int16ToIntHashValName :: Name
+int16ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "int16ToInt#"
+# else
+  "extendInt16#"
+# endif
+
+intToInt8HashValName :: Name
+intToInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "intToInt8#"
+# else
+  "narrowInt8#"
+# endif
+
+intToInt16HashValName :: Name
+intToInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "intToInt16#"
+# else
+  "narrowInt16#"
+# endif
 
 leInt8HashValName :: Name
 leInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt8#"
@@ -2180,6 +2200,38 @@ ltWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord16#"
 word8HashTypeName :: Name
 word8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word8#"
 
+word8ToWordHashValName :: Name
+word8ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "word8ToWord#"
+# else
+  "extendWord8#"
+# endif
+
 word16HashTypeName :: Name
 word16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word16#"
+
+word16ToWordHashValName :: Name
+word16ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "word16ToWord#"
+# else
+  "extendWord16#"
+# endif
+
+wordToWord8HashValName :: Name
+wordToWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "wordToWord8#"
+# else
+  "narrowWord8#"
+# endif
+
+wordToWord16HashValName :: Name
+wordToWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+# if MIN_VERSION_base(4,16,0)
+  "wordToWord16#"
+# else
+  "narrowWord16#"
+# endif
 #endif

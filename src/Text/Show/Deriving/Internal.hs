@@ -692,34 +692,34 @@ primShowTbl = Map.fromList
                              })
 #if MIN_VERSION_base(4,13,0)
     , (int8HashTypeName,   PrimShow
-                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE extendInt8HashValName)
+                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE int8ToIntHashValName)
                              , primShowPostfixMod = oneHashE
-                             , primShowConv       = mkNarrowE "narrowInt8#"
+                             , primShowConv       = mkNarrowE intToInt8HashValName
                              })
     , (int16HashTypeName,  PrimShow
-                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE extendInt16HashValName)
+                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE int16ToIntHashValName)
                              , primShowPostfixMod = oneHashE
-                             , primShowConv       = mkNarrowE "narrowInt16#"
+                             , primShowConv       = mkNarrowE intToInt16HashValName
                              })
     , (word8HashTypeName,  PrimShow
-                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE extendWord8HashValName)
+                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE word8ToWordHashValName)
                              , primShowPostfixMod = twoHashE
-                             , primShowConv       = mkNarrowE "narrowWord8#"
+                             , primShowConv       = mkNarrowE wordToWord8HashValName
                              })
     , (word16HashTypeName, PrimShow
-                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE extendWord16HashValName)
+                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE word16ToWordHashValName)
                              , primShowPostfixMod = twoHashE
-                             , primShowConv       = mkNarrowE "narrowWord16#"
+                             , primShowConv       = mkNarrowE wordToWord16HashValName
                              })
 #endif
     ]
 
 #if MIN_VERSION_base(4,13,0)
-mkNarrowE :: String -> Q Exp -> Q Exp
-mkNarrowE narrowStr e =
+mkNarrowE :: Name -> Q Exp -> Q Exp
+mkNarrowE narrowName e =
   foldr (`infixApp` varE composeValName)
         (varE showCharValName `appE` charE ')')
-        [ varE showStringValName `appE` stringE ('(':narrowStr ++ " ")
+        [ varE showStringValName `appE` stringE ('(':nameBase narrowName ++ " ")
         , e
         ]
 #endif
