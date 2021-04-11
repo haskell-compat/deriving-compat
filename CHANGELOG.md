@@ -1,5 +1,7 @@
 ## 0.6 [????.??.??]
 * Allow building with `template-haskell-2.18.0.0` (GHC 9.2).
+* Support deriving `Eq`, `Ord`, and `Show` instances for data types with fields
+  of type `Int32#` or `Word32#` on GHC 9.2 or later.
 * `deriveVia` now imposes the requirement that the type variables mentioned in
   the second argument to `Via` must be a subset of the type variables mentioned
   in the instance context and the first argument to `Via`. In effect, this

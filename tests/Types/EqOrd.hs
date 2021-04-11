@@ -26,6 +26,9 @@ import GHC.Exts ( Addr#, Char#, Double#, Float#, Int#, Word#
 #if MIN_VERSION_base(4,13,0)
                 , Int8#, Int16#, Word8#, Word16#
 #endif
+#if MIN_VERSION_base(4,16,0)
+                , Int32#, Word32#
+#endif
                 )
 
 -- Plain data types
@@ -59,6 +62,10 @@ data TyCon# a b = TyCon# {
   , tcInt16#  :: Int16#
   , tcWord8#  :: Word8#
   , tcWord16# :: Word16#
+#endif
+#if MIN_VERSION_base(4,16,0)
+  , tcInt32#  :: Int32#
+  , tcWord32# :: Word32#
 #endif
 }
 
@@ -115,6 +122,10 @@ data instance TyFamily# a b = TyFamily# {
   , tfInt16#  :: Int16#
   , tfWord8#  :: Word8#
   , tfWord16# :: Word16#
+#endif
+#if MIN_VERSION_base(4,16,0)
+  , tfInt32#  :: Int32#
+  , tfWord32# :: Word32#
 #endif
 }
 

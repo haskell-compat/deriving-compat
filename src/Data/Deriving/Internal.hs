@@ -1121,6 +1121,20 @@ primOrdFunTbl = Map.fromList
                            , gtWord16HashValName
                            ))
 #endif
+#if MIN_VERSION_base(4,16,0)
+    , (int32HashTypeName,  ( ltInt32HashValName
+                           , leInt32HashValName
+                           , eqInt32HashValName
+                           , geInt32HashValName
+                           , gtInt32HashValName
+                           ))
+    , (word32HashTypeName, ( ltWord32HashValName
+                           , leWord32HashValName
+                           , eqWord32HashValName
+                           , geWord32HashValName
+                           , gtWord32HashValName
+                           ))
+#endif
     ]
 
 removeClassApp :: Type -> Type
@@ -2234,4 +2248,54 @@ wordToWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
 # else
   "narrowWord16#"
 # endif
+#endif
+
+#if MIN_VERSION_base(4,16,0)
+eqInt32HashValName :: Name
+eqInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt32#"
+
+eqWord32HashValName :: Name
+eqWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord32#"
+
+geInt32HashValName :: Name
+geInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt32#"
+
+geWord32HashValName :: Name
+geWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord32#"
+
+gtInt32HashValName :: Name
+gtInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt32#"
+
+gtWord32HashValName :: Name
+gtWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord32#"
+
+int32HashTypeName :: Name
+int32HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int32#"
+
+int32ToIntHashValName :: Name
+int32ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "int32ToInt#"
+
+intToInt32HashValName :: Name
+intToInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "intToInt32#"
+
+leInt32HashValName :: Name
+leInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt32#"
+
+leWord32HashValName :: Name
+leWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord32#"
+
+ltInt32HashValName :: Name
+ltInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt32#"
+
+ltWord32HashValName :: Name
+ltWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord32#"
+
+word32HashTypeName :: Name
+word32HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word32#"
+
+word32ToWordHashValName :: Name
+word32ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "word32ToWord#"
+
+wordToWord32HashValName :: Name
+wordToWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "wordToWord32#"
 #endif

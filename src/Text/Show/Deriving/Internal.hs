@@ -712,6 +712,18 @@ primShowTbl = Map.fromList
                              , primShowConv       = mkNarrowE wordToWord16HashValName
                              })
 #endif
+#if MIN_VERSION_base(4,16,0)
+    , (int32HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE iHashDataName) . appE (varE int32ToIntHashValName)
+                             , primShowPostfixMod = oneHashE
+                             , primShowConv       = mkNarrowE intToInt32HashValName
+                             })
+    , (word32HashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE wHashDataName) . appE (varE word32ToWordHashValName)
+                             , primShowPostfixMod = twoHashE
+                             , primShowConv       = mkNarrowE wordToWord32HashValName
+                             })
+#endif
     ]
 
 #if MIN_VERSION_base(4,13,0)
