@@ -703,7 +703,7 @@ functorFunTrivial fmapE traverseE ff z = go ff
 conWildPat :: ConstructorInfo -> Pat
 conWildPat (ConstructorInfo { constructorName = conName
                             , constructorFields = ts }) =
-  ConP conName $ replicate (length ts) WildP
+  conPCompat conName $ replicate (length ts) WildP
 
 -------------------------------------------------------------------------------
 -- Generic traversal for functor-like deriving
@@ -861,7 +861,7 @@ mkSimpleConMatch :: (Name -> [a] -> Q Exp)
                  -> Q Match
 mkSimpleConMatch fold conName insides = do
   varsNeeded <- newNameList "_arg" $ length insides
-  let pat = ConP conName (map VarP varsNeeded)
+  let pat = conPCompat conName (map VarP varsNeeded)
   rhs <- fold conName (zipWith (\i v -> i $ VarE v) insides varsNeeded)
   return $ Match pat (NormalB rhs) []
 
@@ -885,7 +885,7 @@ mkSimpleConMatch2 :: (Exp -> [Exp] -> Q Exp)
                   -> Q Match
 mkSimpleConMatch2 fold conName insides = do
   varsNeeded <- newNameList "_arg" lengthInsides
-  let pat = ConP conName (map VarP varsNeeded)
+  let pat = conPCompat conName (map VarP varsNeeded)
       -- Make sure to zip BEFORE invoking catMaybes. We want the variable
       -- indicies in each expression to match up with the argument indices
       -- in conExpr (defined below).
@@ -933,3 +933,11 @@ mkSimpleTupleCase matchForCon tupSort insides x = do
 #endif
   m <- matchForCon tupDataName insides
   return $ CaseE x [m]
+
+-- Adapt to the type of ConP changing in template-haskell-2.18.0.0.
+conPCompat :: Name -> [Pat] -> Pat
+conPCompat n pats = ConP n
+#if MIN_VERSION_template_haskell(2,18,0)
+                         []
+#endif
+                         pats
