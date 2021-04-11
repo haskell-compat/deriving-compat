@@ -1,6 +1,9 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE TupleSections #-}
+
+#if __GLASGOW_HASKELL__ >= 800
+{-# LANGUAGE TemplateHaskellQuotes #-}
+#endif
 
 {-|
 Module:      Data.Deriving.Via.Internal
