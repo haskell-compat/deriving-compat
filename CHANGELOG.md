@@ -1,4 +1,4 @@
-## 0.6 [????.??.??]
+## 0.6 [2021.08.29]
 * Allow building with `template-haskell-2.18.0.0` (GHC 9.2).
 * Using `deriveEnum` and `deriveIx` on poly-kinded data family instances may
   now require the use of the `TypeInType` extension if using GHC 8.0, 8.2, or
