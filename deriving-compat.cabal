@@ -73,8 +73,9 @@ tested-with:         GHC == 7.0.4
                    , GHC == 8.4.4
                    , GHC == 8.6.5
                    , GHC == 8.8.4
-                   , GHC == 8.10.4
+                   , GHC == 8.10.7
                    , GHC == 9.0.1
+                   , GHC == 9.2.*
 cabal-version:       >=1.10
 
 source-repository head
@@ -132,7 +133,7 @@ library
     build-depends:     base                >= 4.3   && < 4.9
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.18
+    build-depends:     template-haskell    >= 2.11  && < 2.19
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5   && < 2.11
@@ -171,7 +172,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
                      , tagged              >= 0.7    && < 1
-                     , template-haskell    >= 2.5    && < 2.18
+                     , template-haskell    >= 2.5    && < 2.19
                      , void                >= 0.5.10 && < 1
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
