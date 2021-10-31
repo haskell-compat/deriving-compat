@@ -7,6 +7,10 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Show', 'Show1', and 'Show2' instances.
+Note that upstream GHC does not have the ability to derive 'Show1' or 'Show2'
+instances, but since the functionality to derive 'Show' extends very naturally
+'Show1' and 'Show2', the ability to derive the latter two classes is provided as a
+convenience.
 -}
 module Text.Show.Deriving (
       -- * 'Show'

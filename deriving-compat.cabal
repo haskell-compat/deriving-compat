@@ -1,9 +1,10 @@
 name:                deriving-compat
 version:             0.6
 synopsis:            Backports of GHC deriving extensions
-description:         Provides Template Haskell functions that mimic deriving
-                     extensions that were introduced or modified in recent versions
-                     of GHC. Currently, the following typeclasses/extensions are covered:
+description:         @deriving-compat@ provides Template Haskell functions that
+                     mimic deriving extensions that were introduced or modified
+                     in recent versions of GHC. Currently, the following
+                     typeclasses/extensions are covered:
                      .
                      * Deriving @Bounded@
                      .
@@ -11,13 +12,13 @@ description:         Provides Template Haskell functions that mimic deriving
                      .
                      * Deriving @Ix@
                      .
-                     * Deriving @Eq@, @Eq1@, and @Eq2@
+                     * Deriving @Eq@
                      .
-                     * Deriving @Ord@, @Ord1@, and @Ord2@
+                     * Deriving @Ord@
                      .
-                     * Deriving @Read@, @Read1@, and @Read2@
+                     * Deriving @Read@
                      .
-                     * Deriving @Show@, @Show1@, and @Show2@
+                     * Deriving @Show@
                      .
                      * @DeriveFoldable@
                      .
@@ -30,6 +31,18 @@ description:         Provides Template Haskell functions that mimic deriving
                      * @DerivingVia@ (with GHC 8.2 or later)
                      .
                      See the "Data.Deriving" module for a full list of backported changes.
+                     .
+                     In addition, @deriving-compat@ also provides functionality
+                     to derive classes in the @Data.Functor.Classes@ module,
+                     covering the @Eq{1,2}@, @Ord{1,2}@, @Read{1,2}@, and
+                     @Show{1,2}@ classes. This is functionality that upstream
+                     GHC does not currently have, so strictly speaking, this
+                     functionality is outside of the main scope of
+                     @deriving-compat@. Nevertheless, the underlying Template
+                     Haskell functionality needed to derive @Eq@ and friends
+                     extends very naturally to @Eq{1,2}@ and friends, so this
+                     extra functionality is included in @deriving-compat@ as a
+                     convenience.
                      .
                      Note that some recent GHC typeclasses/extensions are not covered by this package:
                      .
