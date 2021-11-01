@@ -7,6 +7,10 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Ord', 'Ord1', and 'Ord2' instances.
+Note that upstream GHC does not have the ability to derive 'Ord1' or 'Ord2'
+instances, but since the functionality to derive 'Ord' extends very naturally
+'Ord1' and 'Ord2', the ability to derive the latter two classes is provided as a
+convenience.
 -}
 module Data.Ord.Deriving (
       -- * 'Ord'

@@ -7,6 +7,10 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Read', 'Read1', and 'Read2' instances.
+Note that upstream GHC does not have the ability to derive 'Read1' or 'Read2'
+instances, but since the functionality to derive 'Read' extends very naturally
+'Read1' and 'Read2', the ability to derive the latter two classes is provided as a
+convenience.
 -}
 module Text.Read.Deriving (
       -- * 'Read'

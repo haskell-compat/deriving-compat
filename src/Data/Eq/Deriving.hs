@@ -7,6 +7,10 @@ Maintainer:  Ryan Scott
 Portability: Template Haskell
 
 Exports functions to mechanically derive 'Eq', 'Eq1', and 'Eq2' instances.
+Note that upstream GHC does not have the ability to derive 'Eq1' or 'Eq2'
+instances, but since the functionality to derive 'Eq' extends very naturally
+'Eq1' and 'Eq2', the ability to derive the latter two classes is provided as a
+convenience.
 -}
 module Data.Eq.Deriving (
       -- * 'Eq'
