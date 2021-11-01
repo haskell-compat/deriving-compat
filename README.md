@@ -15,7 +15,7 @@
   https://tldrlegal.com/license/bsd-3-clause-license-%28revised%29
   "BSD 3-Clause License (Revised)"
 
-`deriving-compat` provides Template Haskell functions that mimic deriving extensions that were introduced or modified in recent versions of GHC. Currently, the following typeclasses/extensions are covered:
+`deriving-compat` provides Template Haskell functions that mimic `deriving` extensions that were introduced or modified in recent versions of GHC. Currently, the following typeclasses/extensions are covered:
 
 * Deriving `Bounded`
 * Deriving `Enum`
@@ -32,7 +32,7 @@
 
 See the `Data.Deriving` module for a full list of backported changes.
 
-In addition, `deriving-compat` also provides functionality to derive classes in the `Data.Functor.Classes` module, covering the `Eq1`, `Eq2`, `Ord1`, `Ord2`, `Read1`, `Read2`, `Show1`, and `Show2` classes. This is functionality that upstream GHC does not currently have, so strictly speaking, this functionality is outside of the main scope of `deriving-compat`. Nevertheless, the underlying Template Haskell functionality needed to derive `Eq` and friends extends very naturally to `Eq1` and friends, so this extra functionality is included in `deriving-compat` as a convenience.
+In addition, `deriving-compat` also provides some additional `deriving` functionality that has not yet been merged into upstream GHC. Aside from the GHC `deriving` extensions mentioned above, `deriving-compat` also permits deriving instances of classes in the `Data.Functor.Classes` module, covering the `Eq1`, `Eq2`, `Ord1`, `Ord2`, `Read1`, `Read2`, `Show1`, and `Show2` classes. This extra functionality is outside of the main scope of `deriving-compat`, as it does not backport extensions that exist in today's GHC. Nevertheless, the underlying Template Haskell machinery needed to derive `Eq` and friends extends very naturally to `Eq1` and friends, so this extra functionality is included in `deriving-compat` as a convenience.
 
 Note that some recent GHC typeclasses/extensions are not covered by this package:
 
