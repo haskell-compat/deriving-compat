@@ -5,6 +5,7 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 {-|
 Module:      Types.EqOrd

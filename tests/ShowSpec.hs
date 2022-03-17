@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 #if __GLASGOW_HASKELL__ >= 708
 {-# LANGUAGE EmptyCase #-}
 #endif
