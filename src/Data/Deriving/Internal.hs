@@ -1562,6 +1562,9 @@ maxBoundValName = mkNameG_v "base" "GHC.Enum" "maxBound"
 minusIntHashValName :: Name
 minusIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "-#"
 
+neqIntHashValName :: Name
+neqIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "/=#"
+
 parenValName :: Name
 parenValName = mkNameG_v "base" "GHC.Read" "paren"
 
