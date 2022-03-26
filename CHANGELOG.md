@@ -1,3 +1,8 @@
+### next [????.??.??]
+* Backport [GHC!6955](https://gitlab.haskell.org/ghc/ghc/-/merge_requests/6955),
+  which makes derived `Eq` instances check data constructor tags, which can
+  improve runtime performance for data types with nullary constructors.
+
 ## 0.6 [2021.08.29]
 * Allow building with `template-haskell-2.18.0.0` (GHC 9.2).
 * Using `deriveEnum` and `deriveIx` on poly-kinded data family instances may

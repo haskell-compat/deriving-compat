@@ -89,6 +89,11 @@ data TyConWrap f g h a = TyConWrap1 (f a)
 
 data Empty a b
 
+data TyConNullary a b
+  = TyConNullary1
+  | TyConNullary2
+  | TyConNullary3
+
 -- Data families
 
 data family TyFamily1 y z :: *
@@ -151,6 +156,13 @@ data instance TyFamilyWrap f g h a = TyFamilyWrap1 (f a)
                                    | TyFamilyWrap2 (f (g a))
                                    | TyFamilyWrap3 (f (g (h a)))
 
+data family TyFamilyNullary x y :: *
+
+data instance TyFamilyNullary a b
+  = TyFamilyNullary1
+  | TyFamilyNullary2
+  | TyFamilyNullary3
+
 -------------------------------------------------------------------------------
 
 -- Plain data types
@@ -163,11 +175,13 @@ instance (Eq (f a), Eq (f (g a)), Eq (f (g (h a))))
     (==) = $(makeEq    ''TyConWrap)
     (/=) = $(makeNotEq ''TyConWrap)
 $(deriveEq  ''Empty)
+$(deriveEq ''TyConNullary)
 
 $(deriveEq1 ''TyCon1)
 $(deriveEq1 ''TyCon#)
 $(deriveEq1 ''TyCon2)
 $(deriveEq1 ''Empty)
+$(deriveEq1 ''TyConNullary)
 
 $(deriveOrd  ''TyCon1)
 $(deriveOrd  ''TyCon#)
@@ -187,6 +201,7 @@ $(deriveOrd1 ''TyCon1)
 $(deriveOrd1 ''TyCon#)
 $(deriveOrd1 ''TyCon2)
 $(deriveOrd1 ''Empty)
+$(deriveOrd1 ''TyConNullary)
 
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveEq1 ''TyConWrap)
@@ -207,11 +222,13 @@ $(deriveEq2 ''TyCon1)
 $(deriveEq2 ''TyCon#)
 $(deriveEq2 ''TyCon2)
 $(deriveEq2 ''Empty)
+$(deriveEq2 ''TyConNullary)
 
 $(deriveOrd2 ''TyCon1)
 $(deriveOrd2 ''TyCon#)
 $(deriveOrd2 ''TyCon2)
 $(deriveOrd2 ''Empty)
+$(deriveOrd2 ''TyConNullary)
 #endif
 
 #if MIN_VERSION_template_haskell(2,7,0)
@@ -224,10 +241,12 @@ instance (Eq (f a), Eq (f (g a)), Eq (f (g (h a))))
   => Eq (TyFamilyWrap f g h a) where
     (==) = $(makeEq    'TyFamilyWrap1)
     (/=) = $(makeNotEq 'TyFamilyWrap1)
+$(deriveEq 'TyFamilyNullary1)
 
 $(deriveEq1 'TyFamily1B)
 $(deriveEq1 'TyFamily#)
 $(deriveEq1 'TyFamilyEqualityConstraints)
+$(deriveEq1 'TyFamilyNullary1)
 
 $(deriveOrd  'TyFamily1A)
 $(deriveOrd  'TyFamily#)
@@ -241,10 +260,12 @@ instance (Ord (f a), Ord (f (g a)), Ord (f (g (h a))))
     (<=)    = $(makeGE      'TyFamilyWrap1)
     max     = $(makeMax     'TyFamilyWrap1)
     min     = $(makeMin     'TyFamilyWrap1)
+$(deriveOrd 'TyFamilyNullary1)
 
 $(deriveOrd1 'TyFamily1B)
 $(deriveOrd1 'TyFamily#)
 $(deriveOrd1 'TyFamilyEqualityConstraints)
+$(deriveOrd1 'TyFamilyNullary1)
 
 #if defined(NEW_FUNCTOR_CLASSES)
 $(deriveEq1 'TyFamilyWrap2)
@@ -264,9 +285,11 @@ instance (Ord1 f, Functor f, Ord1 g, Functor g, Ord1 h)
 $(deriveEq2 'TyFamily1C)
 $(deriveEq2 'TyFamily#)
 $(deriveEq2 'TyFamilyTypeRefinement1)
+$(deriveEq2 'TyFamilyNullary1)
 
 $(deriveOrd2 'TyFamily1C)
 $(deriveOrd2 'TyFamily#)
 $(deriveOrd2 'TyFamilyTypeRefinement1)
+$(deriveOrd2 'TyFamilyNullary1)
 # endif
 #endif

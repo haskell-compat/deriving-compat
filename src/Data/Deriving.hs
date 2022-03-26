@@ -123,6 +123,10 @@ The following changes have been backported:
 
 * In GHC 9.0, @DeriveFunctor@ was changed so that it works on more
   constructors with rank-n field types.
+
+* In GHC 9.4, deriving 'Eq' was changed so that it checks data constructor
+  tags, which can improve runtime performance for data types with nullary
+  constructors.
 -}
 
 {- $derive

@@ -33,7 +33,7 @@ module Data.Eq.Deriving.Internal (
     ) where
 
 import           Data.Deriving.Internal
-import           Data.List (foldl1', partition)
+import           Data.List (foldl1')
 import qualified Data.Map as Map
 
 import           Language.Haskell.TH.Datatype
@@ -177,8 +177,7 @@ makeEqForCons eClass instTypes cons = do
                      [value1, value2]
          ) . appsE
          $ [ varE $ eqConstName eClass
-           , letE [ funD eqDefn $ map (makeCaseForCon eClass tvMap) patMatchCons
-                               ++ fallThroughCase
+           , letE [ funD eqDefn [eqClause tvMap]
                   ] $ varE eqDefn `appE` varE value1 `appE` varE value2
            ]
 #if defined(NEW_FUNCTOR_CLASSES)
@@ -186,39 +185,63 @@ makeEqForCons eClass instTypes cons = do
 #endif
              ++ [varE value1, varE value2]
   where
-    nullaryCons, nonNullaryCons :: [ConstructorInfo]
-    (nullaryCons, nonNullaryCons) = partition isNullaryCon cons
+    nonNullaryCons :: [ConstructorInfo]
+    nonNullaryCons = filter (not . isNullaryCon) cons
 
-    tagMatchCons, patMatchCons :: [ConstructorInfo]
-    (tagMatchCons, patMatchCons)
-      | length nullaryCons > 10 = (nullaryCons, nonNullaryCons)
-      | otherwise               = ([],          cons)
+    numNonNullaryCons :: Int
+    numNonNullaryCons = length nonNullaryCons
 
-    fallThroughCase :: [Q Clause]
-    fallThroughCase
-      | null tagMatchCons = case patMatchCons of
-          []  -> [makeFallThroughCaseTrue]  -- No constructors: _ == _ = True
-          [_] -> []                         -- One constructor: no fall-through case
-          _   -> [makeFallThroughCaseFalse] -- Two or more constructors:
-                                            --   _ == _ = False
-      | otherwise = [makeTagCase]
+    eqClause :: TyVarMap1 -> Q Clause
+    eqClause tvMap
+      | null cons
+      = makeFallThroughCaseTrue
+      -- Tag checking is redundant when there is only one data constructor
+      | [con] <- cons
+      = makeCaseForCon eClass tvMap con
+      -- This is an enum (all constructors are nullary) - just do a simple tag check
+      | all isNullaryCon cons
+      = makeTagCase
+      | otherwise
+      = do abNames@(a, _, b, _) <- newABNames
+           clause (map varP [a,b])
+                  (normalB $ eqExprWithTagCheck tvMap abNames)
+                  []
 
-makeTagCase :: Q Clause
-makeTagCase = do
+    eqExprWithTagCheck :: TyVarMap1 -> (Name, Name, Name, Name) ->  Q Exp
+    eqExprWithTagCheck tvMap (a, aHash, b, bHash) =
+      condE (untagExpr [(a, aHash), (b, bHash)]
+                       (primOpAppExpr (varE aHash) neqIntHashValName (varE bHash)))
+            (conE falseDataName)
+            (caseE (varE a)
+                   (map (mkNestedMatchesForCon eClass tvMap b) nonNullaryCons
+                    ++ [ makeFallThroughMatchTrue
+                       | 0 < numNonNullaryCons && numNonNullaryCons < length cons
+                       ]))
+
+newABNames :: Q (Name, Name, Name, Name)
+newABNames = do
     a     <- newName "a"
     aHash <- newName "a#"
     b     <- newName "b"
     bHash <- newName "b#"
+    return (a, aHash, b, bHash)
+
+makeTagCase :: Q Clause
+makeTagCase = do
+    (a, aHash, b, bHash) <- newABNames
     clause (map varP [a,b])
            (normalB $ untagExpr [(a, aHash), (b, bHash)] $
                primOpAppExpr (varE aHash) eqIntHashValName (varE bHash)) []
 
-makeFallThroughCaseFalse, makeFallThroughCaseTrue :: Q Clause
-makeFallThroughCaseFalse = makeFallThroughCase falseDataName
-makeFallThroughCaseTrue  = makeFallThroughCase trueDataName
+makeFallThroughCaseTrue :: Q Clause
+makeFallThroughCaseTrue = clause [wildP, wildP] (normalB $ conE trueDataName) []
 
-makeFallThroughCase :: Name -> Q Clause
-makeFallThroughCase dataName = clause [wildP, wildP] (normalB $ conE dataName) []
+makeFallThroughMatchFalse, makeFallThroughMatchTrue :: Q Match
+makeFallThroughMatchFalse = makeFallThroughMatch falseDataName
+makeFallThroughMatchTrue  = makeFallThroughMatch trueDataName
+
+makeFallThroughMatch :: Name -> Q Match
+makeFallThroughMatch dataName = match wildP (normalB $ conE dataName) []
 
 makeCaseForCon :: EqClass -> TyVarMap1 -> ConstructorInfo -> Q Clause
 makeCaseForCon eClass tvMap
@@ -230,6 +253,22 @@ makeCaseForCon eClass tvMap
     clause [conP conName (map varP as), conP conName (map varP bs)]
            (normalB $ makeCaseForArgs eClass tvMap conName ts' as bs)
            []
+
+mkNestedMatchesForCon :: EqClass -> TyVarMap1 -> Name -> ConstructorInfo -> Q Match
+mkNestedMatchesForCon eClass tvMap b
+  (ConstructorInfo { constructorName = conName, constructorFields = ts }) = do
+    ts' <- mapM resolveTypeSynonyms ts
+    let tsLen = length ts'
+    as <- newNameList "a" tsLen
+    bs <- newNameList "b" tsLen
+    match (conP conName (map varP as))
+          (normalB $ caseE (varE b)
+                           [ match (conP conName (map varP bs))
+                                   (normalB $ makeCaseForArgs eClass tvMap conName ts' as bs)
+                                   []
+                           , makeFallThroughMatchFalse
+                           ])
+          []
 
 makeCaseForArgs :: EqClass
                 -> TyVarMap1
