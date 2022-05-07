@@ -2,6 +2,7 @@
 * Backport [GHC!6955](https://gitlab.haskell.org/ghc/ghc/-/merge_requests/6955),
   which makes derived `Eq` instances check data constructor tags, which can
   improve runtime performance for data types with nullary constructors.
+* Allow building the test suite with `transformers-0.6.*`.
 
 ## 0.6 [2021.08.29]
 * Allow building with `template-haskell-2.18.0.0` (GHC 9.2).
