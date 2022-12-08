@@ -1,3 +1,6 @@
+### next [????.??.??]
+* Make the test suite build with GHC 9.6 or later.
+
 ### 0.6.1 [2022.05.07]
 * Backport [GHC!6955](https://gitlab.haskell.org/ghc/ghc/-/merge_requests/6955),
   which makes derived `Eq` instances check data constructor tags, which can

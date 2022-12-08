@@ -196,6 +196,7 @@ instance (Ord (f a), Ord (f (g a)), Ord (f (g (h a))))
     max     = $(makeMax     ''TyConWrap)
     min     = $(makeMin     ''TyConWrap)
 $(deriveOrd  ''Empty)
+$(deriveOrd ''TyConNullary)
 
 $(deriveOrd1 ''TyCon1)
 $(deriveOrd1 ''TyCon#)
