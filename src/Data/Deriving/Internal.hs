@@ -25,7 +25,7 @@ guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Deriving.Internal where
 
-import           Control.Applicative (liftA2)
+import qualified Control.Applicative as App (liftA2)
 import           Control.Monad (when, unless)
 
 import           Data.Foldable (foldr')
@@ -801,7 +801,7 @@ isProductType _     = False
 -- | Returns 'True' if it's a datatype with one or more nullary, non-GADT
 -- constructors.
 isEnumerationType :: [ConstructorInfo] -> Bool
-isEnumerationType cons@(_:_) = all (liftA2 (&&) isNullaryCon isVanillaCon) cons
+isEnumerationType cons@(_:_) = all (App.liftA2 (&&) isNullaryCon isVanillaCon) cons
 isEnumerationType _          = False
 
 -- | Returns 'False' if we're dealing with existential quantification or GADTs.
