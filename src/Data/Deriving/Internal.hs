@@ -65,7 +65,7 @@ import           GHC.Lexeme (startsConSym, startsVarSym)
 import           Data.Char (isSymbol, ord)
 #endif
 
-import           Language.Haskell.TH.Datatype
+import           Language.Haskell.TH.Datatype as Datatype
 import           Language.Haskell.TH.Datatype.TyVarBndr
 import           Language.Haskell.TH.Lib
 import           Language.Haskell.TH.Ppr (pprint)
@@ -379,14 +379,17 @@ buildTypeInstance cRep tyConName dataCxt varTysOrig variant = do
           map (substNamesWithKindStar (List.union droppedKindVarNames kvNames'))
             $ take remainingLength varTysOrig
 
-        isDataFamily :: Bool
-        isDataFamily = case variant of
-                         Datatype        -> False
-                         Newtype         -> False
-                         DataInstance    -> True
-                         NewtypeInstance -> True
+    isDataFamily <-
+      case variant of
+        Datatype        -> return False
+        Newtype         -> return False
+        DataInstance    -> return True
+        NewtypeInstance -> return True
+#if MIN_VERSION_th_abstraction(0,5,0)
+        Datatype.TypeData -> typeDataError tyConName
+#endif
 
-        remainingTysOrigSubst' :: [Type]
+    let remainingTysOrigSubst' :: [Type]
         -- See Note [Kind signatures in derived instances] for an explanation
         -- of the isDataFamily check.
         remainingTysOrigSubst' =
@@ -649,6 +652,13 @@ enumerationErrorStr :: String -> String
 enumerationErrorStr nb =
     '\'':nb ++ "’ must be an enumeration type"
             ++ " (one or more nullary, non-GADT constructors)"
+
+typeDataError :: Name -> Q a
+typeDataError dataName = fail
+  . showString "Cannot derive instance for ‘"
+  . showString (nameBase dataName)
+  . showString "‘, which is a ‘type data‘ declaration"
+  $ ""
 
 -------------------------------------------------------------------------------
 -- Assorted utilities

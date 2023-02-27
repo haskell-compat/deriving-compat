@@ -140,7 +140,7 @@ library
   other-modules:       Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
-                     , th-abstraction      >= 0.4   && < 0.5
+                     , th-abstraction      >= 0.4   && < 0.6
 
   if flag(base-4-9)
     build-depends:     base                >= 4.9   && < 5
@@ -149,7 +149,7 @@ library
     build-depends:     base                >= 4.3   && < 4.9
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.20
+    build-depends:     template-haskell    >= 2.11  && < 2.21
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5   && < 2.11
@@ -188,7 +188,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
                      , tagged              >= 0.7    && < 1
-                     , template-haskell    >= 2.5    && < 2.20
+                     , template-haskell    >= 2.5    && < 2.21
                      , void                >= 0.5.10 && < 1
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 

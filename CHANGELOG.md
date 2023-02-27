@@ -1,3 +1,6 @@
+### next [????.??.??]
+* Support `th-abstraction-0.5.*`.
+
 ### 0.6.2 [2022.12.07]
 * Make the test suite build with GHC 9.6 or later.
 
