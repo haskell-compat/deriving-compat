@@ -139,7 +139,6 @@ library
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving
                        Text.Show.Deriving.Internal
-  other-modules:       Paths_deriving_compat
   build-depends:       containers          >= 0.1   && < 0.7
                      , ghc-prim
                      , th-abstraction      >= 0.4   && < 0.6
