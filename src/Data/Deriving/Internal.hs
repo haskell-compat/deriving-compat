@@ -3,12 +3,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MagicHash #-}
 
-#if !(MIN_VERSION_base(4,9,0))
-# if __GLASGOW_HASKELL__ >= 800
+#if __GLASGOW_HASKELL__ >= 800
 {-# LANGUAGE TemplateHaskellQuotes #-}
-# else
+#else
 {-# LANGUAGE TemplateHaskell #-}
-# endif
 #endif
 
 {-|
@@ -25,38 +23,68 @@ guaranteed to be stable, even between minor releases of this library.
 -}
 module Data.Deriving.Internal where
 
-import qualified Control.Applicative as App (liftA2)
+import qualified Control.Applicative as App
 import           Control.Monad (when, unless)
 
-import           Data.Foldable (foldr')
-#if !(MIN_VERSION_base(4,9,0))
-import           Data.Functor.Classes (Eq1(..), Ord1(..), Read1(..), Show1(..))
-# if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
-import           Data.Functor.Classes (Eq2(..), Ord2(..), Read2(..), Show2(..))
-# endif
+import qualified Data.Foldable as F
+import           Data.Functor.Classes
+                   ( Eq1(..), Ord1(..), Read1(..), Show1(..)
+#if MIN_VERSION_base(4,10,0)
+                   , liftReadListPrecDefault
+#endif
+                   )
+#if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
+import           Data.Functor.Classes
+                   ( Eq2(..), Ord2(..), Read2(..), Show2(..)
+#if MIN_VERSION_base(4,10,0)
+                   , liftReadListPrec2Default
+#endif
+                   )
 #endif
 import qualified Data.List as List
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Maybe
+import           Data.Monoid (Dual(..), Endo(..))
 import qualified Data.Set as Set
 import           Data.Set (Set)
 import qualified Data.Traversable as T
 
-import           Text.ParserCombinators.ReadPrec (ReadPrec)
+import           GHC.Arr (Ix(..))
+import           GHC.Base (getTag)
+import           GHC.Exts
+import           GHC.Read (choose, list, paren)
+import           GHC.Show (showSpace)
+
+import           Text.ParserCombinators.ReadPrec
+                   ( ReadPrec, (+++), pfail, prec, readPrec_to_S, readS_to_Prec
+                   , reset, step
+                   )
+import           Text.Read (Read(..), parens, readListPrecDefault)
 import qualified Text.Read.Lex as L
+import           Text.Show (showListWith)
 
 #if MIN_VERSION_base(4,7,0)
 import           GHC.Read (expectP)
 #else
 import           GHC.Read (lexP)
-
-import           Text.Read (pfail)
 import           Text.Read.Lex (Lexeme)
 #endif
 
-#if MIN_VERSION_ghc_prim(0,3,1)
-import           GHC.Prim (Int#, tagToEnum#)
+#if !(MIN_VERSION_base(4,8,0))
+import           Control.Applicative (Applicative(..))
+import           Data.Foldable (Foldable(..))
+import           Data.Functor (Functor(..))
+import           Data.Monoid (Monoid(..))
+import           Data.Traversable (Traversable(..))
+#endif
+
+#if MIN_VERSION_base(4,10,0)
+import           GHC.Show (showCommaSpace)
+#endif
+
+#if MIN_VERSION_base(4,11,0)
+import           GHC.Read (readField, readSymField)
 #endif
 
 #if defined(MIN_VERSION_ghc_boot_th)
@@ -77,11 +105,6 @@ import           Data.Functor.Classes ()
 import           Data.Foldable ()
 import           Data.Traversable ()
 
-#ifndef CURRENT_PACKAGE_KEY
-import           Data.Version (showVersion)
-import           Paths_deriving_compat (version)
-#endif
-
 -------------------------------------------------------------------------------
 -- Expanding type synonyms
 -------------------------------------------------------------------------------
@@ -97,7 +120,7 @@ substNameWithKind :: Name -> Kind -> Type -> Type
 substNameWithKind n k = applySubstitutionKind (Map.singleton n k)
 
 substNamesWithKindStar :: [Name] -> Type -> Type
-substNamesWithKindStar ns t = foldr' (flip substNameWithKind starK) t ns
+substNamesWithKindStar ns t = F.foldr' (flip substNameWithKind starK) t ns
 
 -------------------------------------------------------------------------------
 -- Via
@@ -308,7 +331,7 @@ buildTypeInstance cRep tyConName dataCxt varTysOrig variant = do
     -- eta-reduction check might get tripped up over type variables in a
     -- synonym that are actually dropped.
     -- (See GHC Trac #11416 for a scenario where this actually happened.)
-    varTysExp <- mapM resolveTypeSynonyms varTysOrig
+    varTysExp <- T.mapM resolveTypeSynonyms varTysOrig
 
     let remainingLength :: Int
         remainingLength = length varTysOrig - arity cRep
@@ -680,14 +703,11 @@ interleave :: [a] -> [a] -> [a]
 interleave (a1:a1s) (a2:a2s) = a1:a2:interleave a1s a2s
 interleave _        _        = []
 
-#if MIN_VERSION_ghc_prim(0,3,1)
-isTrue# :: Int# -> Bool
-isTrue# x = tagToEnum# x
-#else
+#if !(MIN_VERSION_ghc_prim(0,3,1))
 isTrue# :: Bool -> Bool
 isTrue# x = x
-#endif
 {-# INLINE isTrue# #-}
+#endif
 
 -- filterByList, filterByLists, and partitionByList taken from GHC (BSD3-licensed)
 
@@ -821,7 +841,7 @@ isVanillaCon (ConstructorInfo { constructorContext = ctxt, constructorVars = var
 
 -- | Generate a list of fresh names with a common prefix, and numbered suffixes.
 newNameList :: String -> Int -> Q [Name]
-newNameList prefix n = mapM (newName . (prefix ++) . show) [1..n]
+newNameList prefix n = T.mapM (newName . (prefix ++) . show) [1..n]
 
 -- | Extracts the kind from a TyVarBndr.
 tvbKind :: TyVarBndr_ flag -> Kind
@@ -1209,395 +1229,355 @@ ghc7'8OrLater = False
 #endif
 
 -------------------------------------------------------------------------------
--- Manually quoted names
+-- Quoted names
 -------------------------------------------------------------------------------
 
--- By manually generating these names we avoid needing to use the
--- TemplateHaskell language extension when compiling the deriving-compat library.
--- This allows the library to be used in stage1 cross-compilers.
-
-derivingCompatPackageKey :: String
-#ifdef CURRENT_PACKAGE_KEY
-derivingCompatPackageKey = CURRENT_PACKAGE_KEY
-#else
-derivingCompatPackageKey = "deriving-compat-" ++ showVersion version
-#endif
-
-gHC_IX :: String
-#if MIN_VERSION_base(4,14,0)
-gHC_IX = "GHC.Ix"
-#else
-gHC_IX = "GHC.Arr"
-#endif
-
-mkDerivingCompatName_v :: String -> Name
-mkDerivingCompatName_v = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal"
-
-mkDerivingCompatName_tc :: String -> Name
-mkDerivingCompatName_tc = mkNameG_tc derivingCompatPackageKey "Data.Deriving.Internal"
+-- With GHC 8.0 or later, we can simply use TemplateHaskellQuotes to quote each
+-- name, which allows deriving-compat to be built with compilers that do not
+-- support Template Haskell (e.g., stage-1 cross compilers). Unfortunately,
+-- older versions of GHC must fall back on full-blown Template Haskell.
 
 isTrueHashValName :: Name
-isTrueHashValName = mkDerivingCompatName_v "isTrue#"
+isTrueHashValName = 'isTrue#
 
 fmapConstValName :: Name
-fmapConstValName = mkDerivingCompatName_v "fmapConst"
+fmapConstValName = 'fmapConst
 
 replaceConstValName :: Name
-replaceConstValName = mkDerivingCompatName_v "replaceConst"
+replaceConstValName = 'replaceConst
 
 foldrConstValName :: Name
-foldrConstValName = mkDerivingCompatName_v "foldrConst"
+foldrConstValName = 'foldrConst
 
 foldMapConstValName :: Name
-foldMapConstValName = mkDerivingCompatName_v "foldMapConst"
+foldMapConstValName = 'foldMapConst
 
 nullConstValName :: Name
-nullConstValName = mkDerivingCompatName_v "nullConst"
+nullConstValName = 'nullConst
 
 traverseConstValName :: Name
-traverseConstValName = mkDerivingCompatName_v "traverseConst"
+traverseConstValName = 'traverseConst
 
 eqConstValName :: Name
-eqConstValName = mkDerivingCompatName_v "eqConst"
+eqConstValName = 'eqConst
 
 eq1ConstValName :: Name
-eq1ConstValName = mkDerivingCompatName_v "eq1Const"
+eq1ConstValName = 'eq1Const
 
 liftEqConstValName :: Name
-liftEqConstValName = mkDerivingCompatName_v "liftEqConst"
+liftEqConstValName = 'liftEqConst
 
 liftEq2ConstValName :: Name
-liftEq2ConstValName = mkDerivingCompatName_v "liftEq2Const"
+liftEq2ConstValName = 'liftEq2Const
 
 compareConstValName :: Name
-compareConstValName = mkDerivingCompatName_v "compareConst"
+compareConstValName = 'compareConst
 
 ltConstValName :: Name
-ltConstValName = mkDerivingCompatName_v "ltConst"
+ltConstValName = 'ltConst
 
 compare1ConstValName :: Name
-compare1ConstValName = mkDerivingCompatName_v "compare1Const"
+compare1ConstValName = 'compare1Const
 
 liftCompareConstValName :: Name
-liftCompareConstValName = mkDerivingCompatName_v "liftCompareConst"
+liftCompareConstValName = 'liftCompareConst
 
 liftCompare2ConstValName :: Name
-liftCompare2ConstValName = mkDerivingCompatName_v "liftCompare2Const"
+liftCompare2ConstValName = 'liftCompare2Const
 
 readsPrecConstValName :: Name
-readsPrecConstValName = mkDerivingCompatName_v "readsPrecConst"
+readsPrecConstValName = 'readsPrecConst
 
 readPrecConstValName :: Name
-readPrecConstValName = mkDerivingCompatName_v "readPrecConst"
+readPrecConstValName = 'readPrecConst
 
 readsPrec1ConstValName :: Name
-readsPrec1ConstValName = mkDerivingCompatName_v "readsPrec1Const"
+readsPrec1ConstValName = 'readsPrec1Const
 
 liftReadsPrecConstValName :: Name
-liftReadsPrecConstValName = mkDerivingCompatName_v "liftReadsPrecConst"
+liftReadsPrecConstValName = 'liftReadsPrecConst
 
 liftReadPrecConstValName :: Name
-liftReadPrecConstValName = mkDerivingCompatName_v "liftReadPrecConst"
+liftReadPrecConstValName = 'liftReadPrecConst
 
 liftReadsPrec2ConstValName :: Name
-liftReadsPrec2ConstValName = mkDerivingCompatName_v "liftReadsPrec2Const"
+liftReadsPrec2ConstValName = 'liftReadsPrec2Const
 
 liftReadPrec2ConstValName :: Name
-liftReadPrec2ConstValName = mkDerivingCompatName_v "liftReadPrec2Const"
+liftReadPrec2ConstValName = 'liftReadPrec2Const
 
 showsPrecConstValName :: Name
-showsPrecConstValName = mkDerivingCompatName_v "showsPrecConst"
+showsPrecConstValName = 'showsPrecConst
 
 showsPrec1ConstValName :: Name
-showsPrec1ConstValName = mkDerivingCompatName_v "showsPrec1Const"
+showsPrec1ConstValName = 'showsPrec1Const
 
 liftShowsPrecConstValName :: Name
-liftShowsPrecConstValName = mkDerivingCompatName_v "liftShowsPrecConst"
+liftShowsPrecConstValName = 'liftShowsPrecConst
 
 liftShowsPrec2ConstValName :: Name
-liftShowsPrec2ConstValName = mkDerivingCompatName_v "liftShowsPrec2Const"
+liftShowsPrec2ConstValName = 'liftShowsPrec2Const
 
 viaTypeName :: Name
-viaTypeName = mkDerivingCompatName_tc "Via"
+viaTypeName = ''Via
 
 cHashDataName :: Name
-cHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "C#"
+cHashDataName = 'C#
 
 dHashDataName :: Name
-dHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "D#"
+dHashDataName = 'D#
 
 fHashDataName :: Name
-fHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "F#"
+fHashDataName = 'F#
 
 identDataName :: Name
-identDataName = mkNameG_d "base" "Text.Read.Lex" "Ident"
+identDataName = 'L.Ident
 
 iHashDataName :: Name
-iHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "I#"
+iHashDataName = 'I#
 
 puncDataName :: Name
-puncDataName = mkNameG_d "base" "Text.Read.Lex" "Punc"
+puncDataName = 'L.Punc
 
 symbolDataName :: Name
-symbolDataName = mkNameG_d "base" "Text.Read.Lex" "Symbol"
+symbolDataName = 'L.Symbol
 
 wrapMonadDataName :: Name
-wrapMonadDataName = mkNameG_d "base" "Control.Applicative" "WrapMonad"
+wrapMonadDataName = 'App.WrapMonad
 
 addrHashTypeName :: Name
-addrHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Addr#"
+addrHashTypeName = ''Addr#
 
 boundedTypeName :: Name
-boundedTypeName = mkNameG_tc "base" "GHC.Enum" "Bounded"
+boundedTypeName = ''Bounded
 
 charHashTypeName :: Name
-charHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Char#"
+charHashTypeName = ''Char#
 
 doubleHashTypeName :: Name
-doubleHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Double#"
+doubleHashTypeName = ''Double#
 
 enumTypeName :: Name
-enumTypeName = mkNameG_tc "base" "GHC.Enum" "Enum"
+enumTypeName = ''Enum
 
 floatHashTypeName :: Name
-floatHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Float#"
+floatHashTypeName = ''Float#
 
 foldableTypeName :: Name
-foldableTypeName = mkNameG_tc "base" "Data.Foldable" "Foldable"
+foldableTypeName = ''Foldable
 
 functorTypeName :: Name
-functorTypeName = mkNameG_tc "base" "GHC.Base" "Functor"
+functorTypeName = ''Functor
 
 intTypeName :: Name
-intTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Int"
+intTypeName = ''Int
 
 intHashTypeName :: Name
-intHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int#"
+intHashTypeName = ''Int#
 
 ixTypeName :: Name
-ixTypeName = mkNameG_tc "base" gHC_IX "Ix"
+ixTypeName = ''Ix
 
 readTypeName :: Name
-readTypeName = mkNameG_tc "base" "GHC.Read" "Read"
+readTypeName = ''Read
 
 showTypeName :: Name
-showTypeName = mkNameG_tc "base" "GHC.Show" "Show"
+showTypeName = ''Show
 
 traversableTypeName :: Name
-traversableTypeName = mkNameG_tc "base" "Data.Traversable" "Traversable"
+traversableTypeName = ''Traversable
 
 wordHashTypeName :: Name
-wordHashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word#"
+wordHashTypeName = ''Word#
 
 altValName :: Name
-altValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "+++"
+altValName = '(+++)
 
 appendValName :: Name
-appendValName = mkNameG_v "base" "GHC.Base" "++"
+appendValName = '(++)
 
 chooseValName :: Name
-chooseValName = mkNameG_v "base" "GHC.Read" "choose"
-
-coerceValName :: Name
-coerceValName = mkNameG_v "ghc-prim" "GHC.Prim" "coerce"
+chooseValName = 'choose
 
 composeValName :: Name
-composeValName = mkNameG_v "base" "GHC.Base" "."
+composeValName = '(.)
 
 constValName :: Name
-constValName = mkNameG_v "base" "GHC.Base" "const"
+constValName = 'const
 
 enumFromValName :: Name
-enumFromValName = mkNameG_v "base" "GHC.Enum" "enumFrom"
+enumFromValName = 'enumFrom
 
 enumFromThenValName :: Name
-enumFromThenValName = mkNameG_v "base" "GHC.Enum" "enumFromThen"
+enumFromThenValName = 'enumFromThen
 
 enumFromThenToValName :: Name
-enumFromThenToValName = mkNameG_v "base" "GHC.Enum" "enumFromThenTo"
+enumFromThenToValName = 'enumFromThenTo
 
 enumFromToValName :: Name
-enumFromToValName = mkNameG_v "base" "GHC.Enum" "enumFromTo"
+enumFromToValName = 'enumFromTo
 
 eqAddrHashValName :: Name
-eqAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqAddr#"
+eqAddrHashValName = 'eqAddr#
 
 eqCharHashValName :: Name
-eqCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqChar#"
+eqCharHashValName = 'eqChar#
 
 eqDoubleHashValName :: Name
-eqDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "==##"
+eqDoubleHashValName = '(==##)
 
 eqFloatHashValName :: Name
-eqFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqFloat#"
+eqFloatHashValName = 'eqFloat#
 
 eqIntHashValName :: Name
-eqIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "==#"
+eqIntHashValName = '(==#)
 
 eqWordHashValName :: Name
-eqWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord#"
+eqWordHashValName = 'eqWord#
 
 errorValName :: Name
-errorValName = mkNameG_v "base" "GHC.Err" "error"
+errorValName = 'error
 
 flipValName :: Name
-flipValName = mkNameG_v "base" "GHC.Base" "flip"
+flipValName = 'flip
 
 fmapValName :: Name
-fmapValName = mkNameG_v "base" "GHC.Base" "fmap"
+fmapValName = 'fmap
 
 foldrValName :: Name
-foldrValName = mkNameG_v "base" "Data.Foldable" "foldr"
+foldrValName = 'F.foldr
 
 foldMapValName :: Name
-foldMapValName = mkNameG_v "base" "Data.Foldable" "foldMap"
+foldMapValName = 'foldMap
 
 fromEnumValName :: Name
-fromEnumValName = mkNameG_v "base" "GHC.Enum" "fromEnum"
+fromEnumValName = 'fromEnum
 
 geAddrHashValName :: Name
-geAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geAddr#"
+geAddrHashValName = 'geAddr#
 
 geCharHashValName :: Name
-geCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geChar#"
+geCharHashValName = 'geChar#
 
 geDoubleHashValName :: Name
-geDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">=##"
+geDoubleHashValName = '(>=##)
 
 geFloatHashValName :: Name
-geFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geFloat#"
+geFloatHashValName = 'geFloat#
 
 geIntHashValName :: Name
-geIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">=#"
+geIntHashValName = '(>=#)
 
 getTagValName :: Name
-getTagValName = mkNameG_v "base" "GHC.Base" "getTag"
+getTagValName = 'getTag
 
 geWordHashValName :: Name
-geWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord#"
+geWordHashValName = 'geWord#
 
 gtAddrHashValName :: Name
-gtAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtAddr#"
+gtAddrHashValName = 'gtAddr#
 
 gtCharHashValName :: Name
-gtCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtChar#"
+gtCharHashValName = 'gtChar#
 
 gtDoubleHashValName :: Name
-gtDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">##"
+gtDoubleHashValName = '(>##)
 
 gtFloatHashValName :: Name
-gtFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtFloat#"
+gtFloatHashValName = 'gtFloat#
 
 gtIntHashValName :: Name
-gtIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" ">#"
+gtIntHashValName = '(>#)
 
 gtWordHashValName :: Name
-gtWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord#"
+gtWordHashValName = 'gtWord#
 
 idValName :: Name
-idValName = mkNameG_v "base" "GHC.Base" "id"
+idValName = 'id
 
 indexValName :: Name
-indexValName = mkNameG_v "base" gHC_IX "index"
+indexValName = 'index
 
 inRangeValName :: Name
-inRangeValName = mkNameG_v "base" gHC_IX "inRange"
+inRangeValName = 'inRange
 
 leAddrHashValName :: Name
-leAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leAddr#"
+leAddrHashValName = 'leAddr#
 
 leCharHashValName :: Name
-leCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leChar#"
+leCharHashValName = 'leChar#
 
 leDoubleHashValName :: Name
-leDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<=##"
+leDoubleHashValName = '(<=##)
 
 leFloatHashValName :: Name
-leFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leFloat#"
+leFloatHashValName = 'leFloat#
 
 leIntHashValName :: Name
-leIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<=#"
+leIntHashValName = '(<=#)
 
 leWordHashValName :: Name
-leWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord#"
-
-liftReadListPrecDefaultValName :: Name
-liftReadListPrecDefaultValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrecDefault"
-
-liftReadListPrec2DefaultValName :: Name
-liftReadListPrec2DefaultValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec2Default"
-
-liftReadListPrecValName :: Name
-liftReadListPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec"
-
-liftReadListPrec2ValName :: Name
-liftReadListPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadListPrec2"
-
-liftReadPrecValName :: Name
-liftReadPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadPrec"
-
-liftReadPrec2ValName :: Name
-liftReadPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadPrec2"
+leWordHashValName = 'leWord#
 
 listValName :: Name
-listValName = mkNameG_v "base" "GHC.Read" "list"
+listValName = 'list
 
 ltAddrHashValName :: Name
-ltAddrHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltAddr#"
+ltAddrHashValName = 'ltAddr#
 
 ltCharHashValName :: Name
-ltCharHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltChar#"
+ltCharHashValName = 'ltChar#
 
 ltDoubleHashValName :: Name
-ltDoubleHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<##"
+ltDoubleHashValName = '(<##)
 
 ltFloatHashValName :: Name
-ltFloatHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltFloat#"
+ltFloatHashValName = 'ltFloat#
 
 ltIntHashValName :: Name
-ltIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "<#"
+ltIntHashValName = '(<#)
 
 ltWordHashValName :: Name
-ltWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord#"
+ltWordHashValName = 'ltWord#
 
 minBoundValName :: Name
-minBoundValName = mkNameG_v "base" "GHC.Enum" "minBound"
+minBoundValName = 'minBound
 
 mapValName :: Name
-mapValName = mkNameG_v "base" "GHC.Base" "map"
+mapValName = 'map
 
 maxBoundValName :: Name
-maxBoundValName = mkNameG_v "base" "GHC.Enum" "maxBound"
+maxBoundValName = 'maxBound
 
 minusIntHashValName :: Name
-minusIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "-#"
+minusIntHashValName = '(-#)
 
 neqIntHashValName :: Name
-neqIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "/=#"
+neqIntHashValName = '(/=#)
 
 parenValName :: Name
-parenValName = mkNameG_v "base" "GHC.Read" "paren"
+parenValName = 'paren
 
 parensValName :: Name
-parensValName = mkNameG_v "base" "GHC.Read" "parens"
+parensValName = 'parens
 
 pfailValName :: Name
-pfailValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "pfail"
+pfailValName = 'pfail
 
 plusValName :: Name
-plusValName = mkNameG_v "base" "GHC.Num" "+"
+plusValName = '(+)
 
 precValName :: Name
-precValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "prec"
+precValName = 'prec
 
 predValName :: Name
-predValName = mkNameG_v "base" "GHC.Enum" "pred"
+predValName = 'pred
 
 rangeSizeValName :: Name
-rangeSizeValName = mkNameG_v "base" gHC_IX "rangeSize"
+rangeSizeValName = 'rangeSize
 
 rangeValName :: Name
-rangeValName = mkNameG_v "base" gHC_IX "range"
+rangeValName = 'range
 
 readFieldHash :: String -> ReadPrec a -> ReadPrec a
 readFieldHash fieldName readVal = do
@@ -1608,323 +1588,195 @@ readFieldHash fieldName readVal = do
 {-# NOINLINE readFieldHash #-}
 
 readFieldHashValName :: Name
-readFieldHashValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readFieldHash"
+readFieldHashValName = 'readFieldHash
 
 readListValName :: Name
-readListValName = mkNameG_v "base" "GHC.Read" "readList"
+readListValName = 'readList
 
 readListPrecDefaultValName :: Name
-readListPrecDefaultValName = mkNameG_v "base" "GHC.Read" "readListPrecDefault"
+readListPrecDefaultValName = 'readListPrecDefault
 
 readListPrecValName :: Name
-readListPrecValName = mkNameG_v "base" "GHC.Read" "readListPrec"
+readListPrecValName = 'readListPrec
 
 readPrec_to_SValName :: Name
-readPrec_to_SValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readPrec_to_S"
+readPrec_to_SValName = 'readPrec_to_S
 
 readPrecValName :: Name
-readPrecValName = mkNameG_v "base" "GHC.Read" "readPrec"
+readPrecValName = 'readPrec
 
 readS_to_PrecValName :: Name
-readS_to_PrecValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "readS_to_Prec"
+readS_to_PrecValName = 'readS_to_Prec
 
 readsPrecValName :: Name
-readsPrecValName = mkNameG_v "base" "GHC.Read" "readsPrec"
+readsPrecValName = 'readsPrec
 
 replaceValName :: Name
-replaceValName = mkNameG_v "base" "GHC.Base" "<$"
+replaceValName = '(<$)
 
 resetValName :: Name
-resetValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "reset"
+resetValName = 'reset
 
 returnValName :: Name
-returnValName = mkNameG_v "base" "GHC.Base" "return"
+returnValName = 'return
 
 seqValName :: Name
-seqValName = mkNameG_v "ghc-prim" "GHC.Prim" "seq"
+seqValName = 'seq
 
 showCharValName :: Name
-showCharValName = mkNameG_v "base" "GHC.Show" "showChar"
+showCharValName = 'showChar
 
 showListValName :: Name
-showListValName = mkNameG_v "base" "GHC.Show" "showList"
+showListValName = 'showList
 
 showListWithValName :: Name
-showListWithValName = mkNameG_v "base" "Text.Show" "showListWith"
+showListWithValName = 'showListWith
 
 showParenValName :: Name
-showParenValName = mkNameG_v "base" "GHC.Show" "showParen"
+showParenValName = 'showParen
 
 showsPrecValName :: Name
-showsPrecValName = mkNameG_v "base" "GHC.Show" "showsPrec"
+showsPrecValName = 'showsPrec
 
 showSpaceValName :: Name
-showSpaceValName = mkNameG_v "base" "GHC.Show" "showSpace"
+showSpaceValName = 'showSpace
 
 showStringValName :: Name
-showStringValName = mkNameG_v "base" "GHC.Show" "showString"
+showStringValName = 'showString
 
 stepValName :: Name
-stepValName = mkNameG_v "base" "Text.ParserCombinators.ReadPrec" "step"
+stepValName = 'step
 
 succValName :: Name
-succValName = mkNameG_v "base" "GHC.Enum" "succ"
+succValName = 'succ
 
 tagToEnumHashValName :: Name
-tagToEnumHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "tagToEnum#"
+tagToEnumHashValName = 'tagToEnum#
 
 timesValName :: Name
-timesValName = mkNameG_v "base" "GHC.Num" "*"
+timesValName = '(*)
 
 toEnumValName :: Name
-toEnumValName = mkNameG_v "base" "GHC.Enum" "toEnum"
+toEnumValName = 'toEnum
 
 traverseValName :: Name
-traverseValName = mkNameG_v "base" "Data.Traversable" "traverse"
+traverseValName = 'traverse
 
 unsafeIndexValName :: Name
-unsafeIndexValName = mkNameG_v "base" gHC_IX "unsafeIndex"
+unsafeIndexValName = 'unsafeIndex
 
 unsafeRangeSizeValName :: Name
-unsafeRangeSizeValName = mkNameG_v "base" gHC_IX "unsafeRangeSize"
+unsafeRangeSizeValName = 'unsafeRangeSize
 
 unwrapMonadValName :: Name
-unwrapMonadValName = mkNameG_v "base" "Control.Applicative" "unwrapMonad"
+unwrapMonadValName = 'App.unwrapMonad
 
-#if MIN_VERSION_base(4,4,0)
 boolTypeName :: Name
-boolTypeName = mkNameG_tc "ghc-prim" "GHC.Types" "Bool"
+boolTypeName = ''Bool
 
 falseDataName :: Name
-falseDataName = mkNameG_d "ghc-prim" "GHC.Types" "False"
+falseDataName = 'False
 
 trueDataName :: Name
-trueDataName = mkNameG_d "ghc-prim" "GHC.Types" "True"
-#else
-boolTypeName :: Name
-boolTypeName = mkNameG_tc "ghc-prim" "GHC.Bool" "Bool"
+trueDataName = 'True
 
-falseDataName :: Name
-falseDataName = mkNameG_d "ghc-prim" "GHC.Bool" "False"
-
-trueDataName :: Name
-trueDataName = mkNameG_d "ghc-prim" "GHC.Bool" "True"
-#endif
-
-#if MIN_VERSION_base(4,5,0)
 eqDataName :: Name
-eqDataName = mkNameG_d "ghc-prim" "GHC.Types" "EQ"
+eqDataName = 'EQ
 
 gtDataName :: Name
-gtDataName = mkNameG_d "ghc-prim" "GHC.Types" "GT"
+gtDataName = 'GT
 
 ltDataName :: Name
-ltDataName = mkNameG_d "ghc-prim" "GHC.Types" "LT"
+ltDataName = 'LT
 
 eqTypeName :: Name
-eqTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Eq"
+eqTypeName = ''Eq
 
 ordTypeName :: Name
-ordTypeName = mkNameG_tc "ghc-prim" "GHC.Classes" "Ord"
+ordTypeName = ''Ord
 
 andValName :: Name
-andValName = mkNameG_v "ghc-prim" "GHC.Classes" "&&"
+andValName = '(&&)
 
 compareValName :: Name
-compareValName = mkNameG_v "ghc-prim" "GHC.Classes" "compare"
+compareValName = 'compare
 
 eqValName :: Name
-eqValName = mkNameG_v "ghc-prim" "GHC.Classes" "=="
+eqValName = '(==)
 
 geValName :: Name
-geValName = mkNameG_v "ghc-prim" "GHC.Classes" ">="
+geValName = '(>=)
 
 gtValName :: Name
-gtValName = mkNameG_v "ghc-prim" "GHC.Classes" ">"
+gtValName = '(>)
 
 leValName :: Name
-leValName = mkNameG_v "ghc-prim" "GHC.Classes" "<="
+leValName = '(<=)
 
 ltValName :: Name
-ltValName = mkNameG_v "ghc-prim" "GHC.Classes" "<"
+ltValName = '(<)
 
 notValName :: Name
-notValName = mkNameG_v "ghc-prim" "GHC.Classes" "not"
-#else
-eqDataName :: Name
-eqDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "EQ"
+notValName = 'not
 
-gtDataName :: Name
-gtDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "GT"
-
-ltDataName :: Name
-ltDataName = mkNameG_d "ghc-prim" "GHC.Ordering" "LT"
-
-eqTypeName :: Name
-eqTypeName = mkNameG_tc "base" "GHC.Classes" "Eq"
-
-ordTypeName :: Name
-ordTypeName = mkNameG_tc "base" "GHC.Classes" "Ord"
-
-andValName :: Name
-andValName = mkNameG_v "base" "GHC.Classes" "&&"
-
-compareValName :: Name
-compareValName = mkNameG_v "base" "GHC.Classes" "compare"
-
-eqValName :: Name
-eqValName = mkNameG_v "base" "GHC.Classes" "=="
-
-geValName :: Name
-geValName = mkNameG_v "base" "GHC.Classes" ">="
-
-gtValName :: Name
-gtValName = mkNameG_v "base" "GHC.Classes" ">"
-
-leValName :: Name
-leValName = mkNameG_v "base" "GHC.Classes" "<="
-
-ltValName :: Name
-ltValName = mkNameG_v "base" "GHC.Classes" "<"
-
-notValName :: Name
-notValName = mkNameG_v "base" "GHC.Classes" "not"
-#endif
-
-#if MIN_VERSION_base(4,6,0)
 wHashDataName :: Name
-wHashDataName = mkNameG_d "ghc-prim" "GHC.Types" "W#"
-#else
-wHashDataName :: Name
-wHashDataName = mkNameG_d "base" "GHC.Word" "W#"
-#endif
+wHashDataName = 'W#
 
-#if MIN_VERSION_base(4,7,0)
-expectPValName :: Name
-expectPValName = mkNameG_v "base" "GHC.Read" "expectP"
-#else
+#if !(MIN_VERSION_base(4,7,0))
 expectP :: Lexeme -> ReadPrec ()
 expectP lexeme = do
   thing <- lexP
   if thing == lexeme then return () else pfail
+#endif
 
 expectPValName :: Name
-expectPValName = mkDerivingCompatName_v "expectP"
-#endif
+expectPValName = 'expectP
 
-#if MIN_VERSION_base(4,8,0)
 allValName :: Name
-allValName = mkNameG_v "base" "Data.Foldable" "all"
+allValName = 'all
 
 apValName :: Name
-apValName = mkNameG_v "base" "GHC.Base" "<*>"
+apValName = '(<*>)
 
 pureValName :: Name
-pureValName = mkNameG_v "base" "GHC.Base" "pure"
+pureValName = 'pure
 
 liftA2ValName :: Name
-liftA2ValName = mkNameG_v "base" "GHC.Base" "liftA2"
+liftA2ValName = 'App.liftA2
 
 mappendValName :: Name
-mappendValName = mkNameG_v "base" "GHC.Base" "mappend"
+mappendValName = 'mappend
 
 memptyValName :: Name
-memptyValName = mkNameG_v "base" "GHC.Base" "mempty"
+memptyValName = 'mempty
 
 nullValName :: Name
-nullValName = mkNameG_v "base" "Data.Foldable" "null"
-#else
-allValName :: Name
-allValName = mkNameG_v "base" "GHC.List" "all"
+nullValName = 'null
 
-apValName :: Name
-apValName = mkNameG_v "base" "Control.Applicative" "<*>"
-
-pureValName :: Name
-pureValName = mkNameG_v "base" "Control.Applicative" "pure"
-
-liftA2ValName :: Name
-liftA2ValName = mkNameG_v "base" "Control.Applicative" "liftA2"
-
-mappendValName :: Name
-mappendValName = mkNameG_v "base" "Data.Monoid" "mappend"
-
-memptyValName :: Name
-memptyValName = mkNameG_v "base" "Data.Monoid" "mempty"
-
-nullValName :: Name
-nullValName = mkNameG_v "base" "GHC.List" "null"
-#endif
-
-#if MIN_VERSION_base(4,9,0)
-eq1TypeName :: Name
-eq1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Eq1"
-
-eq2TypeName :: Name
-eq2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Eq2"
-
-liftEqValName :: Name
-liftEqValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq"
-
-liftEq2ValName :: Name
-liftEq2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftEq2"
-
-ord1TypeName :: Name
-ord1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Ord1"
-
-ord2TypeName :: Name
-ord2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Ord2"
-
-liftCompareValName :: Name
-liftCompareValName = mkNameG_v "base" "Data.Functor.Classes" "liftCompare"
-
-liftCompare2ValName :: Name
-liftCompare2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftCompare2"
-
-read1TypeName :: Name
-read1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Read1"
-
-read2TypeName :: Name
-read2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Read2"
-
-liftReadsPrecValName :: Name
-liftReadsPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadsPrec"
-
-liftReadListValName :: Name
-liftReadListValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadList"
-
-liftReadsPrec2ValName :: Name
-liftReadsPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadsPrec2"
-
-liftReadList2ValName :: Name
-liftReadList2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftReadList2"
-
-show1TypeName :: Name
-show1TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Show1"
-
-show2TypeName :: Name
-show2TypeName = mkNameG_tc "base" "Data.Functor.Classes" "Show2"
-
-liftShowListValName :: Name
-liftShowListValName = mkNameG_v "base" "Data.Functor.Classes" "liftShowList"
-
-liftShowsPrecValName :: Name
-liftShowsPrecValName = mkNameG_v "base" "Data.Functor.Classes" "liftShowsPrec"
-
-liftShowList2ValName :: Name
-liftShowList2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftShowList2"
-
-liftShowsPrec2ValName :: Name
-liftShowsPrec2ValName = mkNameG_v "base" "Data.Functor.Classes" "liftShowsPrec2"
-#else
--- If Data.Functor.Classes isn't located in base, then sadly we can't refer to
--- Names from that module without using -XTemplateHaskell.
-# if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
 eq1TypeName :: Name
 eq1TypeName = ''Eq1
 
+ord1TypeName :: Name
+ord1TypeName = ''Ord1
+
+read1TypeName :: Name
+read1TypeName = ''Read1
+
+show1TypeName :: Name
+show1TypeName = ''Show1
+
+#if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
 eq2TypeName :: Name
 eq2TypeName = ''Eq2
+
+ord2TypeName :: Name
+ord2TypeName = ''Ord2
+
+read2TypeName :: Name
+read2TypeName = ''Read2
+
+show2TypeName :: Name
+show2TypeName = ''Show2
 
 liftEqValName :: Name
 liftEqValName = 'liftEq
@@ -1932,23 +1784,11 @@ liftEqValName = 'liftEq
 liftEq2ValName :: Name
 liftEq2ValName = 'liftEq2
 
-ord1TypeName :: Name
-ord1TypeName = ''Ord1
-
-ord2TypeName :: Name
-ord2TypeName = ''Ord2
-
 liftCompareValName :: Name
 liftCompareValName = 'liftCompare
 
 liftCompare2ValName :: Name
 liftCompare2ValName = 'liftCompare2
-
-read1TypeName :: Name
-read1TypeName = ''Read1
-
-read2TypeName :: Name
-read2TypeName = ''Read2
 
 liftReadsPrecValName :: Name
 liftReadsPrecValName = 'liftReadsPrec
@@ -1962,12 +1802,6 @@ liftReadsPrec2ValName = 'liftReadsPrec2
 liftReadList2ValName :: Name
 liftReadList2ValName = 'liftReadList2
 
-show1TypeName :: Name
-show1TypeName = ''Show1
-
-show2TypeName :: Name
-show2TypeName = ''Show2
-
 liftShowListValName :: Name
 liftShowListValName = 'liftShowList
 
@@ -1979,27 +1813,15 @@ liftShowList2ValName = 'liftShowList2
 
 liftShowsPrec2ValName :: Name
 liftShowsPrec2ValName = 'liftShowsPrec2
-# else
-eq1TypeName :: Name
-eq1TypeName = ''Eq1
-
+#else
 eq1ValName :: Name
 eq1ValName = 'eq1
-
-ord1TypeName :: Name
-ord1TypeName = ''Ord1
 
 compare1ValName :: Name
 compare1ValName = 'compare1
 
-read1TypeName :: Name
-read1TypeName = ''Read1
-
 readsPrec1ValName :: Name
 readsPrec1ValName = 'readsPrec1
-
-show1TypeName :: Name
-show1TypeName = ''Show1
 
 showsPrec1ValName :: Name
 showsPrec1ValName = 'showsPrec1
@@ -2053,64 +1875,91 @@ makeFmapApply pos cRep conName t name = do
        else inspectTy (head rhsArgs)
 
 applyDataName :: Name
-applyDataName = mkNameG_d derivingCompatPackageKey "Data.Deriving.Internal" "Apply"
+applyDataName = 'Apply
 
 unApplyValName :: Name
-unApplyValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "unApply"
-# endif
+unApplyValName = 'unApply
+#endif
+
+#if MIN_VERSION_base(4,7,0)
+coerceValName :: Name
+coerceValName = 'coerce
 #endif
 
 #if MIN_VERSION_base(4,10,0)
-showCommaSpaceValName :: Name
-showCommaSpaceValName = mkNameG_v "base" "GHC.Show" "showCommaSpace"
-#else
-showCommaSpace :: ShowS
-showCommaSpace = showString ", "
+liftReadListPrecDefaultValName :: Name
+liftReadListPrecDefaultValName = 'liftReadListPrecDefault
 
-showCommaSpaceValName :: Name
-showCommaSpaceValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "showCommaSpace"
+liftReadListPrec2DefaultValName :: Name
+liftReadListPrec2DefaultValName = 'liftReadListPrec2Default
+
+liftReadListPrecValName :: Name
+liftReadListPrecValName = 'liftReadListPrec
+
+liftReadListPrec2ValName :: Name
+liftReadListPrec2ValName = 'liftReadListPrec2
+
+liftReadPrecValName :: Name
+liftReadPrecValName = 'liftReadPrec
+
+liftReadPrec2ValName :: Name
+liftReadPrec2ValName = 'liftReadPrec2
+#else
+-- This is a gross hack to avoid needing to guard some uses of these two Names
+-- in Text.Read.Deriving.Internal with even grosser CPP.
+
+liftReadListPrecDefaultValName :: Name
+liftReadListPrecDefaultValName =
+  error "using liftReadListPrecDefault before base-4.10.*"
+
+liftReadListPrec2DefaultValName :: Name
+liftReadListPrec2DefaultValName =
+  error "using liftReadListPrec2Default before base-4.10.*"
+
+liftReadListPrecValName :: Name
+liftReadListPrecValName =
+  error "using liftReadListPrec before base-4.10.*"
+
+liftReadListPrec2ValName :: Name
+liftReadListPrec2ValName =
+  error "using liftReadListPrec2 before base-4.10.*"
+
+liftReadPrecValName :: Name
+liftReadPrecValName =
+  error "using liftReadPrec before base-4.10.*"
+
+liftReadPrec2ValName :: Name
+liftReadPrec2ValName =
+  error "using liftReadPrec2 before base-4.10.*"
 #endif
 
-#if MIN_VERSION_base(4,11,0)
+#if !(MIN_VERSION_base(4,10,0))
+showCommaSpace :: ShowS
+showCommaSpace = showString ", "
+#endif
+
+showCommaSpaceValName :: Name
+showCommaSpaceValName = 'showCommaSpace
+
 appEndoValName :: Name
-appEndoValName = mkNameG_v "base" "Data.Semigroup.Internal" "appEndo"
+appEndoValName = 'appEndo
 
 dualDataName :: Name
-dualDataName = mkNameG_d "base" "Data.Semigroup.Internal" "Dual"
+dualDataName = 'Dual
 
 endoDataName :: Name
-endoDataName = mkNameG_d "base" "Data.Semigroup.Internal" "Endo"
+endoDataName = 'Endo
 
 getDualValName :: Name
-getDualValName = mkNameG_v "base" "Data.Semigroup.Internal" "getDual"
+getDualValName = 'getDual
 
-readFieldValName :: Name
-readFieldValName = mkNameG_v "base" "GHC.Read" "readField"
-
-readSymFieldValName :: Name
-readSymFieldValName = mkNameG_v "base" "GHC.Read" "readSymField"
-#else
-appEndoValName :: Name
-appEndoValName = mkNameG_v "base" "Data.Monoid" "appEndo"
-
-dualDataName :: Name
-dualDataName = mkNameG_d "base" "Data.Monoid" "Dual"
-
-endoDataName :: Name
-endoDataName = mkNameG_d "base" "Data.Monoid" "Endo"
-
-getDualValName :: Name
-getDualValName = mkNameG_v "base" "Data.Monoid" "getDual"
-
+#if !(MIN_VERSION_base(4,11,0))
 readField :: String -> ReadPrec a -> ReadPrec a
 readField fieldName readVal = do
         expectP (L.Ident fieldName)
         expectP (L.Punc "=")
         readVal
 {-# NOINLINE readField #-}
-
-readFieldValName :: Name
-readFieldValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readField"
 
 readSymField :: String -> ReadPrec a -> ReadPrec a
 readSymField fieldName readVal = do
@@ -2120,195 +1969,198 @@ readSymField fieldName readVal = do
         expectP (L.Punc "=")
         readVal
 {-# NOINLINE readSymField #-}
+#endif
+
+readFieldValName :: Name
+readFieldValName = 'readField
 
 readSymFieldValName :: Name
-readSymFieldValName = mkNameG_v derivingCompatPackageKey "Data.Deriving.Internal" "readSymField"
-#endif
+readSymFieldValName = 'readSymField
 
 #if MIN_VERSION_base(4,13,0)
 eqInt8HashValName :: Name
-eqInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt8#"
+eqInt8HashValName = 'eqInt8#
 
 eqInt16HashValName :: Name
-eqInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt16#"
+eqInt16HashValName = 'eqInt16#
 
 eqWord8HashValName :: Name
-eqWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord8#"
+eqWord8HashValName = 'eqWord8#
 
 eqWord16HashValName :: Name
-eqWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord16#"
+eqWord16HashValName = 'eqWord16#
 
 geInt8HashValName :: Name
-geInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt8#"
+geInt8HashValName = 'geInt8#
 
 geInt16HashValName :: Name
-geInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt16#"
+geInt16HashValName = 'geInt16#
 
 geWord8HashValName :: Name
-geWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord8#"
+geWord8HashValName = 'geWord8#
 
 geWord16HashValName :: Name
-geWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord16#"
+geWord16HashValName = 'geWord16#
 
 gtInt8HashValName :: Name
-gtInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt8#"
+gtInt8HashValName = 'gtInt8#
 
 gtInt16HashValName :: Name
-gtInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt16#"
+gtInt16HashValName = 'gtInt16#
 
 gtWord8HashValName :: Name
-gtWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord8#"
+gtWord8HashValName = 'gtWord8#
 
 gtWord16HashValName :: Name
-gtWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord16#"
+gtWord16HashValName = 'gtWord16#
 
 int8HashTypeName :: Name
-int8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int8#"
+int8HashTypeName = ''Int8#
 
 int8ToIntHashValName :: Name
-int8ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+int8ToIntHashValName =
 # if MIN_VERSION_base(4,16,0)
-  "int8ToInt#"
+  'int8ToInt#
 # else
-  "extendInt8#"
+  'extendInt8#
 # endif
 
 int16HashTypeName :: Name
-int16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int16#"
+int16HashTypeName = ''Int16#
 
 int16ToIntHashValName :: Name
-int16ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+int16ToIntHashValName =
 # if MIN_VERSION_base(4,16,0)
-  "int16ToInt#"
+  'int16ToInt#
 # else
-  "extendInt16#"
+  'extendInt16#
 # endif
 
 intToInt8HashValName :: Name
-intToInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+intToInt8HashValName =
 # if MIN_VERSION_base(4,16,0)
-  "intToInt8#"
+  'intToInt8#
 # else
-  "narrowInt8#"
+  'narrowInt8#
 # endif
 
 intToInt16HashValName :: Name
-intToInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+intToInt16HashValName =
 # if MIN_VERSION_base(4,16,0)
-  "intToInt16#"
+  'intToInt16#
 # else
-  "narrowInt16#"
+  'narrowInt16#
 # endif
 
 leInt8HashValName :: Name
-leInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt8#"
+leInt8HashValName = 'leInt8#
 
 leInt16HashValName :: Name
-leInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt16#"
+leInt16HashValName = 'leInt16#
 
 leWord8HashValName :: Name
-leWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord8#"
+leWord8HashValName = 'leWord8#
 
 leWord16HashValName :: Name
-leWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord16#"
+leWord16HashValName = 'leWord16#
 
 ltInt8HashValName :: Name
-ltInt8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt8#"
+ltInt8HashValName = 'ltInt8#
 
 ltInt16HashValName :: Name
-ltInt16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt16#"
+ltInt16HashValName = 'ltInt16#
 
 ltWord8HashValName :: Name
-ltWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord8#"
+ltWord8HashValName = 'ltWord8#
 
 ltWord16HashValName :: Name
-ltWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord16#"
+ltWord16HashValName = 'ltWord16#
 
 word8HashTypeName :: Name
-word8HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word8#"
+word8HashTypeName = ''Word8#
 
 word8ToWordHashValName :: Name
-word8ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+word8ToWordHashValName =
 # if MIN_VERSION_base(4,16,0)
-  "word8ToWord#"
+  'word8ToWord#
 # else
-  "extendWord8#"
+  'extendWord8#
 # endif
 
 word16HashTypeName :: Name
-word16HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word16#"
+word16HashTypeName = ''Word16#
 
 word16ToWordHashValName :: Name
-word16ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+word16ToWordHashValName =
 # if MIN_VERSION_base(4,16,0)
-  "word16ToWord#"
+  'word16ToWord#
 # else
-  "extendWord16#"
+  'extendWord16#
 # endif
 
 wordToWord8HashValName :: Name
-wordToWord8HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+wordToWord8HashValName =
 # if MIN_VERSION_base(4,16,0)
-  "wordToWord8#"
+  'wordToWord8#
 # else
-  "narrowWord8#"
+  'narrowWord8#
 # endif
 
 wordToWord16HashValName :: Name
-wordToWord16HashValName = mkNameG_v "ghc-prim" "GHC.Prim"
+wordToWord16HashValName =
 # if MIN_VERSION_base(4,16,0)
-  "wordToWord16#"
+  'wordToWord16#
 # else
-  "narrowWord16#"
+  'narrowWord16#
 # endif
 #endif
 
 #if MIN_VERSION_base(4,16,0)
 eqInt32HashValName :: Name
-eqInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqInt32#"
+eqInt32HashValName = 'eqInt32#
 
 eqWord32HashValName :: Name
-eqWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "eqWord32#"
+eqWord32HashValName = 'eqWord32#
 
 geInt32HashValName :: Name
-geInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geInt32#"
+geInt32HashValName = 'geInt32#
 
 geWord32HashValName :: Name
-geWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "geWord32#"
+geWord32HashValName = 'geWord32#
 
 gtInt32HashValName :: Name
-gtInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtInt32#"
+gtInt32HashValName = 'gtInt32#
 
 gtWord32HashValName :: Name
-gtWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "gtWord32#"
+gtWord32HashValName = 'gtWord32#
 
 int32HashTypeName :: Name
-int32HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Int32#"
+int32HashTypeName = ''Int32#
 
 int32ToIntHashValName :: Name
-int32ToIntHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "int32ToInt#"
+int32ToIntHashValName = 'int32ToInt#
 
 intToInt32HashValName :: Name
-intToInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "intToInt32#"
+intToInt32HashValName = 'intToInt32#
 
 leInt32HashValName :: Name
-leInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leInt32#"
+leInt32HashValName = 'leInt32#
 
 leWord32HashValName :: Name
-leWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "leWord32#"
+leWord32HashValName = 'leWord32#
 
 ltInt32HashValName :: Name
-ltInt32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltInt32#"
+ltInt32HashValName = 'ltInt32#
 
 ltWord32HashValName :: Name
-ltWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "ltWord32#"
+ltWord32HashValName = 'ltWord32#
 
 word32HashTypeName :: Name
-word32HashTypeName = mkNameG_tc "ghc-prim" "GHC.Prim" "Word32#"
+word32HashTypeName = ''Word32#
 
 word32ToWordHashValName :: Name
-word32ToWordHashValName = mkNameG_v "ghc-prim" "GHC.Prim" "word32ToWord#"
+word32ToWordHashValName = 'word32ToWord#
 
 wordToWord32HashValName :: Name
-wordToWord32HashValName = mkNameG_v "ghc-prim" "GHC.Prim" "wordToWord32#"
+wordToWord32HashValName = 'wordToWord32#
 #endif
