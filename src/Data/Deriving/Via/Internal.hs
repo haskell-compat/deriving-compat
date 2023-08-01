@@ -148,7 +148,7 @@ deriveViaDecs instanceTy mbViaTy = do
         _ -> fail $ "Not a type class: " ++ pprint clsTy
     _ -> fail $ "Malformed instance: " ++ pprint instanceTy
 
-deriveViaDecs' :: Name -> [TyVarBndrUnit] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
+deriveViaDecs' :: Name -> [TyVarBndr_ flag] -> [Type] -> Type -> Dec -> Q (Maybe [Dec])
 deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
     let numExpectedArgs = length clsTvbs
         numActualArgs   = length clsArgs
@@ -187,7 +187,7 @@ deriveViaDecs' clsName clsTvbs clsArgs repTy dec = do
 
     go _ = return Nothing
 
-mkCoerceClassMethEqn :: [TyVarBndrUnit] -> [Type] -> Type -> Type -> (Type, Type)
+mkCoerceClassMethEqn :: [TyVarBndr_ flag] -> [Type] -> Type -> Type -> (Type, Type)
 mkCoerceClassMethEqn clsTvbs clsArgs repTy methTy
   = ( applySubstitution rhsSubst methTy
     , applySubstitution lhsSubst methTy
