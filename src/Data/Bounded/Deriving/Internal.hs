@@ -20,6 +20,8 @@ module Data.Bounded.Deriving.Internal (
     ) where
 
 import Data.Deriving.Internal
+import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty (NonEmpty(..))
 
 import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
@@ -90,7 +92,7 @@ makeBoundedFun bf name = do
 -- given constructors. All constructors must be from the same type.
 makeBoundedFunForCons :: BoundedFun -> Name -> [ConstructorInfo] -> Q Exp
 makeBoundedFunForCons _  _      [] = noConstructorsError
-makeBoundedFunForCons bf tyName cons
+makeBoundedFunForCons bf tyName (con:cons')
     | not (isProduct || isEnumeration)
     = enumerationOrProductError $ nameBase tyName
     | isEnumeration
@@ -102,9 +104,12 @@ makeBoundedFunForCons bf tyName cons
     isProduct     = isProductType cons
     isEnumeration = isEnumerationType cons
 
+    cons :: NonEmpty ConstructorInfo
+    cons = con :| cons'
+
     con1, conN :: Q Exp
-    con1 = conE $ constructorName $ head cons
-    conN = conE $ constructorName $ last cons
+    con1 = conE $ constructorName con
+    conN = conE $ constructorName $ NE.last cons
 
     pickCon :: Q Exp
     pickCon = case bf of
@@ -114,7 +119,7 @@ makeBoundedFunForCons bf tyName cons
     pickConApp :: Q Exp
     pickConApp = appsE
                $ pickCon
-               : map varE (replicate (conArity $ head cons) (boundedFunName bf))
+               : map varE (replicate (conArity con) (boundedFunName bf))
 
 -------------------------------------------------------------------------------
 -- Class-specific constants

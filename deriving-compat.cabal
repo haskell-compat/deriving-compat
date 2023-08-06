@@ -148,6 +148,7 @@ library
     cpp-options:       "-DNEW_FUNCTOR_CLASSES"
   else
     build-depends:     base                >= 4.3   && < 4.9
+                     , semigroups          >= 0.6   && < 0.21
 
   if flag(template-haskell-2-11)
     build-depends:     template-haskell    >= 2.11  && < 2.22

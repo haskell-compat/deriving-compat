@@ -39,6 +39,8 @@ module Data.Ord.Deriving.Internal (
 
 import           Data.Deriving.Internal
 import           Data.List (partition)
+import qualified Data.List.NonEmpty as NE
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map as Map
 import           Data.Map (Map)
 
@@ -277,10 +279,6 @@ makeOrdFunForCons oFun instTypes cons = do
         singleConType :: Bool
         singleConType = isSingleton cons
 
-        firstConName, lastConName :: Name
-        firstConName = constructorName $ head cons
-        lastConName  = constructorName $ last cons
-
         -- Alternatively, we could look these up from dataConTagMap, but this
         -- is slightly faster due to the lack of Map lookups.
         firstTag, lastTag :: Int
@@ -290,22 +288,30 @@ makeOrdFunForCons oFun instTypes cons = do
         dataConTagMap :: Map Name Int
         dataConTagMap = Map.fromList $ zip (map constructorName cons) [0..]
 
-        ordMatches :: ConstructorInfo -> Q Match
-        ordMatches = makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
-                                      firstTag firstConName lastTag lastConName
-                                      dataConTagMap
-
         ordFunRhs :: Q Exp
-        ordFunRhs
-          | null cons
-          = conE eqDataName
+        ordFunRhs =
+          case cons of
+            [] -> conE eqDataName
+            c:cs -> ordFunRhsNonEmptyCons (c :| cs)
+
+        ordFunRhsNonEmptyCons :: NonEmpty ConstructorInfo -> Q Exp
+        ordFunRhsNonEmptyCons cs@(c :| _)
           | length nullaryCons <= 2
-          = caseE (varE v1) $ map ordMatches cons
+          = caseE (varE v1) $ map ordMatches $ NE.toList cs
           | null nonNullaryCons
           = mkTagCmp
           | otherwise
           = caseE (varE v1) $ map ordMatches nonNullaryCons
                 ++ [match wildP (normalB mkTagCmp) []]
+          where
+            firstConName, lastConName :: Name
+            firstConName = constructorName c
+            lastConName  = constructorName $ NE.last cs
+
+            ordMatches :: ConstructorInfo -> Q Match
+            ordMatches = makeOrdFunForCon oFun v2 v2Hash tvMap singleConType
+                                          firstTag firstConName lastTag lastConName
+                                          dataConTagMap
 
         mkTagCmp :: Q Exp
         mkTagCmp = untagExpr [(v1, v1Hash), (v2, v2Hash)] $

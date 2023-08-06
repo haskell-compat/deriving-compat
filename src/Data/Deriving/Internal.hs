@@ -42,6 +42,7 @@ import           Data.Functor.Classes
                    )
 #endif
 import qualified Data.List as List
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Maybe
@@ -824,15 +825,14 @@ conArity :: ConstructorInfo -> Int
 conArity (ConstructorInfo { constructorFields = tys }) = length tys
 
 -- | Returns 'True' if it's a datatype with exactly one, non-existential constructor.
-isProductType :: [ConstructorInfo] -> Bool
-isProductType [con] = null (constructorVars con)
-isProductType _     = False
+isProductType :: NonEmpty ConstructorInfo -> Bool
+isProductType (con :| []) = null (constructorVars con)
+isProductType _           = False
 
 -- | Returns 'True' if it's a datatype with one or more nullary, non-GADT
 -- constructors.
-isEnumerationType :: [ConstructorInfo] -> Bool
-isEnumerationType cons@(_:_) = all (App.liftA2 (&&) isNullaryCon isVanillaCon) cons
-isEnumerationType _          = False
+isEnumerationType :: NonEmpty ConstructorInfo -> Bool
+isEnumerationType cons = F.all (App.liftA2 (&&) isNullaryCon isVanillaCon) cons
 
 -- | Returns 'False' if we're dealing with existential quantification or GADTs.
 isVanillaCon :: ConstructorInfo -> Bool
