@@ -22,6 +22,7 @@ module Data.Enum.Deriving.Internal (
     ) where
 
 import Data.Deriving.Internal
+import Data.List.NonEmpty (NonEmpty(..))
 
 import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
@@ -116,7 +117,7 @@ makeEnumFun ef name = do
 -- given constructors. All constructors must be from the same type.
 makeEnumFunForCons :: EnumFun -> Name -> Type -> [ConstructorInfo] -> Q Exp
 makeEnumFunForCons _  _      _  [] = noConstructorsError
-makeEnumFunForCons ef tyName ty cons
+makeEnumFunForCons ef tyName ty (con:cons')
     | not $ isEnumerationType cons
     = enumerationError tyNameBase
     | otherwise = case ef of
@@ -173,8 +174,11 @@ makeEnumFunForCons ef tyName ty cons
     tyNameBase :: String
     tyNameBase = nameBase tyName
 
+    cons :: NonEmpty ConstructorInfo
+    cons = con :| cons'
+
     maxTagExpr :: Q Exp
-    maxTagExpr = integerE (length cons - 1) `sigE` conT intTypeName
+    maxTagExpr = integerE (length cons') `sigE` conT intTypeName
 
     lamOne :: (Name -> Q Exp) -> Q Exp
     lamOne f = do

@@ -19,6 +19,7 @@ module Data.Ix.Deriving.Internal (
     ) where
 
 import Data.Deriving.Internal
+import Data.List.NonEmpty (NonEmpty(..))
 
 import Language.Haskell.TH.Datatype
 import Language.Haskell.TH.Lib
@@ -95,7 +96,7 @@ makeIxFun ixf name = do
 -- given constructors. All constructors must be from the same type.
 makeIxFunForCons :: IxFun -> Name -> Type -> [ConstructorInfo] -> Q Exp
 makeIxFunForCons _   _      _  [] = noConstructorsError
-makeIxFunForCons ixf tyName ty cons
+makeIxFunForCons ixf tyName ty (con:cons')
     | not (isProduct || isEnumeration)
     = enumerationOrProductError $ nameBase tyName
     | isEnumeration
@@ -144,10 +145,7 @@ makeIxFunForCons ixf tyName ty cons
                     ]
 
     | otherwise -- It's a product type
-    = do let con :: ConstructorInfo
-             con = head cons
-
-             conName :: Name
+    = do let conName :: Name
              conName = constructorName con
 
              conFields :: Int
@@ -204,6 +202,9 @@ makeIxFunForCons ixf tyName ty cons
                mkInRange a b c = varE inRangeValName `appE` tupE [varE a, varE b]
                                                      `appE` varE c
   where
+    cons :: NonEmpty ConstructorInfo
+    cons = con :| cons'
+
     isProduct, isEnumeration :: Bool
     isProduct     = isProductType cons
     isEnumeration = isEnumerationType cons
