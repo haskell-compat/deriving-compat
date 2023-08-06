@@ -1,3 +1,10 @@
+### next [????.??.??]
+* When generating `Show(1)(2)` instances with `Text.Show.Deriving` using GHC 9.8
+  or later, data types that have fields of type `Int{8,16,32,64}#` or
+  `Word{8,16,32,64}#` will be printed using  extended literal syntax, mirroring
+  corresponding changes introduced in GHC 9.8 (see
+  https://github.com/ghc-proposals/ghc-proposals/pull/596).
+
 ### 0.6.4 [2023.08.06]
 * Support building with `template-haskell-2.21.*` (GHC 9.8).
 * The Template Haskell machinery now uses `TemplateHaskellQuotes` when building

@@ -690,7 +690,49 @@ primShowTbl = Map.fromList
                              , primShowPostfixMod = twoHashE
                              , primShowConv       = id
                              })
-#if MIN_VERSION_base(4,13,0)
+#if MIN_VERSION_base(4,19,0)
+    , (int8HashTypeName,   PrimShow
+                             { primShowBoxer      = appE (conE i8HashDataName)
+                             , primShowPostfixMod = extendedLitE "Int8"
+                             , primShowConv       = id
+                             })
+    , (int16HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE i16HashDataName)
+                             , primShowPostfixMod = extendedLitE "Int16"
+                             , primShowConv       = id
+                             })
+    , (int32HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE i32HashDataName)
+                             , primShowPostfixMod = extendedLitE "Int32"
+                             , primShowConv       = id
+                             })
+    , (int64HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE i64HashDataName)
+                             , primShowPostfixMod = extendedLitE "Int64"
+                             , primShowConv       = id
+                             })
+    , (word8HashTypeName,  PrimShow
+                             { primShowBoxer      = appE (conE w8HashDataName)
+                             , primShowPostfixMod = extendedLitE "Word8"
+                             , primShowConv       = id
+                             })
+    , (word16HashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE w16HashDataName)
+                             , primShowPostfixMod = extendedLitE "Word16"
+                             , primShowConv       = id
+                             })
+    , (word32HashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE w32HashDataName)
+                             , primShowPostfixMod = extendedLitE "Word32"
+                             , primShowConv       = id
+                             })
+    , (word64HashTypeName, PrimShow
+                             { primShowBoxer      = appE (conE w64HashDataName)
+                             , primShowPostfixMod = extendedLitE "Word64"
+                             , primShowConv       = id
+                             })
+#else
+# if MIN_VERSION_base(4,13,0)
     , (int8HashTypeName,   PrimShow
                              { primShowBoxer      = appE (conE iHashDataName) . appE (varE int8ToIntHashValName)
                              , primShowPostfixMod = oneHashE
@@ -711,8 +753,8 @@ primShowTbl = Map.fromList
                              , primShowPostfixMod = twoHashE
                              , primShowConv       = mkNarrowE wordToWord16HashValName
                              })
-#endif
-#if MIN_VERSION_base(4,16,0)
+# endif
+# if MIN_VERSION_base(4,16,0)
     , (int32HashTypeName,  PrimShow
                              { primShowBoxer      = appE (conE iHashDataName) . appE (varE int32ToIntHashValName)
                              , primShowPostfixMod = oneHashE
@@ -723,10 +765,11 @@ primShowTbl = Map.fromList
                              , primShowPostfixMod = twoHashE
                              , primShowConv       = mkNarrowE wordToWord32HashValName
                              })
+# endif
 #endif
     ]
 
-#if MIN_VERSION_base(4,13,0)
+#if MIN_VERSION_base(4,13,0) && !(MIN_VERSION_base(4,19,0))
 mkNarrowE :: Name -> Q Exp -> Q Exp
 mkNarrowE narrowName e =
   foldr (`infixApp` varE composeValName)
@@ -739,3 +782,8 @@ mkNarrowE narrowName e =
 oneHashE, twoHashE :: Q Exp
 oneHashE = varE showCharValName `appE` charE '#'
 twoHashE = varE showStringValName `appE` stringE "##"
+
+#if MIN_VERSION_base(4,19,0)
+extendedLitE :: String -> Q Exp
+extendedLitE suffix = varE showStringValName `appE` stringE ("#" ++ suffix)
+#endif

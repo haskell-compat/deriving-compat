@@ -56,6 +56,10 @@ import           GHC.Base (getTag)
 import           GHC.Exts
 import           GHC.Read (choose, list, paren)
 import           GHC.Show (showSpace)
+#if MIN_VERSION_base(4,19,0)
+import           GHC.Int (Int8(..), Int16(..), Int32(..), Int64(..))
+import           GHC.Word (Word8(..), Word16(..), Word32(..), Word64(..))
+#endif
 
 import           Text.ParserCombinators.ReadPrec
                    ( ReadPrec, (+++), pfail, prec, readPrec_to_S, readS_to_Prec
@@ -2163,4 +2167,36 @@ word32ToWordHashValName = 'word32ToWord#
 
 wordToWord32HashValName :: Name
 wordToWord32HashValName = 'wordToWord32#
+#endif
+
+#if MIN_VERSION_base(4,19,0)
+i8HashDataName :: Name
+i8HashDataName = 'I8#
+
+i16HashDataName :: Name
+i16HashDataName = 'I16#
+
+i32HashDataName :: Name
+i32HashDataName = 'I32#
+
+i64HashDataName :: Name
+i64HashDataName = 'I64#
+
+int64HashTypeName :: Name
+int64HashTypeName = ''Int64#
+
+w8HashDataName :: Name
+w8HashDataName = 'W8#
+
+w16HashDataName :: Name
+w16HashDataName = 'W16#
+
+w32HashDataName :: Name
+w32HashDataName = 'W32#
+
+w64HashDataName :: Name
+w64HashDataName = 'W64#
+
+word64HashTypeName :: Name
+word64HashTypeName = ''Word64#
 #endif
