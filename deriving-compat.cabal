@@ -139,7 +139,7 @@ library
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving
                        Text.Show.Deriving.Internal
-  build-depends:       containers          >= 0.1   && < 0.7
+  build-depends:       containers          >= 0.1   && < 0.8
                      , ghc-prim
                      , th-abstraction      >= 0.4   && < 0.7
 
