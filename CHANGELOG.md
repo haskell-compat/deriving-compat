@@ -1,3 +1,6 @@
+### next [????.??.??]
+* Support building with `template-haskell-2.22.*` (GHC 9.10).
+
 ### 0.6.5 [2023.08.06]
 * When generating `Show(1)(2)` instances with `Text.Show.Deriving` using GHC 9.8
   or later, data types that have fields of type `Int{8,16,32,64}#` or

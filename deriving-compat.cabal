@@ -151,7 +151,7 @@ library
                      , semigroups          >= 0.6   && < 0.21
 
   if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.22
+    build-depends:     template-haskell    >= 2.11  && < 2.23
                      , ghc-boot-th
   else
     build-depends:     template-haskell    >= 2.5   && < 2.11
@@ -190,7 +190,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
                      , tagged              >= 0.7    && < 1
-                     , template-haskell    >= 2.5    && < 2.22
+                     , template-haskell    >= 2.5    && < 2.23
                      , void                >= 0.5.10 && < 1
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
