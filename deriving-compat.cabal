@@ -90,6 +90,7 @@ tested-with:         GHC == 8.0.2
                    , GHC == 9.6.6
                    , GHC == 9.8.4
                    , GHC == 9.10.1
+                   , GHC == 9.12.1
 cabal-version:       >=1.10
 
 source-repository head
@@ -124,7 +125,7 @@ library
                      , containers          >= 0.1   && < 0.8
                      , ghc-boot-th
                      , ghc-prim
-                     , template-haskell    >= 2.11  && < 2.23
+                     , template-haskell    >= 2.11  && < 2.24
                      , th-abstraction      >= 0.5   && < 0.8
                      , transformers        >= 0.5   && < 0.7
                      , transformers-compat >= 0.5
@@ -156,7 +157,7 @@ test-suite spec
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
                      , tagged              >= 0.7    && < 1
-                     , template-haskell    >= 2.11   && < 2.23
+                     , template-haskell    >= 2.11   && < 2.24
                      , transformers        >= 0.5    && < 0.7
                      , transformers-compat >= 0.5
                      , void                >= 0.5.10 && < 1
