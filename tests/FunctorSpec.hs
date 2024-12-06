@@ -1,25 +1,20 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-#if __GLASGOW_HASKELL__ >= 708
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE RoleAnnotations #-}
-#endif
 
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# OPTIONS_GHC -fno-warn-unused-matches #-}
-#if __GLASGOW_HASKELL__ >= 800
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-unused-foralls #-}
-#endif
 
 {-|
 Module:      FunctorSpec
@@ -42,9 +37,6 @@ import Data.Monoid
 import Data.Orphans ()
 
 import GHC.Exts (Int#)
-
-import Prelude ()
-import Prelude.Compat
 
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
@@ -109,9 +101,7 @@ data IntHashFun a b
 
 data Empty1 a
 data Empty2 a
-#if __GLASGOW_HASKELL__ >= 708
 type role Empty2 nominal
-#endif
 
 data TyCon29 a
     = TyCon29a (forall b. b -> (forall c. a -> c) -> a)
@@ -219,9 +209,7 @@ instance Foldable (f Int Int) => Foldable (ComplexConstraint f g a) where
     foldMap   = $(makeFoldMap   ''ComplexConstraint)
     fold      = $(makeFold      ''ComplexConstraint)
     foldl     = $(makeFoldl     ''ComplexConstraint)
-#if MIN_VERSION_base(4,8,0)
     null      = $(makeNull      ''ComplexConstraint)
-#endif
 instance Traversable (f Int Int) => Traversable (ComplexConstraint f g a) where
     traverse  = $(makeTraverse  ''ComplexConstraint)
     sequenceA = $(makeSequenceA ''ComplexConstraint)
@@ -255,7 +243,6 @@ $(deriveFunctor     ''TyCon30)
 $(deriveFoldable    ''TyCon30)
 $(deriveTraversable ''TyCon30)
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveFunctor     'T1Fam)
@@ -281,9 +268,7 @@ instance Foldable (f Int Int) => Foldable (ComplexConstraintFam f g a) where
     foldMap   = $(makeFoldMap   'ComplexConstraintFam)
     fold      = $(makeFold      'ComplexConstraintFam)
     foldl     = $(makeFoldl     'ComplexConstraintFam)
-# if MIN_VERSION_base(4,8,0)
     null      = $(makeNull      'ComplexConstraintFam)
-# endif
 instance Traversable (f Int Int) => Traversable (ComplexConstraintFam f g a) where
     traverse  = $(makeTraverse  'ComplexConstraintFam)
     sequenceA = $(makeSequenceA 'ComplexConstraintFam)
@@ -307,7 +292,6 @@ $(deriveFunctor     'TyFamily29a)
 $(deriveFunctor     'TyFamily30)
 $(deriveFoldable    'TyFamily30)
 $(deriveTraversable 'TyFamily30)
-#endif
 
 -------------------------------------------------------------------------------
 
@@ -379,7 +363,6 @@ spec = parallel $ do
             (prop_FoldableEx    :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Traversable laws"
             (prop_TraversableEx :: OneTwoCompose Maybe ((,) Bool) [Int] [Int] -> Expectation)
-#if MIN_VERSION_template_haskell(2,7,0)
     describe "OneTwoComposeFam Maybe ((,) Bool) [Int] [Int]" $ do
         prop "satisfies the Functor laws"
             (prop_FunctorEx     :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
@@ -387,4 +370,3 @@ spec = parallel $ do
             (prop_FoldableEx    :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
         prop "satisfies the Traversable laws"
             (prop_TraversableEx :: OneTwoComposeFam Maybe ((,) Bool) [Int] [Int] -> Expectation)
-#endif

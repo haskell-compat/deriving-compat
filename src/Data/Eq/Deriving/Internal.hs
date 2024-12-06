@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 
 {-|
@@ -20,16 +19,12 @@ module Data.Eq.Deriving.Internal (
     , makeNotEq
       -- * 'Eq1'
     , deriveEq1
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftEq
-#endif
     , makeEq1
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Eq2'
     , deriveEq2
     , makeLiftEq2
     , makeEq2
-#endif
     ) where
 
 import           Data.Deriving.Internal
@@ -64,7 +59,6 @@ makeNotEq name = do
 deriveEq1 :: Name -> Q [Dec]
 deriveEq1 = deriveEqClass Eq1
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftEq' (without
 -- requiring an 'Eq1' instance).
 --
@@ -76,14 +70,7 @@ makeLiftEq = makeEqClass Eq1
 -- requiring an 'Eq1' instance).
 makeEq1 :: Name -> Q Exp
 makeEq1 name = makeLiftEq name `appE` varE eqValName
-#else
--- | Generates a lambda expression which behaves like 'eq1' (without
--- requiring an 'Eq1' instance).
-makeEq1 :: Name -> Q Exp
-makeEq1 = makeEqClass Eq1
-#endif
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates an 'Eq2' instance declaration for the given data type or data
 -- family instance.
 --
@@ -104,7 +91,6 @@ makeLiftEq2 = makeEqClass Eq2
 -- This function is not available with @transformers-0.4@.
 makeEq2 :: Name -> Q Exp
 makeEq2 name = makeLiftEq name `appE` varE eqValName `appE` varE eqValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -170,19 +156,12 @@ makeEqForCons eClass instTypes cons = do
     let lastTyVars = map varTToName $ drop (length instTypes - fromEnum eClass) instTypes
         tvMap      = Map.fromList $ zipWith (\x y -> (x, OneName y)) lastTyVars eqs
 
-    lamE (map varP $
-#if defined(NEW_FUNCTOR_CLASSES)
-                     eqs ++
-#endif
-                     [value1, value2]
+    lamE (map varP $ eqs ++ [value1, value2]
          ) . appsE
          $ [ varE $ eqConstName eClass
            , letE [ funD eqDefn [eqClause tvMap]
                   ] $ varE eqDefn `appE` varE value1 `appE` varE value2
-           ]
-#if defined(NEW_FUNCTOR_CLASSES)
-             ++ map varE eqs
-#endif
+           ] ++ map varE eqs
              ++ [varE value1, varE value2]
   where
     nonNullaryCons :: [ConstructorInfo]
@@ -311,17 +290,12 @@ makeCaseForType :: EqClass
                 -> Name
                 -> Type
                 -> Q Exp
-#if defined(NEW_FUNCTOR_CLASSES)
 makeCaseForType _ tvMap _ (VarT tyName) =
     varE $ case Map.lookup tyName tvMap of
       Just (OneName eq) -> eq
       Nothing           -> eqValName
-#else
-makeCaseForType _ _ _ VarT{} = varE eqValName
-#endif
 makeCaseForType eClass tvMap conName (SigT ty _)      = makeCaseForType eClass tvMap conName ty
 makeCaseForType eClass tvMap conName (ForallT _ _ ty) = makeCaseForType eClass tvMap conName ty
-#if defined(NEW_FUNCTOR_CLASSES)
 makeCaseForType eClass tvMap conName ty = do
     let tyCon :: Type
         tyArgs :: [Type]
@@ -344,21 +318,6 @@ makeCaseForType eClass tvMap conName ty = do
                then appsE $ [ varE . eqName $ toEnum numLastArgs]
                             ++ map (makeCaseForType eClass tvMap conName) rhsArgs
                else varE eqValName
-#else
-makeCaseForType eClass tvMap conName ty = do
-  let varNames = Map.keys tvMap
-
-  a' <- newName "a'"
-  b' <- newName "b'"
-  case varNames of
-    [] -> varE eqValName
-    varName:_ ->
-      if mentionsName ty varNames
-         then lamE (map varP [a',b']) $ varE eq1ValName
-                `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE a')
-                `appE` (makeFmapApplyNeg eClass conName ty varName `appE` varE b')
-         else varE eqValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -367,9 +326,7 @@ makeCaseForType eClass tvMap conName ty = do
 -- | A representation of which @Eq@ variant is being derived.
 data EqClass = Eq
              | Eq1
-#if defined(NEW_FUNCTOR_CLASSES)
              | Eq2
-#endif
   deriving (Bounded, Enum)
 
 instance ClassRep EqClass where
@@ -379,9 +336,7 @@ instance ClassRep EqClass where
 
     fullClassName Eq  = eqTypeName
     fullClassName Eq1 = eq1TypeName
-#if defined(NEW_FUNCTOR_CLASSES)
     fullClassName Eq2 = eq2TypeName
-#endif
 
     classConstraint eClass i
       | eMin <= i && i <= eMax = Just $ fullClassName (toEnum i :: EqClass)
@@ -393,18 +348,10 @@ instance ClassRep EqClass where
 
 eqConstName :: EqClass -> Name
 eqConstName Eq  = eqConstValName
-#if defined(NEW_FUNCTOR_CLASSES)
 eqConstName Eq1 = liftEqConstValName
 eqConstName Eq2 = liftEq2ConstValName
-#else
-eqConstName Eq1 = eq1ConstValName
-#endif
 
 eqName :: EqClass -> Name
 eqName Eq  = eqValName
-#if defined(NEW_FUNCTOR_CLASSES)
 eqName Eq1 = liftEqValName
 eqName Eq2 = liftEq2ValName
-#else
-eqName Eq1 = eq1ValName
-#endif

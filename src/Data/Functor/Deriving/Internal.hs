@@ -311,18 +311,12 @@ makeFunctorFunForCons ff opts _parentName instTypes cons = do
   where
     makeFun :: Name -> Name -> TyVarMap1 -> Q Exp
     makeFun z value tvMap = do
-#if MIN_VERSION_template_haskell(2,9,0)
       roles <- reifyRoles _parentName
-#endif
       case () of
-        _
-
-#if MIN_VERSION_template_haskell(2,9,0)
-          | Just (_, PhantomR) <- unsnoc roles
+        _ | Just (_, PhantomR) <- unsnoc roles
          -> functorFunPhantom z value
-#endif
 
-          | null cons && fftEmptyCaseBehavior opts && ghc7'8OrLater
+          | null cons && fftEmptyCaseBehavior opts
          -> functorFunEmptyCase ff z value
 
           | null cons
@@ -332,7 +326,6 @@ makeFunctorFunForCons ff opts _parentName instTypes cons = do
          -> caseE (varE value)
                   (map (makeFunctorFunForCon ff z tvMap) cons)
 
-#if MIN_VERSION_template_haskell(2,9,0)
     functorFunPhantom :: Name -> Name -> Q Exp
     functorFunPhantom z value =
         functorFunTrivial coerce
@@ -341,7 +334,6 @@ makeFunctorFunForCons ff opts _parentName instTypes cons = do
       where
         coerce :: Q Exp
         coerce = varE coerceValName `appE` varE value
-#endif
 
 -- | Generates a match for a single constructor.
 makeFunctorFunForCon :: FunctorFun -> Name -> TyVarMap1 -> ConstructorInfo -> Q Match
@@ -650,11 +642,7 @@ functorFunName Traverse = traverseValName
 
 functorClassToFuns :: FunctorClass -> [FunctorFun]
 functorClassToFuns Functor     = [ Fmap, Replace ]
-functorClassToFuns Foldable    = [ Foldr, FoldMap
-#if MIN_VERSION_base(4,8,0)
-                                 , Null
-#endif
-                                 ]
+functorClassToFuns Foldable    = [ Foldr, FoldMap, Null ]
 functorClassToFuns Traversable = [ Traverse ]
 
 functorFunToClass :: FunctorFun -> FunctorClass
@@ -779,10 +767,8 @@ functorLikeTraverse tvMap (FT { ft_triv = caseTrivial,     ft_var = caseVar
           -- and at least one xr is True
           |  TupleT len <- f
           -> tuple $ Boxed len
-#if MIN_VERSION_template_haskell(2,6,0)
           |  UnboxedTupleT len <- f
           -> tuple $ Unboxed len
-#endif
           |  fc || or (init xcs)
           -> wrongArg                    -- T (..var..)    ty
           |  otherwise                   -- T (..no var..) ty
@@ -792,7 +778,7 @@ functorLikeTraverse tvMap (FT { ft_triv = caseTrivial,     ft_var = caseVar
                    then wrongArg
                    else return (caseTyApp (last args) (last xrs), True)
     go co (SigT t k) = do
-      (_, kc) <- go_kind co k
+      (_, kc) <- go co k
       if kc
          then return (caseWrongArg, True)
          else go co t
@@ -808,15 +794,6 @@ functorLikeTraverse tvMap (FT { ft_triv = caseTrivial,     ft_var = caseVar
          then trivial
          else return (caseForAll tvbs tr, True)
     go _ _ = trivial
-
-    go_kind :: Bool
-            -> Kind
-            -> Q (a, Bool)
-#if MIN_VERSION_template_haskell(2,9,0)
-    go_kind = go
-#else
-    go_kind _ _ = trivial
-#endif
 
     trivial :: Q (a, Bool)
     trivial = return (caseTrivial, False)
@@ -916,9 +893,7 @@ mkSimpleConMatch2 fold conName insides = do
 -- corresponds to @Unboxed 3@.
 data TupleSort
   = Boxed   Int
-#if MIN_VERSION_template_haskell(2,6,0)
   | Unboxed Int
-#endif
 
 -- "case x of (a1,a2,a3) -> fold [x1 a1, x2 a2, x3 a3]"
 mkSimpleTupleCase :: (Name -> [a] -> Q Match)
@@ -926,9 +901,7 @@ mkSimpleTupleCase :: (Name -> [a] -> Q Match)
 mkSimpleTupleCase matchForCon tupSort insides x = do
   let tupDataName = case tupSort of
                       Boxed   len -> tupleDataName len
-#if MIN_VERSION_template_haskell(2,6,0)
                       Unboxed len -> unboxedTupleDataName len
-#endif
   m <- matchForCon tupDataName insides
   return $ CaseE x [m]
 

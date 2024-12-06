@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,9 +18,6 @@ module ReadSpec where
 import Data.Deriving
 import Data.Functor.Classes (Read1, readsPrec1)
 import Data.Proxy
-
-import Prelude ()
-import Prelude.Compat
 
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
@@ -57,31 +53,23 @@ data instance TyFamily# a b = TyFamily# {
 
 $(deriveRead  ''TyCon#)
 $(deriveRead1 ''TyCon#)
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 ''TyCon#)
-#endif
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (TyCon# a b) where
   arbitrary = TyCon# <$> arbitrary <*> arbitrary
 
 $(deriveRead  ''Empty)
 $(deriveRead1 ''Empty)
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 ''Empty)
-#endif
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveRead  'TyFamily#)
 $(deriveRead1 'TyFamily#)
-# if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 'TyFamily#)
-# endif
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (TyFamily# a b) where
   arbitrary = TyFamily# <$> arbitrary <*> arbitrary
-#endif
 
 -------------------------------------------------------------------------------
 
@@ -118,7 +106,5 @@ spec :: Spec
 spec = parallel $ do
   describe "TyCon#" $
     readSpec (Proxy :: Proxy (TyCon# Char Int))
-#if MIN_VERSION_template_haskell(2,7,0)
   describe "TyFamily#" $
     readSpec (Proxy :: Proxy (TyFamily# Char Int))
-#endif

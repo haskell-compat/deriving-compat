@@ -2,12 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MagicHash #-}
-
-#if __GLASGOW_HASKELL__ >= 800
 {-# LANGUAGE TemplateHaskellQuotes #-}
-#else
-{-# LANGUAGE TemplateHaskell #-}
-#endif
 
 {-|
 Module:      Data.Deriving.Internal
@@ -29,18 +24,11 @@ import           Control.Monad (when, unless)
 import qualified Data.Foldable as F
 import           Data.Functor.Classes
                    ( Eq1(..), Ord1(..), Read1(..), Show1(..)
+                   , Eq2(..), Ord2(..), Read2(..), Show2(..)
 #if MIN_VERSION_base(4,10,0)
-                   , liftReadListPrecDefault
+                   , liftReadListPrecDefault, liftReadListPrec2Default
 #endif
                    )
-#if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
-import           Data.Functor.Classes
-                   ( Eq2(..), Ord2(..), Read2(..), Show2(..)
-#if MIN_VERSION_base(4,10,0)
-                   , liftReadListPrec2Default
-#endif
-                   )
-#endif
 import qualified Data.List as List
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map as Map
@@ -54,7 +42,8 @@ import qualified Data.Traversable as T
 import           GHC.Arr (Ix(..))
 import           GHC.Base (getTag)
 import           GHC.Exts
-import           GHC.Read (choose, list, paren)
+import           GHC.Lexeme (startsConSym, startsVarSym)
+import           GHC.Read (choose, expectP, list, paren)
 import           GHC.Show (showSpace)
 #if MIN_VERSION_base(4,19,0)
 import           GHC.Int (Int8(..), Int16(..), Int32(..), Int64(..))
@@ -69,33 +58,12 @@ import           Text.Read (Read(..), parens, readListPrecDefault)
 import qualified Text.Read.Lex as L
 import           Text.Show (showListWith)
 
-#if MIN_VERSION_base(4,7,0)
-import           GHC.Read (expectP)
-#else
-import           GHC.Read (lexP)
-import           Text.Read.Lex (Lexeme)
-#endif
-
-#if !(MIN_VERSION_base(4,8,0))
-import           Control.Applicative (Applicative(..))
-import           Data.Foldable (Foldable(..))
-import           Data.Functor (Functor(..))
-import           Data.Monoid (Monoid(..))
-import           Data.Traversable (Traversable(..))
-#endif
-
 #if MIN_VERSION_base(4,10,0)
 import           GHC.Show (showCommaSpace)
 #endif
 
 #if MIN_VERSION_base(4,11,0)
 import           GHC.Read (readField, readSymField)
-#endif
-
-#if defined(MIN_VERSION_ghc_boot_th)
-import           GHC.Lexeme (startsConSym, startsVarSym)
-#else
-import           Data.Char (isSymbol, ord)
 #endif
 
 import           Language.Haskell.TH.Datatype as Datatype
@@ -115,11 +83,7 @@ import           Data.Traversable ()
 -------------------------------------------------------------------------------
 
 applySubstitutionKind :: Map Name Kind -> Type -> Type
-#if MIN_VERSION_template_haskell(2,8,0)
 applySubstitutionKind = applySubstitution
-#else
-applySubstitutionKind _ t = t
-#endif
 
 substNameWithKind :: Name -> Kind -> Type -> Type
 substNameWithKind n k = applySubstitutionKind (Map.singleton n k)
@@ -285,9 +249,7 @@ canRealizeKindStar :: Type -> StarKindStatus
 canRealizeKindStar t
   | hasKindStar t = KindStar
   | otherwise = case t of
-#if MIN_VERSION_template_haskell(2,8,0)
                      SigT _ (VarT k) -> IsKindVar k
-#endif
                      _               -> NotKindStar
 
 -- | Returns 'Just' the kind variable 'Name' of a 'StarKindStatus' if it exists.
@@ -409,13 +371,11 @@ buildTypeInstance cRep tyConName dataCxt varTysOrig variant = do
 
     isDataFamily <-
       case variant of
-        Datatype        -> return False
-        Newtype         -> return False
-        DataInstance    -> return True
-        NewtypeInstance -> return True
-#if MIN_VERSION_th_abstraction(0,5,0)
+        Datatype          -> return False
+        Newtype           -> return False
+        DataInstance      -> return True
+        NewtypeInstance   -> return True
         Datatype.TypeData -> typeDataError tyConName
-#endif
 
     let remainingTysOrigSubst' :: [Type]
         -- See Note [Kind signatures in derived instances] for an explanation
@@ -434,7 +394,7 @@ buildTypeInstance cRep tyConName dataCxt varTysOrig variant = do
 
     -- If the datatype context mentions any of the dropped type variables,
     -- we can't derive an instance, so throw an error.
-    when (any (`predMentionsName` droppedTyVarNames) dataCxt) $
+    when (any (`mentionsName` droppedTyVarNames) dataCxt) $
       datatypeContextError tyConName instanceType
     -- Also ensure the dropped types can be safely eta-reduced. Otherwise,
     -- throw an error.
@@ -547,7 +507,7 @@ things we can do to make instance contexts that work for 80% of use cases:
 checkExistentialContext :: ClassRep a => a -> TyVarMap b -> Cxt -> Name
                         -> Q c -> Q c
 checkExistentialContext cRep tvMap ctxt conName q =
-  if (any (`predMentionsName` Map.keys tvMap) ctxt
+  if (any (`mentionsName` Map.keys tvMap) ctxt
        || Map.size tvMap < arity cRep)
        && not (allowExQuant cRep)
      then existentialContextError conName
@@ -708,12 +668,6 @@ interleave :: [a] -> [a] -> [a]
 interleave (a1:a1s) (a2:a2s) = a1:a2:interleave a1s a2s
 interleave _        _        = []
 
-#if !(MIN_VERSION_ghc_prim(0,3,1))
-isTrue# :: Bool -> Bool
-isTrue# x = x
-{-# INLINE isTrue# #-}
-#endif
-
 -- filterByList, filterByLists, and partitionByList taken from GHC (BSD3-licensed)
 
 -- | 'filterByList' takes a list of Bools and a list of some elements and
@@ -761,21 +715,13 @@ integerE = litE . integerL . fromIntegral
 -- | Returns True if a Type has kind *.
 hasKindStar :: Type -> Bool
 hasKindStar VarT{}         = True
-#if MIN_VERSION_template_haskell(2,8,0)
 hasKindStar (SigT _ StarT) = True
-#else
-hasKindStar (SigT _ StarK) = True
-#endif
 hasKindStar _              = False
 
 -- Returns True is a kind is equal to *, or if it is a kind variable.
 isStarOrVar :: Kind -> Bool
-#if MIN_VERSION_template_haskell(2,8,0)
 isStarOrVar StarT  = True
 isStarOrVar VarT{} = True
-#else
-isStarOrVar StarK  = True
-#endif
 isStarOrVar _      = False
 
 -- | @hasKindVarChain n kind@ Checks if @kind@ is of the form
@@ -857,22 +803,14 @@ tvbToType = elimTV VarT (\n k -> SigT (VarT n) k)
 
 -- | Applies a typeclass constraint to a type.
 applyClass :: Name -> Name -> Pred
-#if MIN_VERSION_template_haskell(2,10,0)
 applyClass con t = AppT (ConT con) (VarT t)
-#else
-applyClass con t = ClassP con [VarT t]
-#endif
 
 createKindChain :: Int -> Kind
 createKindChain = go starK
   where
     go :: Kind -> Int -> Kind
     go k !0 = k
-#if MIN_VERSION_template_haskell(2,8,0)
     go k !n = go (AppT (AppT ArrowT StarT) k) (n - 1)
-#else
-    go k !n = go (ArrowK StarK k) (n - 1)
-#endif
 
 -- | Checks to see if the last types in a data family instance can be safely eta-
 -- reduced (i.e., dropped), given the other types. This checks for three conditions:
@@ -940,25 +878,10 @@ isInTypeFamilyApp names tyFun tyArgs =
     go tcName = do
       info <- reify tcName
       case info of
-#if MIN_VERSION_template_haskell(2,11,0)
         FamilyI (OpenTypeFamilyD (TypeFamilyHead _ bndrs _ _)) _
           -> withinFirstArgs bndrs
-#elif MIN_VERSION_template_haskell(2,7,0)
-        FamilyI (FamilyD TypeFam _ bndrs _) _
-          -> withinFirstArgs bndrs
-#else
-        TyConI (FamilyD TypeFam _ bndrs _)
-          -> withinFirstArgs bndrs
-#endif
-
-#if MIN_VERSION_template_haskell(2,11,0)
         FamilyI (ClosedTypeFamilyD (TypeFamilyHead _ bndrs _ _) _) _
           -> withinFirstArgs bndrs
-#elif MIN_VERSION_template_haskell(2,9,0)
-        FamilyI (ClosedTypeFamilyD _ bndrs _ _) _
-          -> withinFirstArgs bndrs
-#endif
-
         _ -> return False
       where
         withinFirstArgs :: [a] -> Q Bool
@@ -985,21 +908,9 @@ mentionsName = go
   where
     go :: Type -> [Name] -> Bool
     go (AppT t1 t2) names = go t1 names || go t2 names
-    go (SigT t _k)  names = go t names
-#if MIN_VERSION_template_haskell(2,8,0)
-                              || go _k names
-#endif
+    go (SigT t k)   names = go t names || go k names
     go (VarT n)     names = n `elem` names
     go _            _     = False
-
--- | Does an instance predicate mention any of the Names in the list?
-predMentionsName :: Pred -> [Name] -> Bool
-#if MIN_VERSION_template_haskell(2,10,0)
-predMentionsName = mentionsName
-#else
-predMentionsName (ClassP n tys) names = n `elem` names || any (`mentionsName` names) tys
-predMentionsName (EqualP t1 t2) names = mentionsName t1 names || mentionsName t2 names
-#endif
 
 -- | Construct a type via curried application.
 applyTy :: Type -> [Type] -> Type
@@ -1026,10 +937,8 @@ unapplyTy ty = go ty ty []
     go :: Type -> Type -> [Type] -> (Type, [Type])
     go _      (AppT ty1 ty2)     args = go ty1 ty1 (ty2:args)
     go origTy (SigT ty' _)       args = go origTy ty' args
-#if MIN_VERSION_template_haskell(2,11,0)
     go origTy (InfixT ty1 n ty2) args = go origTy (ConT n `AppT` ty1 `AppT` ty2) args
     go origTy (ParensT ty')      args = go origTy ty' args
-#endif
     go origTy _                  args = (origTy, args)
 
 -- | Split a type signature by the arrows on its spine. For example, this:
@@ -1056,12 +965,7 @@ uncurryTy t = ([], [t])
 
 -- | Like uncurryType, except on a kind level.
 uncurryKind :: Kind -> [Kind]
-#if MIN_VERSION_template_haskell(2,8,0)
 uncurryKind = snd . uncurryTy
-#else
-uncurryKind (ArrowK k1 k2) = k1:uncurryKind k2
-uncurryKind k              = [k]
-#endif
 
 untagExpr :: [(Name, Name)] -> Q Exp -> Q Exp
 untagExpr [] e = e
@@ -1215,22 +1119,6 @@ isInfixDataCon _       = False
 isSym :: String -> Bool
 isSym ""      = False
 isSym (c : _) = startsVarSym c || startsConSym c
-
-#if !defined(MIN_VERSION_ghc_boot_th)
-startsVarSym, startsConSym :: Char -> Bool
-startsVarSym c = startsVarSymASCII c || (ord c > 0x7f && isSymbol c) -- Infix Ids
-startsConSym c = c == ':' -- Infix data constructors
-
-startsVarSymASCII :: Char -> Bool
-startsVarSymASCII c = c `elem` "!#$%&*+./<=>?@\\^|~-"
-#endif
-
-ghc7'8OrLater :: Bool
-#if __GLASGOW_HASKELL__ >= 708
-ghc7'8OrLater = True
-#else
-ghc7'8OrLater = False
-#endif
 
 -------------------------------------------------------------------------------
 -- Quoted names
@@ -1726,13 +1614,6 @@ notValName = 'not
 wHashDataName :: Name
 wHashDataName = 'W#
 
-#if !(MIN_VERSION_base(4,7,0))
-expectP :: Lexeme -> ReadPrec ()
-expectP lexeme = do
-  thing <- lexP
-  if thing == lexeme then return () else pfail
-#endif
-
 expectPValName :: Name
 expectPValName = 'expectP
 
@@ -1769,7 +1650,6 @@ read1TypeName = ''Read1
 show1TypeName :: Name
 show1TypeName = ''Show1
 
-#if !(MIN_VERSION_transformers(0,4,0)) || MIN_VERSION_transformers(0,5,0)
 eq2TypeName :: Name
 eq2TypeName = ''Eq2
 
@@ -1817,78 +1697,9 @@ liftShowList2ValName = 'liftShowList2
 
 liftShowsPrec2ValName :: Name
 liftShowsPrec2ValName = 'liftShowsPrec2
-#else
-eq1ValName :: Name
-eq1ValName = 'eq1
 
-compare1ValName :: Name
-compare1ValName = 'compare1
-
-readsPrec1ValName :: Name
-readsPrec1ValName = 'readsPrec1
-
-showsPrec1ValName :: Name
-showsPrec1ValName = 'showsPrec1
-
-newtype Apply f a = Apply { unApply :: f a }
-
-instance (Eq1 f, Eq a) => Eq (Apply f a) where
-    Apply x == Apply y = eq1 x y
-
-instance (Ord1 g, Ord a) => Ord (Apply g a) where
-    compare (Apply x) (Apply y) = compare1 x y
-
-instance (Read1 f, Read a) => Read (Apply f a) where
-    readsPrec d s = [(Apply a, t) | (a, t) <- readsPrec1 d s]
-
-instance (Show1 f, Show a) => Show (Apply f a) where
-    showsPrec p (Apply x) = showsPrec1 p x
-
-makeFmapApplyNeg :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
-makeFmapApplyNeg = makeFmapApply False
-
-makeFmapApplyPos :: ClassRep a => a -> Name -> Type -> Name -> Q Exp
-makeFmapApplyPos = makeFmapApply True
-
-makeFmapApply :: ClassRep a => Bool -> a -> Name -> Type -> Name -> Q Exp
-makeFmapApply pos cRep conName (SigT ty _) name = makeFmapApply pos cRep conName ty name
-makeFmapApply pos cRep conName t name = do
-    let tyCon :: Type
-        tyArgs :: [Type]
-        (tyCon, tyArgs) = unapplyTy t
-
-        numLastArgs :: Int
-        numLastArgs = min (arity cRep) (length tyArgs)
-
-        lhsArgs, rhsArgs :: [Type]
-        (lhsArgs, rhsArgs) = splitAt (length tyArgs - numLastArgs) tyArgs
-
-        inspectTy :: Type -> Q Exp
-        inspectTy (SigT ty _) = inspectTy ty
-        inspectTy (VarT a) | a == name = varE idValName
-        inspectTy beta = varE fmapValName `appE`
-                           infixApp (if pos then makeFmapApply pos cRep conName beta name
-                                            else conE applyDataName)
-                                    (varE composeValName)
-                                    (if pos then varE unApplyValName
-                                            else makeFmapApply pos cRep conName beta name)
-
-    itf <- isInTypeFamilyApp [name] tyCon tyArgs
-    if any (`mentionsName` [name]) lhsArgs || itf
-       then outOfPlaceTyVarError cRep conName
-       else inspectTy (head rhsArgs)
-
-applyDataName :: Name
-applyDataName = 'Apply
-
-unApplyValName :: Name
-unApplyValName = 'unApply
-#endif
-
-#if MIN_VERSION_base(4,7,0)
 coerceValName :: Name
 coerceValName = 'coerce
-#endif
 
 #if MIN_VERSION_base(4,10,0)
 liftReadListPrecDefaultValName :: Name

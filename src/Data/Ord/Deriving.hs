@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-|
 Module:      Data.Ord.Deriving
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -24,16 +23,12 @@ module Data.Ord.Deriving (
     , makeMin
       -- * 'Ord1'
     , deriveOrd1
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftCompare
-#endif
     , makeCompare1
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Ord2'
     , deriveOrd2
     , makeLiftCompare2
     , makeCompare2
-#endif
       -- * 'deriveOrd' limitations
       -- $constraints
     ) where

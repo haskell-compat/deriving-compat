@@ -9,9 +9,6 @@ Portability: Template Haskell
 -}
 module EqSpec where
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec
 
 import Types.EqOrd ()

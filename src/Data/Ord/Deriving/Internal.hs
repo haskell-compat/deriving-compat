@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 
 {-|
@@ -25,16 +24,12 @@ module Data.Ord.Deriving.Internal (
     , makeMin
       -- * 'Ord1'
     , deriveOrd1
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftCompare
-#endif
     , makeCompare1
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Ord2'
     , deriveOrd2
     , makeLiftCompare2
     , makeCompare2
-#endif
     ) where
 
 import           Data.Deriving.Internal
@@ -111,7 +106,6 @@ makeMinMax f name = do
 deriveOrd1 :: Name -> Q [Dec]
 deriveOrd1 = deriveOrdClass Ord1
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftCompare' (without
 -- requiring an 'Ord1' instance).
 --
@@ -123,14 +117,7 @@ makeLiftCompare = makeOrdFun Ord1LiftCompare (error "This shouldn't happen")
 -- requiring an 'Ord1' instance).
 makeCompare1 :: Name -> Q Exp
 makeCompare1 name = makeLiftCompare name `appE` varE compareValName
-#else
--- | Generates a lambda expression which behaves like 'compare1' (without
--- requiring an 'Ord1' instance).
-makeCompare1 :: Name -> Q Exp
-makeCompare1 = makeOrdFun Ord1Compare1 (error "This shouldn't happen")
-#endif
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates an 'Ord2' instance declaration for the given data type or data
 -- family instance.
 --
@@ -153,7 +140,6 @@ makeCompare2 :: Name -> Q Exp
 makeCompare2 name = makeLiftCompare name
              `appE` varE compareValName
              `appE` varE compareValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -205,11 +191,7 @@ ordFunDecs oClass instTypes cons =
     dispatchFun oFun | oFun `elem` [ OrdCompare, OrdLT
                                      -- OrdLT is included to mirror the fix to
                                      -- GHC Trac #10858.
-#if defined(NEW_FUNCTOR_CLASSES)
                                    , Ord1LiftCompare, Ord2LiftCompare2
-#else
-                                   , Ord1Compare1
-#endif
                                    ]
                       = makeOrdFunForCons oFun instTypes cons
     dispatchFun OrdLE = dispatchLT $ \lt x y -> negateExpr $ lt `appE` y `appE` x
@@ -248,12 +230,8 @@ makeOrdFun oFun matches name = do
   where
     compareFuns :: [OrdFun]
     compareFuns = [ OrdCompare
-#if defined(NEW_FUNCTOR_CLASSES)
                   , Ord1LiftCompare
                   , Ord2LiftCompare2
-#else
-                  , Ord1Compare1
-#endif
                   ]
 
 -- | Generates a lambda expression for the given constructors.
@@ -317,18 +295,11 @@ makeOrdFunForCons oFun instTypes cons = do
         mkTagCmp = untagExpr [(v1, v1Hash), (v2, v2Hash)] $
                        unliftedOrdFun intHashTypeName oFun v1Hash v2Hash
 
-    lamE (map varP $
-#if defined(NEW_FUNCTOR_CLASSES)
-                     ords ++
-#endif
-                     [v1, v2])
+    lamE (map varP $ ords ++ [v1, v2])
         . appsE
         $ [ varE $ compareConstName oFun
           , ordFunRhs
-          ]
-#if defined(NEW_FUNCTOR_CLASSES)
-            ++ map varE ords
-#endif
+          ] ++ map varE ords
             ++ [varE v1, varE v2]
 
 makeOrdFunForCon :: OrdFun
@@ -438,17 +409,12 @@ makeOrdFunForType :: OrdFun
                   -> Name
                   -> Type
                   -> Q Exp
-#if defined(NEW_FUNCTOR_CLASSES)
 makeOrdFunForType oFun tvMap _ (VarT tyName) =
     varE $ case Map.lookup tyName tvMap of
       Just (OneName ord) -> ord
       Nothing            -> ordFunName oFun 0
-#else
-makeOrdFunForType oFun _ _ VarT{} = varE $ ordFunName oFun 0
-#endif
 makeOrdFunForType oFun tvMap conName (SigT ty _)      = makeOrdFunForType oFun tvMap conName ty
 makeOrdFunForType oFun tvMap conName (ForallT _ _ ty) = makeOrdFunForType oFun tvMap conName ty
-#if defined(NEW_FUNCTOR_CLASSES)
 makeOrdFunForType oFun tvMap conName ty = do
     let oClass :: OrdClass
         oClass = ordFunToClass oFun
@@ -474,22 +440,6 @@ makeOrdFunForType oFun tvMap conName ty = do
                then appsE $ [ varE . ordFunName oFun $ toEnum numLastArgs]
                             ++ map (makeOrdFunForType oFun tvMap conName) rhsArgs
                else varE $ ordFunName oFun 0
-#else
-makeOrdFunForType oFun tvMap conName ty = do
-  let varNames = Map.keys tvMap
-      oClass   = ordFunToClass oFun
-
-  a' <- newName "a'"
-  b' <- newName "b'"
-  case varNames of
-    [] -> varE $ ordFunName oFun 0
-    varName:_ ->
-      if mentionsName ty varNames
-         then lamE (map varP [a',b']) $ varE (ordFunName oFun 1)
-                `appE` (makeFmapApplyNeg oClass conName ty varName `appE` varE a')
-                `appE` (makeFmapApplyNeg oClass conName ty varName `appE` varE b')
-         else varE $ ordFunName oFun 0
-#endif
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -498,9 +448,7 @@ makeOrdFunForType oFun tvMap conName ty = do
 -- | A representation of which @Ord@ variant is being derived.
 data OrdClass = Ord
               | Ord1
-#if defined(NEW_FUNCTOR_CLASSES)
               | Ord2
-#endif
   deriving (Bounded, Enum)
 
 instance ClassRep OrdClass where
@@ -510,9 +458,7 @@ instance ClassRep OrdClass where
 
     fullClassName Ord  = ordTypeName
     fullClassName Ord1 = ord1TypeName
-#if defined(NEW_FUNCTOR_CLASSES)
     fullClassName Ord2 = ord2TypeName
-#endif
 
     classConstraint oClass i
       | oMin <= i && i <= oMax = Just $ fullClassName (toEnum i :: OrdClass)
@@ -528,28 +474,16 @@ compareConstName OrdLT            = ltConstValName
 compareConstName OrdLE            = ltConstValName
 compareConstName OrdGT            = ltConstValName
 compareConstName OrdGE            = ltConstValName
-#if defined(NEW_FUNCTOR_CLASSES)
 compareConstName Ord1LiftCompare  = liftCompareConstValName
 compareConstName Ord2LiftCompare2 = liftCompare2ConstValName
-#else
-compareConstName Ord1Compare1     = compare1ConstValName
-#endif
 
 ordClassToCompare :: OrdClass -> OrdFun
 ordClassToCompare Ord  = OrdCompare
-#if defined(NEW_FUNCTOR_CLASSES)
 ordClassToCompare Ord1 = Ord1LiftCompare
 ordClassToCompare Ord2 = Ord2LiftCompare2
-#else
-ordClassToCompare Ord1 = Ord1Compare1
-#endif
 
 data OrdFun = OrdCompare | OrdLT | OrdLE | OrdGE | OrdGT
-#if defined(NEW_FUNCTOR_CLASSES)
             | Ord1LiftCompare | Ord2LiftCompare2
-#else
-            | Ord1Compare1
-#endif
   deriving Eq
 
 ordFunName :: OrdFun -> Int -> Name
@@ -558,16 +492,11 @@ ordFunName OrdLT            0 = ltValName
 ordFunName OrdLE            0 = leValName
 ordFunName OrdGE            0 = geValName
 ordFunName OrdGT            0 = gtValName
-#if defined(NEW_FUNCTOR_CLASSES)
 ordFunName Ord1LiftCompare  0 = ordFunName OrdCompare 0
 ordFunName Ord1LiftCompare  1 = liftCompareValName
 ordFunName Ord2LiftCompare2 0 = ordFunName OrdCompare 0
 ordFunName Ord2LiftCompare2 1 = ordFunName Ord1LiftCompare 1
 ordFunName Ord2LiftCompare2 2 = liftCompare2ValName
-#else
-ordFunName Ord1Compare1     0 = ordFunName OrdCompare 0
-ordFunName Ord1Compare1     1 = compare1ValName
-#endif
 ordFunName _                _ = error "Data.Ord.Deriving.Internal.ordFunName"
 
 ordFunToClass :: OrdFun -> OrdClass
@@ -576,12 +505,8 @@ ordFunToClass OrdLT            = Ord
 ordFunToClass OrdLE            = Ord
 ordFunToClass OrdGE            = Ord
 ordFunToClass OrdGT            = Ord
-#if defined(NEW_FUNCTOR_CLASSES)
 ordFunToClass Ord1LiftCompare  = Ord1
 ordFunToClass Ord2LiftCompare2 = Ord2
-#else
-ordFunToClass Ord1Compare1     = Ord1
-#endif
 
 eqResult :: OrdFun -> Q Exp
 eqResult OrdCompare       = eqTagExpr
@@ -589,12 +514,8 @@ eqResult OrdLT            = falseExpr
 eqResult OrdLE            = trueExpr
 eqResult OrdGE            = trueExpr
 eqResult OrdGT            = falseExpr
-#if defined(NEW_FUNCTOR_CLASSES)
 eqResult Ord1LiftCompare  = eqTagExpr
 eqResult Ord2LiftCompare2 = eqTagExpr
-#else
-eqResult Ord1Compare1     = eqTagExpr
-#endif
 
 gtResult :: OrdFun -> Q Exp
 gtResult OrdCompare       = gtTagExpr
@@ -602,12 +523,8 @@ gtResult OrdLT            = falseExpr
 gtResult OrdLE            = falseExpr
 gtResult OrdGE            = trueExpr
 gtResult OrdGT            = trueExpr
-#if defined(NEW_FUNCTOR_CLASSES)
 gtResult Ord1LiftCompare  = gtTagExpr
 gtResult Ord2LiftCompare2 = gtTagExpr
-#else
-gtResult Ord1Compare1     = gtTagExpr
-#endif
 
 ltResult :: OrdFun -> Q Exp
 ltResult OrdCompare       = ltTagExpr
@@ -615,12 +532,8 @@ ltResult OrdLT            = trueExpr
 ltResult OrdLE            = trueExpr
 ltResult OrdGE            = falseExpr
 ltResult OrdGT            = falseExpr
-#if defined(NEW_FUNCTOR_CLASSES)
 ltResult Ord1LiftCompare  = ltTagExpr
 ltResult Ord2LiftCompare2 = ltTagExpr
-#else
-ltResult Ord1Compare1     = ltTagExpr
-#endif
 
 -------------------------------------------------------------------------------
 -- Assorted utilities
@@ -638,9 +551,7 @@ otherFuns :: OrdClass -> [ConstructorInfo] -> [OrdFun]
 otherFuns _ [] = [] -- We only need compare for empty data types.
 otherFuns oClass cons = case oClass of
     Ord1 -> []
-#if defined(NEW_FUNCTOR_CLASSES)
     Ord2 -> []
-#endif
     Ord | (lastTag - firstTag) <= 2 || null nonNullaryCons
        -> [OrdLT, OrdLE, OrdGE, OrdGT]
         | otherwise
@@ -660,12 +571,8 @@ unliftedOrdFun tyName oFun a b = case oFun of
     OrdLE            -> wrap leFun
     OrdGE            -> wrap geFun
     OrdGT            -> wrap gtFun
-#if defined(NEW_FUNCTOR_CLASSES)
     Ord1LiftCompare  -> unliftedCompareExpr
     Ord2LiftCompare2 -> unliftedCompareExpr
-#else
-    Ord1Compare1     -> unliftedCompareExpr
-#endif
   where
     unliftedCompareExpr :: Q Exp
     unliftedCompareExpr = unliftedCompare ltFun eqFun aExpr bExpr

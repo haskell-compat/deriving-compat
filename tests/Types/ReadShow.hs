@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
@@ -17,9 +16,6 @@ Shared datatypes between "ReadSpec" and "ShowSpec".
 -}
 module Types.ReadShow where
 
-#if !defined(NEW_FUNCTOR_CLASSES)
-import Data.Functor.Classes (Read1(..), Show1(..))
-#endif
 import Data.Deriving
 
 import Text.Read (Read(..), readListPrecDefault)
@@ -112,6 +108,7 @@ $(deriveRead  ''TC#)
 $(deriveRead1 ''TyCon1)
 $(deriveRead1 ''TyConPlain)
 $(deriveRead1 ''TyConGADT)
+$(deriveRead1 ''TyConWrap)
 $(deriveRead1 ''TC#)
 
 $(deriveShow  ''TyCon1)
@@ -127,23 +124,9 @@ $(deriveShow  ''TC#)
 $(deriveShow1 ''TyCon1)
 $(deriveShow1 ''TyConPlain)
 $(deriveShow1 ''TyConGADT)
+$(deriveShow1 ''TyConWrap)
 $(deriveShow1 ''TC#)
 
-#if defined(NEW_FUNCTOR_CLASSES)
-$(deriveRead1 ''TyConWrap)
-
-$(deriveShow1 ''TyConWrap)
-#else
-instance (Read1 f, Functor f, Read1 g, Functor g, Read1 h)
-  => Read1 (TyConWrap f g h) where
-    readsPrec1 = $(makeReadsPrec1 ''TyConWrap)
-
-instance (Show1 f, Functor f, Show1 g, Functor g, Show1 h)
-  => Show1 (TyConWrap f g h) where
-    showsPrec1 = $(makeShowsPrec1 ''TyConWrap)
-#endif
-
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 ''TyCon1)
 $(deriveRead2 ''TyConPlain)
 $(deriveRead2 ''TyConGADT)
@@ -153,9 +136,7 @@ $(deriveShow2 ''TyCon1)
 $(deriveShow2 ''TyConPlain)
 $(deriveShow2 ''TyConGADT)
 $(deriveShow2 ''TC#)
-#endif
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveRead  'TyFamilyPrefix)
@@ -169,6 +150,7 @@ $(deriveRead  'MkTF1#)
 $(deriveRead1 '(:!:))
 $(deriveRead1 '(:$:))
 $(deriveRead1 '(:**))
+$(deriveRead1 'TyFamilyWrap2)
 $(deriveRead1 'MkTF2#)
 
 $(deriveShow  'TyFamilyPrefix)
@@ -184,23 +166,9 @@ $(deriveShow  'MkTF3#)
 $(deriveShow1 '(:!:))
 $(deriveShow1 '(:$:))
 $(deriveShow1 '(:**))
+$(deriveShow1 'TyFamilyWrap2)
 $(deriveShow1 'MkTF1#)
 
-# if defined(NEW_FUNCTOR_CLASSES)
-$(deriveRead1 'TyFamilyWrap2)
-
-$(deriveShow1 'TyFamilyWrap2)
-# else
-instance (Read1 f, Functor f, Read1 g, Functor g, Read1 h)
-  => Read1 (TyFamilyWrap f g h) where
-    readsPrec1 = $(makeReadsPrec1 'TyFamilyWrap3)
-
-instance (Show1 f, Functor f, Show1 g, Functor g, Show1 h)
-  => Show1 (TyFamilyWrap f g h) where
-    showsPrec1 = $(makeShowsPrec1 'TyFamilyWrap3)
-# endif
-
-# if defined(NEW_FUNCTOR_CLASSES)
 $(deriveRead2 'TyFamilyPrefix)
 $(deriveRead2 'TyFamilyPlain)
 $(deriveRead2 '(:***))
@@ -210,5 +178,3 @@ $(deriveShow2 'TyFamilyPrefix)
 $(deriveShow2 'TyFamilyPlain)
 $(deriveShow2 '(:***))
 $(deriveShow2 'MkTF3#)
-# endif
-#endif

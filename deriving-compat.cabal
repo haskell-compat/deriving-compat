@@ -78,13 +78,7 @@ copyright:           (C) 2015-2017 Ryan Scott
 category:            Compatibility
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
-tested-with:         GHC == 7.0.4
-                   , GHC == 7.2.2
-                   , GHC == 7.4.2
-                   , GHC == 7.6.3
-                   , GHC == 7.8.4
-                   , GHC == 7.10.3
-                   , GHC == 8.0.2
+tested-with:         GHC == 8.0.2
                    , GHC == 8.2.2
                    , GHC == 8.4.4
                    , GHC == 8.6.5
@@ -93,29 +87,14 @@ tested-with:         GHC == 7.0.4
                    , GHC == 9.0.2
                    , GHC == 9.2.8
                    , GHC == 9.4.8
-                   , GHC == 9.6.4
-                   , GHC == 9.8.2
+                   , GHC == 9.6.6
+                   , GHC == 9.8.4
                    , GHC == 9.10.1
 cabal-version:       >=1.10
 
 source-repository head
   type:                git
   location:            https://github.com/haskell-compat/deriving-compat
-
-flag base-4-9
-  description:         Use base-4.9 or later.
-  default:             True
-
-flag template-haskell-2-11
-  description:         Use template-haskell-2.11.0.0 or later.
-  default:             True
-
-flag new-functor-classes
-  description:         Use a version of transformers or transformers-compat with a
-                       modern-style Data.Functor.Classes module. This flag cannot be
-                       used when building with transformers-0.4, since it comes with
-                       a different version of Data.Functor.Classes.
-  default:             True
 
 library
   exposed-modules:     Data.Deriving
@@ -141,29 +120,14 @@ library
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving
                        Text.Show.Deriving.Internal
-  build-depends:       containers          >= 0.1   && < 0.8
-                     , ghc-prim
-                     , th-abstraction      >= 0.4   && < 0.8
-
-  if flag(base-4-9)
-    build-depends:     base                >= 4.9   && < 5
-    cpp-options:       "-DNEW_FUNCTOR_CLASSES"
-  else
-    build-depends:     base                >= 4.3   && < 4.9
-                     , semigroups          >= 0.6   && < 0.21
-
-  if flag(template-haskell-2-11)
-    build-depends:     template-haskell    >= 2.11  && < 2.23
+  build-depends:       base                >= 4.9   && < 5
+                     , containers          >= 0.1   && < 0.8
                      , ghc-boot-th
-  else
-    build-depends:     template-haskell    >= 2.5   && < 2.11
-
-  if flag(new-functor-classes)
-    build-depends:     transformers        (>= 0.2  && < 0.4) || (>= 0.5 && < 0.7)
+                     , ghc-prim
+                     , template-haskell    >= 2.11  && < 2.23
+                     , th-abstraction      >= 0.5   && < 0.8
+                     , transformers        >= 0.5   && < 0.7
                      , transformers-compat >= 0.5
-    cpp-options:       "-DNEW_FUNCTOR_CLASSES"
-  else
-    build-depends:     transformers        == 0.4.*
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -186,28 +150,17 @@ test-suite spec
 
                        Types.EqOrd
                        Types.ReadShow
-  build-depends:       base-compat         >= 0.8.1  && < 1
+  build-depends:       base                >= 4.9 && < 5
                      , base-orphans        >= 0.5    && < 1
                      , deriving-compat
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
                      , tagged              >= 0.7    && < 1
-                     , template-haskell    >= 2.5    && < 2.23
+                     , template-haskell    >= 2.11   && < 2.23
+                     , transformers        >= 0.5    && < 0.7
+                     , transformers-compat >= 0.5
                      , void                >= 0.5.10 && < 1
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
-
-  if flag(base-4-9)
-    build-depends:     base                >= 4.9 && < 5
-    cpp-options:       "-DNEW_FUNCTOR_CLASSES"
-  else
-    build-depends:     base                >= 4.3 && < 4.9
-
-  if flag(new-functor-classes)
-    build-depends:     transformers        (>= 0.2 && < 0.4) || (>= 0.5 && < 0.7)
-                     , transformers-compat >= 0.5
-    cpp-options:       "-DNEW_FUNCTOR_CLASSES"
-  else
-    build-depends:     transformers        == 0.4.*
 
   hs-source-dirs:      tests
   default-language:    Haskell2010

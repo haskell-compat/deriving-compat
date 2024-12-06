@@ -19,9 +19,6 @@ import Data.Void (Void)
 
 import OrdSpec (ordSpec)
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec (Spec, describe, hspec, it, parallel, shouldBe)
 import Test.QuickCheck (Arbitrary(..), oneof)
 

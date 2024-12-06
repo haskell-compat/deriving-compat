@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MagicHash #-}
@@ -6,9 +7,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-#if __GLASGOW_HASKELL__ >= 708
-{-# LANGUAGE EmptyCase #-}
-#endif
 
 {-|
 Module:      ShowSpec
@@ -31,9 +29,6 @@ import GHC.Exts ( Char#, Double#, Float#, Int#, Word#
                 , Int32#, Word32#
 #endif
                 )
-
-import Prelude ()
-import Prelude.Compat
 
 import Test.Hspec
 
@@ -140,20 +135,15 @@ $(deriveShow1 ''TyCon#)
 $(deriveShow1 ''TyCon2)
 $(deriveShow1 ''Empty1)
 
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveShow2 ''TyCon#)
 $(deriveShow2 ''TyCon2)
 $(deriveShow2 ''Empty1)
-#endif
 
 -- Use EmptyCase here
 $(deriveShowOptions  defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
 $(deriveShow1Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveShow2Options defaultShowOptions{ showEmptyCaseBehavior = True } ''Empty2)
-#endif
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveShow  'TyFamily#)
@@ -162,11 +152,8 @@ $(deriveShow  'TyFamilyClassConstraints)
 $(deriveShow1 'TyFamily#)
 $(deriveShow1 'TyFamilyEqualityConstraints)
 
-# if defined(NEW_FUNCTOR_CLASSES)
 $(deriveShow2 'TyFamily#)
 $(deriveShow2 'TyFamilyTypeRefinement1)
-# endif
-#endif
 
 -------------------------------------------------------------------------------
 

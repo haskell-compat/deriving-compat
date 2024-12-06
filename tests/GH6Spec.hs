@@ -17,9 +17,6 @@ import Data.Proxy (Proxy(..))
 
 import OrdSpec (ordSpec)
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec (Spec, describe, hspec, parallel)
 import Test.QuickCheck (Arbitrary(..), oneof)
 

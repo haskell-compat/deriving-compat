@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-|
 Module:      Data.Eq.Deriving
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -19,16 +18,12 @@ module Data.Eq.Deriving (
     , makeNotEq
       -- * 'Eq1'
     , deriveEq1
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftEq
-#endif
     , makeEq1
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Eq2'
     , deriveEq2
     , makeLiftEq2
     , makeEq2
-#endif
       -- * 'deriveEq' limitations
       -- $constraints
     ) where

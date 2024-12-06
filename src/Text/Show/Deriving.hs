@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-|
 Module:      Text.Show.Deriving
 Copyright:   (C) 2015-2017 Ryan Scott
@@ -25,15 +24,12 @@ module Text.Show.Deriving (
       -- * 'Show1'
     , deriveShow1
     , deriveShow1Options
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftShowsPrec
     , makeLiftShowsPrecOptions
     , makeLiftShowList
     , makeLiftShowListOptions
-#endif
     , makeShowsPrec1
     , makeShowsPrec1Options
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Show2'
     , deriveShow2
     , deriveShow2Options
@@ -43,7 +39,6 @@ module Text.Show.Deriving (
     , makeLiftShowList2Options
     , makeShowsPrec2
     , makeShowsPrec2Options
-#endif
       -- * 'ShowOptions'
     , ShowOptions(..)
     , defaultShowOptions

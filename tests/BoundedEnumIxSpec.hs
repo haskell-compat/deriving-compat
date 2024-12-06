@@ -2,15 +2,12 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-#if __GLASGOW_HASKELL__ >= 706
-{-# LANGUAGE PolyKinds #-}
-#endif
-
-#if __GLASGOW_HASKELL__ >= 800 && __GLASGOW_HASKELL__ < 806
+#if __GLASGOW_HASKELL__ < 806
 {-# LANGUAGE TypeInType #-}
 #endif
 
@@ -26,14 +23,11 @@ Portability: Template Haskell
 module BoundedEnumIxSpec where
 
 import Data.Deriving
-#if __GLASGOW_HASKELL__ >= 800 && __GLASGOW_HASKELL__ < 806
+#if __GLASGOW_HASKELL__ < 806
 import Data.Kind
 #endif
 
 import GHC.Arr (Ix(..))
-
-import Prelude ()
-import Prelude.Compat
 
 import Test.Hspec
 
@@ -47,13 +41,7 @@ data TyConEnum = TyConEnum1 | TyConEnum2 | TyConEnum3
 data TyConProduct a b c = TyConProduct a b c
   deriving (Eq, Ord, Show)
 
-data TyConUnit
-#if __GLASGOW_HASKELL__ >= 706
-    (f :: k -> *) (a :: k)
-#else
-    (f :: * -> *) (a :: *)
-#endif
-    = TyConUnit
+data TyConUnit (f :: k -> *) (a :: k) = TyConUnit
   deriving (Eq, Ord, Show)
 
 data TyConExQuant a = Show a => TyConExQuant
@@ -77,13 +65,7 @@ data family TyFamilyProduct x y z :: *
 data instance TyFamilyProduct a b c = TyFamilyProduct a b c
   deriving (Eq, Ord, Show)
 
-data family TyFamilyUnit
-#if __GLASGOW_HASKELL__ >= 706
-    (f :: k -> *) (a :: k)
-#else
-    (f :: * -> *) (a :: *)
-#endif
-    :: *
+data family TyFamilyUnit (f :: k -> *) (a :: k) :: *
 data instance TyFamilyUnit f a = TyFamilyUnit
   deriving (Eq, Ord, Show)
 
@@ -136,7 +118,6 @@ instance Ix a => Ix (TyConGADT a) where
     unsafeIndex = $(makeUnsafeIndex ''TyConGADT)
     inRange     = $(makeInRange     ''TyConGADT)
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveBounded 'TyFamilyEnum1)
@@ -170,7 +151,6 @@ instance Ix a => Ix (TyFamilyGADT a) where
     range       = $(makeRange       'TyFamilyGADT)
     unsafeIndex = $(makeUnsafeIndex 'TyFamilyGADT)
     inRange     = $(makeInRange     'TyFamilyGADT)
-#endif
 
 -------------------------------------------------------------------------------
 
@@ -230,7 +210,6 @@ spec = parallel $ do
 
         it "has a sensible Ix instance" $
             ixLaws minBound maxBound (TyConGADT False)
-#if MIN_VERSION_template_haskell(2,7,0)
     describe "TyFamilyEnum" $ do
         it "has a sensible Bounded instance" $ do
             minBound `shouldBe` TyFamilyEnum1
@@ -272,4 +251,3 @@ spec = parallel $ do
 
         it "has a sensible Ix instance" $
             ixLaws minBound maxBound (TyFamilyGADT False)
-#endif

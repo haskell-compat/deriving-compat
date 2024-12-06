@@ -13,9 +13,6 @@ module OrdSpec where
 
 import Data.Functor.Classes
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Arbitrary)

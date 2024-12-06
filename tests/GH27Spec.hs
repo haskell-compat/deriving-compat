@@ -20,9 +20,6 @@ https://github.com/haskell-compat/deriving-compat/issues/27.
 -}
 module GH27Spec where
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec
 
 #if MIN_VERSION_template_haskell(2,12,0)

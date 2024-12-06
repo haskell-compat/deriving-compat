@@ -26,15 +26,12 @@ module Text.Show.Deriving.Internal (
       -- * 'Show1'
     , deriveShow1
     , deriveShow1Options
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftShowsPrec
     , makeLiftShowsPrecOptions
     , makeLiftShowList
     , makeLiftShowListOptions
-#endif
     , makeShowsPrec1
     , makeShowsPrec1Options
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Show2'
     , deriveShow2
     , deriveShow2Options
@@ -44,7 +41,6 @@ module Text.Show.Deriving.Internal (
     , makeLiftShowList2Options
     , makeShowsPrec2
     , makeShowsPrec2Options
-#endif
       -- * 'ShowOptions'
     , ShowOptions(..)
     , defaultShowOptions
@@ -88,12 +84,7 @@ defaultShowOptions =
 -- | 'ShowOptions' that match the behavior of the installed version of GHC.
 legacyShowOptions :: ShowOptions
 legacyShowOptions = ShowOptions
-  { ghc8ShowBehavior =
-#if __GLASGOW_HASKELL__ >= 711
-                       True
-#else
-                       False
-#endif
+  { ghc8ShowBehavior = True
   , showEmptyCaseBehavior = False
   }
 
@@ -153,7 +144,6 @@ deriveShow1Options = deriveShowClass Show1
 makeShowsPrec1 :: Name -> Q Exp
 makeShowsPrec1 = makeShowsPrec1Options defaultShowOptions
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftShowsPrec' (without
 -- requiring a 'Show1' instance).
 --
@@ -190,13 +180,7 @@ makeShowsPrec1Options :: ShowOptions -> Name -> Q Exp
 makeShowsPrec1Options opts name = makeLiftShowsPrecOptions opts name
                            `appE` varE showsPrecValName
                            `appE` varE showListValName
-#else
--- | Like 'makeShowsPrec1', but takes a 'ShowOptions' argument.
-makeShowsPrec1Options :: ShowOptions -> Name -> Q Exp
-makeShowsPrec1Options = makeShowsPrecClass Show1
-#endif
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a 'Show2' instance declaration for the given data type or data
 -- family instance.
 --
@@ -261,7 +245,6 @@ makeShowsPrec2Options opts name = makeLiftShowsPrec2Options opts name
                            `appE` varE showListValName
                            `appE` varE showsPrecValName
                            `appE` varE showListValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -324,12 +307,12 @@ makeShowForCons sClass opts instTypes cons = do
     sps   <- newNameList "sp" $ arity sClass
     sls   <- newNameList "sl" $ arity sClass
     let spls       = zip sps sls
-        _spsAndSls = interleave sps sls
+        spsAndSls  = interleave sps sls
         lastTyVars = map varTToName $ drop (length instTypes - fromEnum sClass) instTypes
         splMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars spls
 
         makeFun
-          | null cons && showEmptyCaseBehavior opts && ghc7'8OrLater
+          | null cons && showEmptyCaseBehavior opts
           = caseE (varE value) []
 
           | null cons
@@ -341,18 +324,11 @@ makeShowForCons sClass opts instTypes cons = do
           = caseE (varE value)
                   (map (makeShowForCon p sClass opts splMap) cons)
 
-    lamE (map varP $
-#if defined(NEW_FUNCTOR_CLASSES)
-                     _spsAndSls ++
-#endif
-                     [p, value])
+    lamE (map varP $ spsAndSls ++ [p, value])
         . appsE
         $ [ varE $ showsPrecConstName sClass
           , makeFun
-          ]
-#if defined(NEW_FUNCTOR_CLASSES)
-            ++ map varE _spsAndSls
-#endif
+          ] ++ map varE spsAndSls
             ++ [varE p, varE value]
 
 -- | Generates a lambda expression for showsPrec/liftShowsPrec/etc. for a
@@ -530,17 +506,12 @@ makeShowForType :: ShowClass
                         --   False if we are using the function of type (Int -> a -> ShowS).
                 -> Type
                 -> Q Exp
-#if defined(NEW_FUNCTOR_CLASSES)
 makeShowForType _ _ tvMap sl (VarT tyName) =
     varE $ case Map.lookup tyName tvMap of
       Just (TwoNames spExp slExp) -> if sl then slExp else spExp
       Nothing -> if sl then showListValName else showsPrecValName
-#else
-makeShowForType _ _ _ _ VarT{} = varE showsPrecValName
-#endif
 makeShowForType sClass conName tvMap sl (SigT ty _)      = makeShowForType sClass conName tvMap sl ty
 makeShowForType sClass conName tvMap sl (ForallT _ _ ty) = makeShowForType sClass conName tvMap sl ty
-#if defined(NEW_FUNCTOR_CLASSES)
 makeShowForType sClass conName tvMap sl ty = do
     let tyCon :: Type
         tyArgs :: [Type]
@@ -565,21 +536,6 @@ makeShowForType sClass conName tvMap sl ty = do
                                        (cycle [False,True])
                                        (interleave rhsArgs rhsArgs)
                else varE $ if sl then showListValName else showsPrecValName
-#else
-makeShowForType sClass conName tvMap _ ty = do
-  let varNames = Map.keys tvMap
-
-  p'     <- newName "p'"
-  value' <- newName "value'"
-  case varNames of
-    [] -> varE showsPrecValName
-    varName:_ ->
-      if mentionsName ty varNames
-         then lamE [varP p', varP value'] $ varE showsPrec1ValName
-                `appE` varE p'
-                `appE` (makeFmapApplyNeg sClass conName ty varName `appE` varE value')
-         else varE showsPrecValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -588,9 +544,7 @@ makeShowForType sClass conName tvMap _ ty = do
 -- | A representation of which @Show@ variant is being derived.
 data ShowClass = Show
                | Show1
-#if defined(NEW_FUNCTOR_CLASSES)
                | Show2
-#endif
   deriving (Bounded, Enum)
 
 instance ClassRep ShowClass where
@@ -600,9 +554,7 @@ instance ClassRep ShowClass where
 
     fullClassName Show  = showTypeName
     fullClassName Show1 = show1TypeName
-#if defined(NEW_FUNCTOR_CLASSES)
     fullClassName Show2 = show2TypeName
-#endif
 
     classConstraint sClass i
       | sMin <= i && i <= sMax = Just $ fullClassName (toEnum i :: ShowClass)
@@ -614,23 +566,14 @@ instance ClassRep ShowClass where
 
 showsPrecConstName :: ShowClass -> Name
 showsPrecConstName Show  = showsPrecConstValName
-#if defined(NEW_FUNCTOR_CLASSES)
 showsPrecConstName Show1 = liftShowsPrecConstValName
 showsPrecConstName Show2 = liftShowsPrec2ConstValName
-#else
-showsPrecConstName Show1 = showsPrec1ConstValName
-#endif
 
 showsPrecName :: ShowClass -> Name
 showsPrecName Show  = showsPrecValName
-#if defined(NEW_FUNCTOR_CLASSES)
 showsPrecName Show1 = liftShowsPrecValName
 showsPrecName Show2 = liftShowsPrec2ValName
-#else
-showsPrecName Show1 = showsPrec1ValName
-#endif
 
-#if defined(NEW_FUNCTOR_CLASSES)
 showListName :: ShowClass -> Name
 showListName Show  = showListValName
 showListName Show1 = liftShowListValName
@@ -641,7 +584,6 @@ showsPrecOrListName :: Bool -- ^ showListName if True, showsPrecName if False
                     -> Name
 showsPrecOrListName False = showsPrecName
 showsPrecOrListName True  = showListName
-#endif
 
 -------------------------------------------------------------------------------
 -- Assorted utilities

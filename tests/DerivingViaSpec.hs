@@ -24,9 +24,6 @@ Portability: Template Haskell
 -}
 module DerivingViaSpec where
 
-import Prelude ()
-import Prelude.Compat
-
 import Test.Hspec
 
 #if MIN_VERSION_template_haskell(2,12,0)

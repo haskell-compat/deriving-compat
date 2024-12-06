@@ -27,23 +27,20 @@ module Text.Read.Deriving.Internal (
       -- * 'Read1'
     , deriveRead1
     , deriveRead1Options
-#if defined(NEW_FUNCTOR_CLASSES)
     , makeLiftReadsPrec
 --     , makeLiftReadsPrecOptions
 --     , makeLiftReadList
 --     , makeLiftReadListOptions
-# if __GLASGOW_HASKELL__ >= 801
+#if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec
 --     , makeLiftReadPrecOptions
 --     , makeLiftReadListPrec
 --     , makeLiftReadListPrecOptions
     , makeReadPrec1
 --     , makeReadPrec1Options
-# endif
 #endif
     , makeReadsPrec1
 --     , makeReadsPrec1Options
-#if defined(NEW_FUNCTOR_CLASSES)
       -- * 'Read2'
     , deriveRead2
     , deriveRead2Options
@@ -51,17 +48,16 @@ module Text.Read.Deriving.Internal (
 --     , makeLiftReadsPrec2Options
 --     , makeLiftReadList2
 --     , makeLiftReadList2Options
-# if __GLASGOW_HASKELL__ >= 801
+#if __GLASGOW_HASKELL__ >= 801
     , makeLiftReadPrec2
 --     , makeLiftReadPrec2Options
 --     , makeLiftReadListPrec2
 --     , makeLiftReadListPrec2Options
     , makeReadPrec2
 --     , makeReadPrec2Options
-# endif
+#endif
     , makeReadsPrec2
 --     , makeReadsPrec2Options
-#endif
       -- * 'ReadOptions'
     , ReadOptions(..)
     , defaultReadOptions
@@ -185,7 +181,6 @@ deriveRead1Options = deriveReadClass Read1
 -- makeReadsPrec1 :: Name -> Q Exp
 -- makeReadsPrec1 = makeReadsPrec1Options defaultReadOptions
 
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a lambda expression which behaves like 'liftReadsPrec' (without
 -- requiring a 'Read1' instance).
 --
@@ -212,7 +207,7 @@ makeLiftReadsPrec = makeReadPrecClass Read1 False
 -- makeLiftReadListOptions :: ReadOptions -> Name -> Q Exp
 -- makeLiftReadListOptions = undefined
 
-# if __GLASGOW_HASKELL__ >= 801
+#if __GLASGOW_HASKELL__ >= 801
 -- | Generates a lambda expression which behaves like 'liftReadPrec' (without
 -- requiring a 'Read1' instance).
 --
@@ -255,7 +250,7 @@ makeReadPrec1 name = makeLiftReadPrec name
 -- makeReadPrec1Options opts name = makeLiftReadPrecOptions opts name
 --                           `appE` varE readPrecValName
 --                           `appE` varE readListPrecValName
-# endif
+#endif
 -- | Generates a lambda expression which behaves like 'readsPrec1' (without
 -- requiring a 'Read1' instance).
 makeReadsPrec1 :: Name -> Q Exp
@@ -268,18 +263,7 @@ makeReadsPrec1 name = makeLiftReadsPrec name
 -- makeReadsPrec1Options opts name = makeLiftReadsPrecOptions opts name
 --                            `appE` varE readsPrecValName
 --                            `appE` varE readListValName
-#else
--- | Generates a lambda expression which behaves like 'readsPrec1' (without
--- requiring a 'Read1' instance).
-makeReadsPrec1 :: Name -> Q Exp
-makeReadsPrec1 = makeReadPrecClass Read1 False
 
--- -- | Like 'makeReadsPrec1Options', but takes a 'ReadOptions' argument.
--- makeReadsPrec1Options :: ReadOptions -> Name -> Q Exp
--- makeReadsPrec1Options _ = makeReadPrecClass Read1 False
-#endif
-
-#if defined(NEW_FUNCTOR_CLASSES)
 -- | Generates a 'Read2' instance declaration for the given data type or data
 -- family instance.
 --
@@ -341,7 +325,7 @@ makeLiftReadsPrec2 = makeReadPrecClass Read2 False
 --                     `appE` (rs2pExpr `appE` (constExpr `appE` rl2Expr))))
 --             `appE` integerE 0
 
-# if __GLASGOW_HASKELL__ >= 801
+#if __GLASGOW_HASKELL__ >= 801
 -- | Generates a lambda expression which behaves like 'liftReadPrec2' (without
 -- requiring a 'Read2' instance).
 --
@@ -388,7 +372,7 @@ makeReadPrec2 name = makeLiftReadPrec2 name
 --                           `appE` varE readListPrecValName
 --                           `appE` varE readPrecValName
 --                           `appE` varE readListPrecValName
-# endif
+#endif
 
 -- | Generates a lambda expression which behaves like 'readsPrec2' (without
 -- requiring a 'Read2' instance).
@@ -410,7 +394,6 @@ makeReadsPrec2 name = makeLiftReadsPrec2 name
 --                           `appE` varE readListValName
 --                           `appE` varE readsPrecValName
 --                           `appE` varE readListValName
-#endif
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -483,7 +466,7 @@ makeReadForCons rClass urp instTypes cons = do
     rps <- newNameList "rp" $ arity rClass
     rls <- newNameList "rl" $ arity rClass
     let rpls       = zip rps rls
-        _rpsAndRls = interleave rps rls
+        rpsAndRls  = interleave rps rls
         lastTyVars = map varTToName $ drop (length instTypes - fromEnum rClass) instTypes
         rplMap     = Map.fromList $ zipWith (\x (y, z) -> (x, TwoNames y z)) lastTyVars rpls
 
@@ -527,20 +510,13 @@ makeReadForCons rClass urp instTypes cons = do
           | null cons = varE pfailValName
           | otherwise = varE parensValName `appE` readConsExpr
 
-    lamE (map varP $
-#if defined(NEW_FUNCTOR_CLASSES)
-                     _rpsAndRls ++
-#endif
-                     if urp then [] else [p]
+    lamE (map varP $ rpsAndRls ++ if urp then [] else [p]
          ) . appsE
          $ [ varE $ (if urp then readPrecConstName else readsPrecConstName) rClass
            , if urp
                 then mainRhsExpr
                 else varE readPrec_to_SValName `appE` mainRhsExpr `appE` varE p
-           ]
-#if defined(NEW_FUNCTOR_CLASSES)
-             ++ map varE _rpsAndRls
-#endif
+           ] ++ map varE rpsAndRls
              ++ if urp then [] else [varE p]
 
 makeReadForCon :: ReadClass
@@ -658,21 +634,15 @@ makeReadForType :: ReadClass
                 -> Bool
                 -> Type
                 -> Q (Exp, Exp)
-#if defined(NEW_FUNCTOR_CLASSES)
 makeReadForType _ urp tvMap _ tyExpName rl (VarT tyName) =
     let tyExp = VarE tyExpName
     in return $ case Map.lookup tyName tvMap of
       Just (TwoNames rpExp rlExp) -> (VarE $ if rl then rlExp else rpExp, tyExp)
       Nothing                     -> (VarE $ readsOrReadName urp rl Read, tyExp)
-#else
-makeReadForType _ urp _ _ tyExpName _ VarT{} =
-    return (VarE $ readsOrReadName urp False Read, VarE tyExpName)
-#endif
 makeReadForType rClass urp tvMap conName tyExpName rl (SigT ty _) =
     makeReadForType rClass urp tvMap conName tyExpName rl ty
 makeReadForType rClass urp tvMap conName tyExpName rl (ForallT _ _ ty) =
     makeReadForType rClass urp tvMap conName tyExpName rl ty
-#if defined(NEW_FUNCTOR_CLASSES)
 makeReadForType rClass urp tvMap conName tyExpName rl ty = do
     let tyCon :: Type
         tyArgs :: [Type]
@@ -700,22 +670,6 @@ makeReadForType rClass urp tvMap conName tyExpName rl ty = do
                                        (interleave rhsArgs rhsArgs)
                  return (readExp, VarE tyExpName)
                else return (VarE $ readsOrReadName urp rl Read, VarE tyExpName)
-#else
-makeReadForType rClass urp tvMap conName tyExpName _ ty = do
-  let varNames = Map.keys tvMap
-      rpExpr   = VarE $ readsOrReadName urp False Read
-      rp1Expr  = VarE $ readsOrReadName urp False Read1
-      tyExpr   = VarE tyExpName
-
-  case varNames of
-    [] -> return (rpExpr, tyExpr)
-    varName:_ -> do
-      if mentionsName ty varNames
-         then do
-             applyExp <- makeFmapApplyPos rClass conName ty varName
-             return (rp1Expr, applyExp `AppE` tyExpr)
-         else return (rpExpr, tyExpr)
-#endif
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
@@ -724,9 +678,7 @@ makeReadForType rClass urp tvMap conName tyExpName _ ty = do
 -- | A representation of which @Read@ variant is being derived.
 data ReadClass = Read
                | Read1
-#if defined(NEW_FUNCTOR_CLASSES)
                | Read2
-#endif
   deriving (Bounded, Enum)
 
 instance ClassRep ReadClass where
@@ -736,9 +688,7 @@ instance ClassRep ReadClass where
 
     fullClassName Read  = readTypeName
     fullClassName Read1 = read1TypeName
-#if defined(NEW_FUNCTOR_CLASSES)
     fullClassName Read2 = read2TypeName
-#endif
 
     classConstraint rClass i
       | rMin <= i && i <= rMax = Just $ fullClassName (toEnum i :: ReadClass)
@@ -750,58 +700,38 @@ instance ClassRep ReadClass where
 
 readsPrecConstName :: ReadClass -> Name
 readsPrecConstName Read  = readsPrecConstValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readsPrecConstName Read1 = liftReadsPrecConstValName
 readsPrecConstName Read2 = liftReadsPrec2ConstValName
-#else
-readsPrecConstName Read1 = readsPrec1ConstValName
-#endif
 
 readPrecConstName :: ReadClass -> Name
 readPrecConstName Read  = readPrecConstValName
 readPrecConstName Read1 = liftReadPrecConstValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readPrecConstName Read2 = liftReadPrec2ConstValName
-#endif
 
 readsPrecName :: ReadClass -> Name
 readsPrecName Read  = readsPrecValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readsPrecName Read1 = liftReadsPrecValName
 readsPrecName Read2 = liftReadsPrec2ValName
-#else
-readsPrecName Read1 = readsPrec1ValName
-#endif
 
 readPrecName :: ReadClass -> Name
 readPrecName Read  = readPrecValName
 readPrecName Read1 = liftReadPrecValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readPrecName Read2 = liftReadPrec2ValName
-#endif
 
 readListPrecDefaultName :: ReadClass -> Name
 readListPrecDefaultName Read  = readListPrecDefaultValName
 readListPrecDefaultName Read1 = liftReadListPrecDefaultValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readListPrecDefaultName Read2 = liftReadListPrec2DefaultValName
-#endif
 
 readListPrecName :: ReadClass -> Name
 readListPrecName Read  = readListPrecValName
 readListPrecName Read1 = liftReadListPrecValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readListPrecName Read2 = liftReadListPrec2ValName
-#endif
 
 readListName :: ReadClass -> Name
 readListName Read  = readListValName
-#if defined(NEW_FUNCTOR_CLASSES)
 readListName Read1 = liftReadListValName
 readListName Read2 = liftReadList2ValName
-#else
-readListName Read1 = error "Text.Read.Deriving.Internal.readListName"
-#endif
 
 readsPrecOrListName :: Bool -- ^ readsListName if True, readsPrecName if False
                     -> ReadClass
@@ -891,6 +821,4 @@ shouldDefineReadPrec rClass opts = useReadPrec opts && baseCompatible
     baseCompatible = case rClass of
         Read  -> True
         Read1 -> base4'10OrLater
-#if defined(NEW_FUNCTOR_CLASSES)
         Read2 -> base4'10OrLater
-#endif

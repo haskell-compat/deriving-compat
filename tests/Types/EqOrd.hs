@@ -18,9 +18,6 @@ Shared datatypes between "EqSpec" and "OrdSpec".
 -}
 module Types.EqOrd where
 
-#if !defined(NEW_FUNCTOR_CLASSES)
-import Data.Functor.Classes (Eq1(..), Ord1(..))
-#endif
 import Data.Deriving
 
 import GHC.Exts ( Addr#, Char#, Double#, Float#, Int#, Word#
@@ -180,6 +177,7 @@ $(deriveEq ''TyConNullary)
 $(deriveEq1 ''TyCon1)
 $(deriveEq1 ''TyCon#)
 $(deriveEq1 ''TyCon2)
+$(deriveEq1 ''TyConWrap)
 $(deriveEq1 ''Empty)
 $(deriveEq1 ''TyConNullary)
 
@@ -201,24 +199,10 @@ $(deriveOrd ''TyConNullary)
 $(deriveOrd1 ''TyCon1)
 $(deriveOrd1 ''TyCon#)
 $(deriveOrd1 ''TyCon2)
+$(deriveOrd1 ''TyConWrap)
 $(deriveOrd1 ''Empty)
 $(deriveOrd1 ''TyConNullary)
 
-#if defined(NEW_FUNCTOR_CLASSES)
-$(deriveEq1 ''TyConWrap)
-
-$(deriveOrd1 ''TyConWrap)
-#else
-instance (Eq1 f, Functor f, Eq1 g, Functor g, Eq1 h)
-  => Eq1 (TyConWrap f g h) where
-    eq1 = $(makeEq1 ''TyConWrap)
-
-instance (Ord1 f, Functor f, Ord1 g, Functor g, Ord1 h)
-  => Ord1 (TyConWrap f g h) where
-    compare1 = $(makeCompare1 ''TyConWrap)
-#endif
-
-#if defined(NEW_FUNCTOR_CLASSES)
 $(deriveEq2 ''TyCon1)
 $(deriveEq2 ''TyCon#)
 $(deriveEq2 ''TyCon2)
@@ -230,9 +214,7 @@ $(deriveOrd2 ''TyCon#)
 $(deriveOrd2 ''TyCon2)
 $(deriveOrd2 ''Empty)
 $(deriveOrd2 ''TyConNullary)
-#endif
 
-#if MIN_VERSION_template_haskell(2,7,0)
 -- Data families
 
 $(deriveEq  'TyFamily1A)
@@ -252,6 +234,7 @@ $(deriveEq1 'TyFamilyNullary1)
 $(deriveOrd  'TyFamily1A)
 $(deriveOrd  'TyFamily#)
 $(deriveOrd  'TyFamilyClassConstraints)
+$(deriveEq1 'TyFamilyWrap2)
 instance (Ord (f a), Ord (f (g a)), Ord (f (g (h a))))
   => Ord (TyFamilyWrap f g h a) where
     compare = $(makeCompare 'TyFamilyWrap1)
@@ -266,23 +249,9 @@ $(deriveOrd 'TyFamilyNullary1)
 $(deriveOrd1 'TyFamily1B)
 $(deriveOrd1 'TyFamily#)
 $(deriveOrd1 'TyFamilyEqualityConstraints)
+$(deriveOrd1 'TyFamilyWrap2)
 $(deriveOrd1 'TyFamilyNullary1)
 
-#if defined(NEW_FUNCTOR_CLASSES)
-$(deriveEq1 'TyFamilyWrap2)
-
-$(deriveOrd1 'TyFamilyWrap2)
-#else
-instance (Eq1 f, Functor f, Eq1 g, Functor g, Eq1 h)
-  => Eq1 (TyFamilyWrap f g h) where
-    eq1 = $(makeEq1 'TyFamilyWrap3)
-
-instance (Ord1 f, Functor f, Ord1 g, Functor g, Ord1 h)
-  => Ord1 (TyFamilyWrap f g h) where
-    compare1 = $(makeCompare1 'TyFamilyWrap3)
-#endif
-
-# if defined(NEW_FUNCTOR_CLASSES)
 $(deriveEq2 'TyFamily1C)
 $(deriveEq2 'TyFamily#)
 $(deriveEq2 'TyFamilyTypeRefinement1)
@@ -292,5 +261,3 @@ $(deriveOrd2 'TyFamily1C)
 $(deriveOrd2 'TyFamily#)
 $(deriveOrd2 'TyFamilyTypeRefinement1)
 $(deriveOrd2 'TyFamilyNullary1)
-# endif
-#endif
