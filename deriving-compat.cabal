@@ -122,7 +122,7 @@ library
                        Text.Show.Deriving
                        Text.Show.Deriving.Internal
   build-depends:       base                >= 4.9   && < 5
-                     , containers          >= 0.1   && < 0.8
+                     , containers          >= 0.1   && < 0.9
                      , ghc-boot-th
                      , ghc-prim
                      , template-haskell    >= 2.11  && < 2.24
