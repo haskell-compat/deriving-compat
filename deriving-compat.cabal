@@ -121,11 +121,11 @@ library
                        Text.Read.Deriving.Internal
                        Text.Show.Deriving
                        Text.Show.Deriving.Internal
-  build-depends:       base                >= 4.9   && < 5
-                     , containers          >= 0.1   && < 0.9
+  build-depends:       base                >= 4.9  && < 5
+                     , containers          >= 0.1  && < 0.9
                      , ghc-boot-th
-                     , template-haskell    >= 2.11  && < 2.24
-                     , th-abstraction      >= 0.5   && < 0.8
+                     , template-haskell    >= 2.11 && < 2.24
+                     , th-abstraction      >= 0.5  && < 0.8
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -151,7 +151,7 @@ test-suite spec
   build-depends:       base                >= 4.9 && < 5
                      , deriving-compat
                      , hspec               >= 1.8
-                     , QuickCheck          >= 2      && < 3
+                     , QuickCheck          >= 2   && < 3
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   hs-source-dirs:      tests
