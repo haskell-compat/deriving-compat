@@ -1,4 +1,4 @@
-### next [????.??.??]
+### 0.6.8 [2026.01.08]
 * Allow building with `template-haskell-2.24.*` (GHC 9.14).
 * Remove unused `ghc-prim`, `transformers`, and `transformers-compat`
   dependencies.

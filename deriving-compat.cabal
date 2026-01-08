@@ -1,5 +1,5 @@
 name:                deriving-compat
-version:             0.6.7
+version:             0.6.8
 synopsis:            Backports of GHC deriving extensions
 description:         @deriving-compat@ provides Template Haskell functions that
                      mimic @deriving@ extensions that were introduced or modified
