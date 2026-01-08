@@ -1,3 +1,7 @@
+### next [????.??.??]
+* Remove unused `ghc-prim`, `transformers`, and `transformers-compat`
+  dependencies.
+
 ### 0.6.7 [2024.12.05]
 * Drop support for pre-8.0 versions of GHC.
 

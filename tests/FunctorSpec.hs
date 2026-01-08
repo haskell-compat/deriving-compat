@@ -34,7 +34,6 @@ import Data.Functor.Classes (Eq1, Show1)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity (Identity(..))
 import Data.Monoid
-import Data.Orphans ()
 
 import GHC.Exts (Int#)
 
