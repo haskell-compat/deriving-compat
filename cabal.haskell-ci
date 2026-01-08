@@ -1,3 +1,7 @@
 no-tests-no-benchmarks: False
 unconstrained:          False
 local-ghc-options:      -Werror
+-- The test suite relies on MIN_VERSION_template_haskell CPP, but does not
+-- otherwise use the template-haskell package. Unfortunately -Wunused-packages
+-- is not smart enough to draw this distinction.
+error-unused-packages:  False

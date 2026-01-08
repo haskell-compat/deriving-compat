@@ -124,7 +124,7 @@ library
   build-depends:       base                >= 4.9  && < 5
                      , containers          >= 0.1  && < 0.9
                      , ghc-boot-th
-                     , template-haskell    >= 2.11 && < 2.24
+                     , template-haskell    >= 2.11 && < 2.25
                      , th-abstraction      >= 0.5  && < 0.8
 
   hs-source-dirs:      src
@@ -152,6 +152,7 @@ test-suite spec
                      , deriving-compat
                      , hspec               >= 1.8
                      , QuickCheck          >= 2   && < 3
+                     , template-haskell
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   hs-source-dirs:      tests
