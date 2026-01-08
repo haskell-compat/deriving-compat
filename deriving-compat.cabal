@@ -152,7 +152,6 @@ test-suite spec
                      , deriving-compat
                      , hspec               >= 1.8
                      , QuickCheck          >= 2      && < 3
-                     , template-haskell    >= 2.11   && < 2.24
   build-tool-depends:  hspec-discover:hspec-discover >= 1.8
 
   hs-source-dirs:      tests
